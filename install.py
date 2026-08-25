@@ -259,7 +259,7 @@ def preserve_merged_config_settings(repo: Path, settings: dict, profiles: list[s
     detected.write_text(json.dumps({
         "profiles": settings["profiles"],
         "detectedFromTrackedFiles": settings.get("profilesMode") == "auto",
-        "exaLaunchDefault": "OPENCODE_ENABLE_EXA=1" if settings["runtime"]["exaEnabled"] else "disabled by review-pack-user.json",
+        "exaLaunchDefault": "OPENCODE_ENABLE_EXA=1" if settings["runtime"]["exaEnabled"] else "disabled by CodeSleuth project settings",
     }, indent=2) + "\n", encoding="utf-8")
 
 
@@ -268,7 +268,7 @@ def parse_args():
     parser.add_argument("--version", action="version", version=VERSION)
     parser.add_argument("repo", nargs="?", default=".")
     parser.add_argument("--profile", action="append", choices=["generic", "rust", "python", "node", "typescript"])
-    parser.add_argument("--settings-file", help="validated review-pack-user.json payload, normally produced by the TUI")
+    parser.add_argument("--settings-file", help="validated CodeSleuth project-settings payload, normally produced by the TUI")
     parser.add_argument("--force-pack-files", action="store_true", help="overwrite CodeSleuth-owned files, including locally modified ones")
     parser.add_argument("--update", action="store_true", help="update an existing versioned installation")
     parser.add_argument("--adopt-existing-pack", action="store_true", help="adopt an older unversioned installation with backups")
@@ -286,8 +286,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    repo = Path(args.repo).resolve()
-    subprocess.run(["git", "-C", str(repo), "rev-parse", "--show-toplevel"], capture_output=True, check=True)
+    repo = project_lifecycle.git_root(Path(args.repo))
 
     if args.uninstall:
         if args.update or args.adopt_existing_pack or args.bind_dependency:
@@ -358,6 +357,8 @@ def main():
         meta["dependency"] = dependency
         meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
 
+    project_lifecycle.record_postinstall_snapshot(repo)
+
     print("profiles:", ", ".join(profiles))
     print(("updated" if args.update else "installed"), f"CodeSleuth {VERSION} into", repo)
     if args.adopt_existing_pack:
@@ -368,7 +369,7 @@ def main():
         print(f"dependency: {dependency['path']} @ {dependency.get('commit') or dependency.get('requestedCommit')}")
     print("pre-install backup: .codesleuth/backups/pre-install/")
     print("control TUI: .opencode/bin/codesleuth")
-    print("smoke: python3 .opencode/bin/review-pack-smoke.py .")
+    print("smoke: python3 .opencode/bin/review-pack-smoke.py . (compatibility filename)")
     print("uninstall preserving traces: .opencode/bin/codesleuth-project --uninstall .")
     print("SECURITY: review evidence may contain development credentials; local reports/state are gitignored by default.")
 

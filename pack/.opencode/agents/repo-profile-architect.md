@@ -40,7 +40,7 @@ Profile loop:
 3. Identify only uncertain or time-sensitive facts, for example current OpenCode
    keys, LSP invocation, framework-specific verification commands, or tool
    availability.
-4. Follow the effective project permissions chosen by the review-pack setup TUI.
+4. Follow the effective project permissions chosen by the CodeSleuth setup TUI.
    When websearch is permitted, use it only for discovery, then `webfetch` the
    primary source. Prefer official OpenCode/language/framework/package
    documentation. Search snippets are leads, not authority. If web tools are

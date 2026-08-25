@@ -18,7 +18,7 @@ The standalone repository owns auditor implementation, tests, generic profiles a
 - its `.opencode` policy/profile/runtime contract;
 - its local ignored state/backups.
 
-Project-specific modifications must not be made inside the submodule checkout. A dirty `tools/codesleuth` is treated as local CodeSleuth source work, and removal/update operations fail closed rather than discarding it.
+Project-specific modifications must not be made inside the submodule checkout. Dirty worktrees and clean detached HEADs that differ from the recorded gitlink are both treated as local CodeSleuth source work; removal fails closed rather than discarding either form.
 
 ## Import provenance
 
@@ -60,6 +60,14 @@ A release that advertises cross-platform support should execute PowerShell/Windo
 
 For normal development repositories, prefer a pinned dependency over a floating updater. Detached submodule HEAD is expected and must not be converted into an inferred `main`/`origin/HEAD` update channel.
 
+Fresh clones must initialize the dependency explicitly:
+
+```bash
+git clone --recurse-submodules <consumer-url>
+# or, after an ordinary clone:
+git submodule update --init --recursive
+```
+
 ## Update workflow for a consumer
 
 1. accept/test a CodeSleuth release or SHA in this repository;
@@ -70,11 +78,13 @@ For normal development repositories, prefer a pinned dependency over a floating 
 
 This creates a reproducible relationship between application source, auditor source, and auditor policy.
 
+To revert a pin, checkout an earlier accepted SHA in `tools/codesleuth`, run that checkout's installer with `--update`, inspect the materialized diff, and commit the reverted gitlink plus intended `.opencode` changes together. Target-local `review-pack-update*` compatibility scripts are a floating-source path only when metadata contains an explicit `remote + ref`; they are not the advancement mechanism for a detached pin.
+
 ## Reversible installation
 
 CodeSleuth 0.3+ creates a pre-install baseline under `.codesleuth/backups/pre-install/`. It backs up non-ephemeral `.opencode` configuration plus root `.gitignore`/`.gitmodules` for recovery evidence.
 
-Uninstall restores backed-up `.opencode` files when possible, but never blindly restores root Git control files. It removes only CodeSleuth's marked `.gitignore` block and its own tracked submodule section/gitlink so unrelated later project changes survive.
+Uninstall uses pre-install/post-install/current hashes. A post-install edit to a pre-existing `.opencode` file remains in the worktree, with baseline/current recovery copies and a conflict manifest under ignored `.codesleuth/restore-conflicts/`. Purge removes ordinary backups and traces but retains required conflict evidence. Root Git control files are never blindly restored.
 
 For an older installation first seen after upgrading to 0.3, the snapshot is marked `pre-0.3-upgrade`; do not misrepresent it as a historical pre-CodeSleuth snapshot.
 

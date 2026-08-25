@@ -37,7 +37,7 @@ behavior inferred from code. Verify entry points, configuration, data flow,
 persistence, external integrations, tests, CI, and operational commands before
 stating them as facts.
 
-Edits follow the project-level permission selected by the review-pack setup TUI.
+Edits follow the project-level permission selected by the CodeSleuth setup TUI.
 Preserve existing authoritative documentation and do not silently replace an ADR,
 handoff, generated reference, or other declared source of truth. If sources
 conflict, report the conflict instead of choosing a convenient version.
