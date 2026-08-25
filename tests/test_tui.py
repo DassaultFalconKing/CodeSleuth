@@ -15,11 +15,12 @@ from review_pack_tui import ConfigScreen, ReviewPackApp, UninstallScreen  # noqa
 from codesleuth_tui import (  # noqa: E402
     HELP_SECTIONS,
     NAV_SURFACES,
+    SURFACE_ACTIONS,
     CodeSleuthApp,
     CodeSleuthConfigScreen,
     CodeSleuthHelpScreen,
 )
-from textual.widgets import Button, Select, Switch  # noqa: E402
+from textual.widgets import Button, Label, Select, Switch  # noqa: E402
 
 
 def init_repo(path: Path) -> None:
@@ -108,41 +109,88 @@ async def test_branded_console_is_operable_at_supported_sizes(tmp_path: Path, si
         assert app.query_one("#brand")
         assert app.query_one("#compact-brand")
         assert app.query_one("#security")
-        assert app.query_one("#uninstall")
+        assert app.query_one("#activity-title")
         assert {button.id.removeprefix("nav-") for button in app.query(".nav-button")} == set(NAV_SURFACES)
         compact = size[0] < 100 or size[1] < 30
         assert app.query_one("#compact-nav", Select).display is compact
         assert app.query_one("#wide-nav").display is not compact
-        for control_id in ("configure", "smoke", "playbooks", "help", "launch"):
+        for control_id in SURFACE_ACTIONS["home"]:
             control = app.query_one(f"#{control_id}", Button)
+            assert control.display
             assert control.region.x >= 0
             assert control.region.right <= size[0]
+        for contextual_id in ("check-update", "update", "uninstall"):
+            assert not app.query_one(f"#{contextual_id}", Button).display
+        status = str(app.query_one("#status").render())
+        assert "Runtime policy:" in status
+        assert "Next action:" in status
         await pilot.press("h")
         await pilot.pause()
         assert isinstance(app.screen, CodeSleuthHelpScreen)
         help_text = "\n".join(body for _, body in HELP_SECTIONS)
-        assert "automated uninstaller yet" not in help_text
+        assert "control panel" in help_text
+        assert "OpenCode executes them" in help_text
         assert "codesleuth-project --uninstall" in help_text
 
 
 @pytest.mark.asyncio
-async def test_navigation_routes_explain_existing_opencode_owned_surfaces(tmp_path: Path) -> None:
+async def test_navigation_surfaces_expose_existing_opencode_owned_capabilities(tmp_path: Path) -> None:
     repo = tmp_path / "target"
     init_repo(repo)
+    oc = repo / ".opencode"
+    (oc / "commands").mkdir(parents=True)
+    (oc / "commands" / "repo-review.md").write_text("review\n", encoding="utf-8")
+    (oc / "skills" / "repository-deep-review").mkdir(parents=True)
+    (oc / "skills" / "repository-deep-review" / "SKILL.md").write_text("skill\n", encoding="utf-8")
+    (oc / "tools").mkdir(parents=True)
+    (oc / "tools" / "sample_tool.py").write_text("pass\n", encoding="utf-8")
+    (oc / "state" / "review").mkdir(parents=True)
+    (oc / "state" / "review" / "checkpoint.json").write_text("{}\n", encoding="utf-8")
+    (oc / "opencode.json").write_text('{"plugin":["sample-plugin@1"]}\n', encoding="utf-8")
+
     app = CodeSleuthApp(repo, None)
     async with app.run_test(size=(120, 35)) as pilot:
-        for route in NAV_SURFACES:
-            await pilot.click(f"#nav-{route}")
-            await pilot.pause()
-            rendered = str(app.query_one("#surface").render())
-            assert NAV_SURFACES[route][0] in rendered
-        assert "OpenCode execution" in NAV_SURFACES["review"][0]
-        assert "does not run a second review engine" in NAV_SURFACES["review"][1]
-        assert "OpenCode-native" in NAV_SURFACES["tools"][0]
+        await pilot.click("#nav-review")
+        await pilot.pause()
+        review = str(app.query_one("#surface").render())
+        assert "/repo-review" in review
+        assert "/repo-review-resume" in review
+        assert "does not run a second review engine" in review
+        assert app.query_one("#playbooks", Button).display
+        assert app.query_one("#launch", Button).display
+        assert not app.query_one("#smoke", Button).display
+
+        await pilot.click("#nav-evidence")
+        await pilot.pause()
+        evidence = str(app.query_one("#surface").render())
+        assert ".opencode/state/" in evidence
+        assert "checkpoint.json" in evidence
+        assert "OpenCode-owned" in evidence
+
+        await pilot.click("#nav-tools")
+        await pilot.pause()
+        tools = str(app.query_one("#surface").render())
+        assert "Execution owner: OpenCode" in tools
+        assert "repo-review" in tools
+        assert "repository-deep-review" in tools
+        assert "sample_tool" in tools
+        assert "sample-plugin@1" in tools
+        assert app.query_one("#smoke", Button).display
+        assert app.query_one("#check-update", Button).display
+        assert app.query_one("#update", Button).display
+
+        await pilot.click("#nav-settings")
+        await pilot.pause()
+        settings = str(app.query_one("#surface").render())
+        assert "Permission preset:" in settings
+        assert "OpenCode runtime:" in settings
+        assert app.query_one("#configure", Button).display
+        assert app.query_one("#uninstall", Button).display
+        assert not app.query_one("#launch", Button).display
 
 
 @pytest.mark.asyncio
-async def test_branded_configuration_keeps_dependency_control(tmp_path: Path) -> None:
+async def test_branded_configuration_keeps_dependency_control_and_runtime_ownership(tmp_path: Path) -> None:
     repo = tmp_path / "target"
     init_repo(repo)
     app = CodeSleuthApp(repo, None)
@@ -151,6 +199,10 @@ async def test_branded_configuration_keeps_dependency_control(tmp_path: Path) ->
         await pilot.pause()
         assert isinstance(app.screen, CodeSleuthConfigScreen)
         assert app.screen.query_one("#bind-dependency", Switch)
+        labels = "\n".join(str(label.render()) for label in app.screen.query(Label))
+        assert "OpenCode keepalive plugin managed by CodeSleuth" in labels
+        assert "OpenCode compaction reserved tokens" in labels
+        assert "CodeSleuth keepalive watchdog" not in labels
 
 
 @pytest.mark.asyncio
