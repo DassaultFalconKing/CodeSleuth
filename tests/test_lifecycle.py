@@ -53,7 +53,14 @@ def main():
         branded_source = branded_tui.read_text(encoding="utf-8")
         assert "CodeSleuth · Evidence Console" in branded_source
         assert "CODESLEUTH_ART" in branded_source
+        assert "EVIDENCE : LIVE" in branded_source
         assert "Evidence-first repository intelligence" in branded_source
+        assert "CodeSleuthHelpScreen" in branded_source
+        assert '("h", "help", "Help")' in branded_source
+        assert "CodeSleuth Playbooks" in branded_source
+        assert "Playbooks are prompts, not OpenCode Skills." in branded_source
+        assert "There is no automated uninstaller yet." in branded_source
+        assert "CodeSleuth Review Prompts" not in branded_source
         assert "APP = HERE / \"codesleuth_tui.py\"" in (oc / "bin" / "review_pack_tui_bootstrap.py").read_text(encoding="utf-8")
 
         tui_cfg = load(oc / "tui.json")
