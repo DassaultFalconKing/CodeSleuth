@@ -2,11 +2,14 @@
 
 **Status:** Accepted / production target  
 **Core feature state:** Frozen after current branding/production PR  
-**Primary runtime dependency:** OpenCode
+**Installed runtime dependency:** OpenCode
+**External agent-host seam:** read-only MCP adapter (NovaClaw first)
 
 ## 1. One-sentence contract
 
 **CodeSleuth is a convenient evidence-oriented control panel, configuration layer, catalog, and lifecycle manager for OpenCode infrastructure; OpenCode and its models remain the execution authority.**
+
+For an external MCP host, CodeSleuth is only a bounded repository-evidence provider. The host remains the execution authority and CodeSleuth neither installs OpenCode policy nor starts an agent loop.
 
 ## 2. Runtime ownership
 
@@ -21,6 +24,8 @@ OpenCode owns:
 - installed tool/plugin execution;
 - long-running and large-context repository review;
 - reasoning/orchestration behavior provided by the selected model/runtime.
+
+When CodeSleuth is connected through MCP, the external host owns those same runtime responsibilities. The MCP server owns only deterministic repository evidence and never replaces the host's controller.
 
 CodeSleuth owns only the surrounding operator experience:
 
@@ -100,6 +105,8 @@ Specifically prohibited without a new ADR/product decision:
 - replacement review engine;
 - duplicate copies of OpenCode capabilities hidden behind CodeSleuth-specific implementations;
 - state formats that become a second source of truth for tool/model execution.
+
+The MCP adapter is not an exception to these prohibitions: it is read-only, repository-bound, and exposes no independent model runtime, controller, router, or durable execution state.
 
 Core work after freeze is production hardening only.
 

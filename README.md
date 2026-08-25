@@ -20,7 +20,7 @@ native provider-specific controller prompt
 Task → explore / general / CodeSleuth skills and subagents
 ```
 
-OpenCode is the current runtime/integration environment. Historical `review-pack*` commands remain compatibility aliases while the public surface moves to `codesleuth`.
+OpenCode is the current installed runtime/integration environment. CodeSleuth also provides a narrow, read-only [MCP adapter](docs/NOVACLAW-MCP.md) so NovaClaw can consume the same evidence discipline without CodeSleuth replacing NovaClaw's controller or model runtime. Historical `review-pack*` commands remain compatibility aliases while the public surface moves to `codesleuth`.
 
 ## What CodeSleuth owns
 
@@ -208,6 +208,13 @@ The Bun durable-state smokes remain part of acceptance:
 bun install --frozen-lockfile
 bun tests/review_state_smoke.ts
 bun tests/context_graph_smoke.ts
+```
+
+The NovaClaw MCP adapter has a separate runtime pin and focused gate:
+
+```bash
+python -m pip install -r requirements-mcp.txt
+python -m pytest -q tests/test_mcp_server.py
 ```
 
 ## Current compatibility names
