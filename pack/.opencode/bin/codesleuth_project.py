@@ -6,6 +6,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+import textwrap
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -31,13 +32,12 @@ IGNORE_LINES = (
 )
 AGENTS_BEGIN = "<!-- BEGIN CodeSleuth reports -->"
 AGENTS_END = "<!-- END CodeSleuth reports -->"
-AGENTS_POINTER = (
-    "<!-- BEGIN CodeSleuth reports -->\n"
-    "Analytical reports for this repository live in `.codesleuth/reports/` "
-    "(see `INDEX.md`). Format: `.opencode/CODESLEUTH-REPORTS.md`. "
-    "OpenCode `build` writes them; later CodeSleuth sessions and other coding "
-    "assistants should read them before repeating analysis.\n"
-    "<!-- END CodeSleuth reports -->"
+AGENTS_POINTER = textwrap.dedent(
+    f"""\
+    {AGENTS_BEGIN}
+    Analytical reports for this repository live in `.codesleuth/reports/` (see `INDEX.md`). Format: `.opencode/CODESLEUTH-REPORTS.md`. OpenCode `build` writes them; later CodeSleuth sessions and other coding assistants should read them before repeating analysis.
+    {AGENTS_END}
+    """
 )
 REPORTS_README = """# CodeSleuth analytical reports
 
@@ -200,6 +200,8 @@ def ensure_reports_workspace(repo: Path) -> Path:
 def ensure_agents_reports_pointer(repo: Path) -> Path:
     path = repo / "AGENTS.md"
     original = path.read_text(encoding="utf-8") if path.is_file() else ""
+    if original.rstrip("\n").endswith(AGENTS_POINTER.rstrip("\n")):
+        return path
     before, marker, tail = original.partition(AGENTS_BEGIN)
     if marker:
         _, end_marker, after = tail.partition(AGENTS_END)
@@ -207,7 +209,17 @@ def ensure_agents_reports_pointer(repo: Path) -> Path:
             raise RuntimeError("malformed CodeSleuth reports block in AGENTS.md")
         original = before.rstrip("\n") + ("\n" if before else "") + after.lstrip("\n")
     body = original.rstrip("\n")
-    new_content = f"{body}\n\n{AGENTS_POINTER}\n" if body else f"{AGENTS_POINTER}\n"
+    new_content = (
+        textwrap.dedent(
+            f"""\
+{body}
+
+{AGENTS_POINTER.rstrip()}
+"""
+        )
+        if body
+        else AGENTS_POINTER
+    )
     path.write_text(new_content, encoding="utf-8")
     return path
 
@@ -222,7 +234,7 @@ def remove_agents_reports_pointer(repo: Path) -> None:
         return
     _, end_marker, after = tail.partition(AGENTS_END)
     if not end_marker:
-        raise RuntimeError("malformed CodeSleuth reports block in AGENTS.md")
+        return
     body = (before.rstrip("\n") + "\n" + after.lstrip("\n")).strip("\n")
     if body:
         path.write_text(body + "\n", encoding="utf-8")

@@ -329,3 +329,17 @@ def test_reports_workspace_is_seeded_and_uninstalled_pointer_removed(tmp_path: P
     leftover = (repo / "AGENTS.md").read_text(encoding="utf-8")
     assert "Keep this." in leftover
     assert lifecycle.AGENTS_BEGIN not in leftover
+
+
+def test_reports_pointer_idempotent(tmp_path: Path) -> None:
+    repo = tmp_path / "target"
+    init_repo(repo)
+    (repo / "AGENTS.md").write_text("# Project agents\n\nKeep this.\n", encoding="utf-8")
+    lifecycle.ensure_agents_reports_pointer(repo)
+    first = (repo / "AGENTS.md").read_text(encoding="utf-8")
+    lifecycle.ensure_agents_reports_pointer(repo)
+    second = (repo / "AGENTS.md").read_text(encoding="utf-8")
+    assert first == second
+    assert lifecycle.AGENTS_BEGIN in first
+    assert first.endswith("\n")
+    assert not first.endswith("\n\n")
