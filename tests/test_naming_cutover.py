@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +17,7 @@ def test_naming_manifest_is_authoritative_and_complete():
     assert data["canonical"]["state"] == {"metadata": "codesleuth.json", "settings": "codesleuth-user.json"}
     assert data["canonical"]["entrypoints"]["verify"] == "bin/codesleuth-verify.py"
     assert data["canonical"]["python"]["tuiBootstrap"] == "bin/codesleuth_tui_bootstrap.py"
+    assert data["canonical"]["temporaryPrefix"] == "codesleuth-update-"
     assert data["migration"]["freshInstallMaterializesLegacy"] is False
     assert data["migration"]["bridgeManaged"] is False
 
@@ -107,3 +110,20 @@ def test_installer_migrates_identical_or_legacy_only_state(tmp_path):
     assert value["version"] == "dev"
     assert (target / module.META_NAME).is_file()
     assert not legacy.exists()
+
+
+def test_updater_help_exposes_canonical_force_flag_only():
+    updater = ROOT / "pack/.opencode/bin/codesleuth_update.py"
+    result = subprocess.run([sys.executable, str(updater), "--help"], text=True, capture_output=True, check=True)
+    assert "--force-codesleuth-files" in result.stdout
+    assert "--force-pack-files" not in result.stdout
+    text = updater.read_text(encoding="utf-8")
+    assert "args.force_pack_files" not in text
+    assert 'dest="force_managed_files"' in text
+    assert 'prefix=CANONICAL["temporaryPrefix"]' in text
+
+
+def test_canonical_bootstrap_removes_transition_bridges_on_handoff():
+    text = (ROOT / "pack/.opencode/bin/codesleuth_tui_bootstrap.py").read_text(encoding="utf-8")
+    assert "cleanup_transition_bridges(target_root())" in text
+    assert "os.environ.get(ENV_TARGET_ROOT" in text
