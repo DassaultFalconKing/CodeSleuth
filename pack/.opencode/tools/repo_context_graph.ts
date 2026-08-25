@@ -780,18 +780,82 @@ function selectNeighborhood(
 // internal aliases, escaped untrusted labels, explicit truncation/subset state
 // and visual separation of review inference from verified source linkage. No
 // hidden instructions derived from source content are ever emitted.
+//
+// Selection semantics are never duplicated here: when a scoped request is made
+// (roots/hops/relation/origin), the bounded neighborhood is produced by the
+// exact same selectNeighborhood() used by repo_context_graph_query. A request
+// with no selection arguments renders the historical deterministic prefix of
+// the saved projection so existing callers stay byte-compatible. Scoped views
+// order nodes by their semantic kind:name instead of the identity-hash prefix
+// order; ordering is presentation-only and never feeds any identity input.
+export type MermaidSelectionOptions = {
+  roots?: Array<{ kind: NodeKind; key: string }>
+  hops?: number
+  relation?: EdgeRelation
+  origin?: ElementOrigin
+}
+
 export function renderContextGraphMermaid(
   projection: RepositoryContextProjection,
-  options: { nodeLimit?: number; edgeLimit?: number; direction?: "LR" | "TD" } = {},
-): { mermaid: string; aliases: Record<string, string>; truncated: boolean } {
+  options: {
+    nodeLimit?: number
+    edgeLimit?: number
+    direction?: "LR" | "TD"
+  } & MermaidSelectionOptions = {},
+): {
+  mermaid: string
+  aliases: Record<string, string>
+  truncated: boolean
+  selection: {
+    scoped: boolean
+    roots?: Array<{ kind: NodeKind; key: string }>
+    hops?: number
+    relation?: EdgeRelation
+    origin?: ElementOrigin
+    totals: { nodes: number; edges: number }
+  }
+} {
   const nodeLimit = Math.min(Math.max(1, options.nodeLimit ?? DEFAULT_VIEW_NODES), MAX_VIEW_NODES)
   const edgeLimit = Math.min(Math.max(1, options.edgeLimit ?? DEFAULT_VIEW_EDGES), MAX_VIEW_EDGES)
   const direction = options.direction === "TD" ? "TD" : "LR"
+  const roots = options.roots && options.roots.length > 0 ? options.roots : undefined
+  const scoped =
+    Boolean(roots) ||
+    options.relation !== undefined ||
+    options.origin !== undefined ||
+    options.hops !== undefined
 
-  const availableNodes = projection.nodes.length
-  const viewNodes = projection.nodes.slice(0, nodeLimit)
+  let availableNodes: number
+  let orderedNodes: ContextNode[]
+  let candidateEdges: ContextEdge[]
+  if (scoped) {
+    const selection = selectNeighborhood(projection, {
+      ...(roots ? { roots } : {}),
+      hops: options.hops ?? 1,
+      relationFilter: options.relation,
+      originFilter: options.origin,
+    })
+    // Presentation-only deterministic ordering by semantic name (kind:key),
+    // independent of identity hashes and of JS Map iteration order.
+    const semanticName = (node: ContextNode) => semanticElementName(node.kind, node.key)
+    orderedNodes = [...selection.nodes].sort((a, b) => {
+      const aName = semanticName(a)
+      const bName = semanticName(b)
+      return aName < bName ? -1 : aName > bName ? 1 : 0
+    })
+    availableNodes = selection.totalSelectedNodes
+    candidateEdges = selection.edges
+  } else {
+    orderedNodes = projection.nodes
+    availableNodes = projection.nodes.length
+    candidateEdges = projection.edges
+  }
+
+  const viewNodes = orderedNodes.slice(0, nodeLimit)
   const includedIds = new Set(viewNodes.map((node) => node.nodeId))
-  const edgesWithinView = projection.edges.filter(
+  // Edges are window-filtered to nodes present in this view before the edge
+  // limit, so no rendered link can reference an omitted node.
+  const edgesWithinView = candidateEdges.filter(
     (edge) => includedIds.has(edge.sourceNodeId) && includedIds.has(edge.targetNodeId),
   )
   const viewEdges = edgesWithinView.slice(0, edgeLimit)
@@ -825,6 +889,18 @@ export function renderContextGraphMermaid(
   lines.push(`%% headSha: ${projection.headSha}`)
   lines.push(`%% scope: ${escapeComment(projection.scope.prefix || ".")}`)
   if (projection.scope.description) lines.push(`%% scopeNote: ${escapeComment(projection.scope.description)}`)
+  if (scoped) {
+    lines.push("%% selection: scoped neighborhood of the saved projection; not the whole map")
+    if (roots) {
+      lines.push(
+        `%% selectionRoots: ${escapeComment(roots.map((root) => semanticElementName(root.kind, root.key)).join(", "))}`,
+      )
+      lines.push(`%% selectionHops: ${Math.min(Math.max(0, options.hops ?? 1), MAX_HOPS)}`)
+    }
+    if (options.relation) lines.push(`%% selectionRelation: ${escapeComment(options.relation)}`)
+    if (options.origin) lines.push(`%% selectionOrigin: ${escapeComment(options.origin)}`)
+    lines.push(`%% selectionTotals: ${availableNodes} node(s), ${candidateEdges.length} link(s) before view limits`)
+  }
   lines.push(`flowchart ${direction}`)
   lines.push("  classDef csInference stroke-dasharray: 4 4")
 
@@ -857,7 +933,19 @@ export function renderContextGraphMermaid(
   }
   lines.push("  %% Legend: solid = verified_source linkage; dashed = review_inference (not verified evidence).")
 
-  return { mermaid: `${lines.join("\n")}\n`, aliases, truncated }
+  return {
+    mermaid: `${lines.join("\n")}\n`,
+    aliases,
+    truncated,
+    selection: {
+      scoped,
+      ...(roots ? { roots } : {}),
+      ...(scoped ? { hops: Math.min(Math.max(0, options.hops ?? 1), MAX_HOPS) } : {}),
+      ...(options.relation ? { relation: options.relation } : {}),
+      ...(options.origin ? { origin: options.origin } : {}),
+      totals: { nodes: availableNodes, edges: candidateEdges.length },
+    },
+  }
 }
 
 const nodeInputShape = {
@@ -1209,10 +1297,24 @@ export const query = tool({
 
 export const mermaid = tool({
   description:
-    "Render deterministic Mermaid flowchart SOURCE derived from the saved RepositoryContextProjection (stable aliases, escaped labels, explicit subset/truncation state, dashed review-inference styling). Text output only; never invokes mmdc/Chromium and never produces SVG.",
+    "Render deterministic Mermaid flowchart SOURCE derived from the saved RepositoryContextProjection (stable aliases, escaped labels, explicit subset/truncation state, dashed review-inference styling). Accepts an optional bounded neighborhood selection (roots/hops/relation/origin) using the exact same semantics as repo_context_graph_query; unscoped requests render a deterministic prefix of the saved projection. Text output only; never invokes mmdc/Chromium and never produces SVG.",
   args: {
     projectionId: tool.schema.string().optional(),
     reviewId: tool.schema.string().optional(),
+    roots: tool.schema
+      .array(tool.schema.object(rootInputShape))
+      .max(20)
+      .optional()
+      .describe("Semantic roots to render around; omit to render a deterministic prefix of the saved map"),
+    hops: tool.schema
+      .number()
+      .int()
+      .min(0)
+      .max(MAX_HOPS)
+      .optional()
+      .describe("Traversal depth for the rendered neighborhood (default 1 when any selection argument is given)"),
+    relation: tool.schema.enum(EDGE_RELATIONS).optional().describe("Only include edges with this relation"),
+    origin: tool.schema.enum(ELEMENT_ORIGINS).optional().describe("Only include edges with this origin"),
     direction: tool.schema.enum(["LR", "TD"]).optional(),
     nodeLimit: tool.schema.number().int().min(1).max(MAX_VIEW_NODES).optional(),
     edgeLimit: tool.schema.number().int().min(1).max(MAX_VIEW_EDGES).optional(),
@@ -1227,6 +1329,10 @@ export const mermaid = tool({
       nodeLimit: args.nodeLimit,
       edgeLimit: args.edgeLimit,
       direction: args.direction,
+      ...(args.roots ? { roots: args.roots } : {}),
+      hops: args.hops,
+      relation: args.relation,
+      origin: args.origin,
     })
     return JSON.stringify(
       {
@@ -1235,6 +1341,9 @@ export const mermaid = tool({
           headSha: projection.headSha,
           schemaVersion: CONTEXT_GRAPH_SCHEMA_VERSION,
         },
+        scoped: rendered.selection.scoped,
+        selection: rendered.selection,
+        savedMapTruncatedByAuthor: projection.bounds.truncated,
         truncated: rendered.truncated,
         aliasCount: Object.keys(rendered.aliases).length,
         aliasesArePresentationOnly: true,
