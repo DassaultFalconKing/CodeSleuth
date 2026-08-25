@@ -1,74 +1,62 @@
 # CodeSleuth UI Branding & Interaction Runbook
 
 **Status:** Accepted / canonical / feature-frozen core  
-**Applies to:** CodeSleuth TUI/CLI control surfaces, OpenCode runtime theme, help, Playbooks, extension-management UI, screenshots/reference layouts  
 **Architecture authority:** [`CODESLEUTH-PRODUCT-CONTRACT.md`](CODESLEUTH-PRODUCT-CONTRACT.md)
 
-## 1. Product identity
+## Product identity
 
 ```text
 CodeSleuth
+Code-discipline for LLM repository work
 Evidence-first repository intelligence
-CodeSleuth · Evidence Console
 ```
 
-CodeSleuth is a **control surface over OpenCode**, not a replacement runtime.
+CodeSleuth is a thin discipline/control layer, not a replacement runtime.
 
 ```text
-CodeSleuth = UX / control panel / configuration / catalog / safe lifecycle
-OpenCode   = execution runtime / models / agents / tool calls / Skills
+CodeSleuth = Skills / control surface / evidence discipline / lifecycle
+Host       = controller / model / agents / tools / execution
 ```
 
-Do not present CodeSleuth as a second supervisor. Controller and Agent profile: [OpenCode `build` controller](../README.md#opencode-build-controller).
+OpenCode is the current full installed host. NovaClaw is the first tested external MCP host. Other host integrations may reuse the same Skills and evidence discipline without moving execution authority into CodeSleuth.
 
-The interface must make this relationship obvious enough that users understand what they are about to do, while remaining thin enough that existing OpenCode commands, tools, Skills, and long-context review behavior continue to work directly.
-
-## 2. Accepted visual direction
+## Visual direction
 
 Dark terminal-native evidence console with restrained cyan/steel accents and semantic green/amber/red state colors.
 
 The product should feel like an inspection instrument, not a generic AI skin.
 
-Canonical flow language:
+Canonical flow:
 
 ```text
 repository -> inventory -> inspect -> evidence -> verify -> finding
 ```
 
-Do not turn every label into detective cosplay. Canonical operational terms remain `Repository`, `Review`, `Evidence`, `Verify`, `Finding`, `Coverage`, `Playbooks`, `Tools`, `Profiles`, `Skills`, and `Settings`.
+Operational labels remain simple: `Repository`, `Review`, `Evidence`, `Verify`, `Finding`, `Coverage`, `Playbooks`, `Tools`, `Profiles`, `Skills`, and `Settings`.
 
-## 3. Approved reference layouts
+## Reference layouts
 
-These files are **visual contracts**, not literal screenshots of the current Textual implementation:
+These are text design sketches, not screenshots and not separate product surfaces.
 
-- [Mobile / narrow-terminal reference board](assets/branding/mobile-reference-board.svg)
-- [Desktop / wide-terminal reference board](assets/branding/desktop-reference-board.svg)
-
-### Mobile / narrow-terminal family
-
-![CodeSleuth mobile reference layouts](assets/branding/mobile-reference-board.svg)
-
-The mobile family covers:
-
-1. Home / Evidence Console
-2. Configuration
-3. Verify
-4. Playbooks
-5. Help
-
-Navigation is compact and persistent:
+### Desktop / wide terminal
 
 ```text
-Home | Review | Evidence | Tools | Settings
+┌─ CodeSleuth · Evidence Console ─────────────────────────────────────────────┐
+│ Home       Repository   ./project                               READY       │
+│ Review     Profile      python · Open-weight                                │
+│ Evidence   Runtime      OpenCode build                                      │
+│ Tools      Next         /repo-review                                        │
+│ Settings                                                                    │
+│            ──────────────────────────────────────────────────────────────    │
+│            Verify       PASS                                                │
+│            Evidence     no active review                                    │
+│            Recent       installation verified                              │
+│                                                                             │
+│            [ Configure ]  [ Verify ]  [ Playbooks ]  [ Help ]              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-On a terminal this is a **narrow-layout navigation model**, not a promise of a native mobile application.
-
-### Desktop / wide-terminal family
-
-![CodeSleuth desktop reference layouts](assets/branding/desktop-reference-board.svg)
-
-Desktop uses the same information architecture, normally with a persistent left rail:
+Desktop normally uses a persistent navigation rail:
 
 ```text
 Home
@@ -78,35 +66,38 @@ Tools
 Settings
 ```
 
-The mobile and desktop families may rearrange components, but must not invent different semantics or different workflows.
+### Narrow terminal
 
-## 4. Navigation semantics
+```text
+┌─ CodeSleuth ─────────────────────┐
+│ ./project                 READY  │
+│ Profile  python                  │
+│ Runtime  OpenCode build          │
+│ Next     /repo-review            │
+│                                 │
+│ [ Configure ]   [ Verify ]       │
+│ [ Playbooks ]   [ Help ]         │
+├─────────────────────────────────┤
+│ Home · Review · Evidence · Tools │
+│ Settings                         │
+└─────────────────────────────────┘
+```
 
-The five navigation labels are orientation surfaces over existing infrastructure, not five new CodeSleuth subsystems.
+Narrow mode is a terminal layout, not a promise of a native mobile application.
 
-| Surface | Purpose | Execution owner |
-|---|---|---|
-| Home | repository/readiness/activity/next action | CodeSleuth presentation + existing checks |
-| Review | discover and invoke repository-review commands/Playbooks | OpenCode |
-| Evidence | explain/show evidence state, durable review state, findings/coverage where available | OpenCode state + CodeSleuth presentation |
-| Tools | discover/manage/invoke OpenCode-native tools, Skills, extensions, Verify/update utilities | OpenCode; CodeSleuth may manage installation/catalog UX |
-| Settings | CodeSleuth/OpenCode project-local configuration, profiles, permissions, lifecycle | CodeSleuth configuration layer |
+## Navigation semantics
 
-A menu item may route to an existing OpenCode command or capability. It must not duplicate that capability in a second orchestration engine.
+| Surface | Purpose |
+|---|---|
+| Home | repository/readiness/activity/next action |
+| Review | discover and invoke repository-review commands/Playbooks |
+| Evidence | evidence state, findings, coverage and durable review state |
+| Tools | Skills, tools, extensions, Verify/update utilities |
+| Settings | profiles, permissions, runtime and lifecycle configuration |
 
-## 5. Screen playbook
+A menu item may route to host-native functionality. It must not duplicate that functionality in a second CodeSleuth orchestration engine.
 
-### 5.1 Home / Evidence Console
-
-Must answer, in order:
-
-1. Which repository am I operating on?
-2. Is the CodeSleuth installation ready?
-3. Which profiles/runtime policy are active?
-4. What is the recommended next action?
-5. What happened recently?
-
-Core actions remain:
+## Core actions
 
 ```text
 Configure
@@ -116,135 +107,59 @@ Help
 Open CodeSleuth
 ```
 
-Update actions may be surfaced contextually rather than consuming permanent space.
-
-### 5.2 Configuration
-
-Title:
-
-```text
-CodeSleuth Configuration
-```
-
-Sections:
-
-1. Installation
-2. Repository profile
-3. Agent profile (OpenCode model family; [OpenCode `build` controller](../README.md#opencode-build-controller))
-4. Evidence permissions
-5. Runtime
-6. Planned policy
-
-Configuration must preserve explicit consent for web search/fetch, edits, and external directories.
-
-### 5.3 Verify
-
 `Verify` is the user-facing name for the installed smoke/integrity gate.
 
-Compatibility output may continue to use:
+Playbooks are task recipes; Skills are reusable capabilities/protocols.
 
-```text
-PACK SMOKE PASS
-product: CodeSleuth
-theme: codesleuth
-```
+## Extension surfaces
 
-### 5.4 Playbooks
+Allowed growth remains intentionally simple:
 
-Playbooks are ready-to-run task recipes. They are **not** Skills.
-
-```text
-Skill    = reusable OpenCode capability/protocol
-Playbook = task recipe for a concrete repository operation
-```
-
-Playbooks should route into OpenCode execution and stable `/repo-*` commands where appropriate.
-
-### 5.5 Help
-
-Help explains the product model, not only button mechanics:
-
-- CodeSleuth vs OpenCode
-- quick start
-- Skills vs Playbooks vs Tools vs Profiles vs Agent profile
-- [OpenCode `build` controller](../README.md#opencode-build-controller)
-- evidence/durable state
-- permissions
-- Verify/update lifecycle
-- extension installation/management when present
-- safe removal
-
-### 5.6 Open CodeSleuth
-
-Launches OpenCode with CodeSleuth project-local configuration/theme when CodeSleuth owns those managed defaults.
-
-User-owned OpenCode TUI/theme configuration must be preserved.
-
-## 6. Extension surfaces
-
-Core feature development is frozen, but the ecosystem is intentionally open-ended.
-
-Allowed extension growth:
-
-- repository profiles (`rust`, `typescript`, `python`, `node`, future ecosystems);
-- OpenCode Skills;
+- repository profiles;
+- Skills;
 - Playbooks;
-- OpenCode-native tools/plugins/integrations;
-- small user-authored tools that can be installed or loaded into OpenCode;
-- catalog/discovery/install/update/remove UI for those extensions in CLI/TUI;
-- metadata, validation, compatibility checks, and safe lifecycle around extensions.
+- host-native tools/plugins/integrations;
+- small user-authored tools;
+- catalog/install/update/remove UI around those extensions;
+- additional agent-host integrations such as Codex, Cursor, Hermes, BodegaOne and Pi-harness.
 
-CodeSleuth may make these extensions easy to find and install. **OpenCode remains responsible for running them and for model/tool orchestration.**
+CodeSleuth may help discover and configure these extensions. The host remains responsible for model/tool orchestration.
 
-Extension-management UI is allowed to grow because it scales the existing infrastructure rather than adding a new core workflow.
+## Feature freeze
 
-## 7. Explicit feature freeze
-
-After this branding/production track, do **not** add new CodeSleuth core workflows or a parallel execution stack.
-
-Out of scope without a new architecture decision:
+Do not add:
 
 - a CodeSleuth-specific agent loop;
-- a CodeSleuth supervisor prompt on OpenCode `build`;
-- a second tool router/tool-calling protocol;
+- a second supervisor/controller;
 - a second model/session runtime;
-- replacement repository-review engine that bypasses OpenCode;
-- duplicate implementations of OpenCode Skills/tools merely to expose them in the menu;
-- unrelated dashboards/workflows that do not improve control of existing OpenCode infrastructure or extension lifecycle.
+- a replacement review engine that bypasses the host;
+- duplicate implementations of host Skills/tools only to expose them in the menu.
 
-From this point, core changes are limited to:
+Core work is production hardening: bug fixes, compatibility, security, accessibility, performance, packaging, tests and CI.
 
-```text
-bug fixes
-compatibility
-security/safety
-accessibility/readability
-performance
-packaging/install/update correctness
-tests/CI
-production hardening
-```
+## ASCII identity
 
-## 8. Canonical ASCII identity
-
-Full console mark is permitted on entry/brand surfaces; compact identity is preferred when space is constrained.
+Full mark is permitted on README/entry surfaces; compact identity is preferred when space is constrained.
 
 ```text
-+-------------------------------------------------+
-|  CODE:SLEUTH // EVIDENCE OPERATIONS CONSOLE    |
-+----------------------+--------------------------+
-                   [ TARGET : SOURCE ]
-                   [ EVIDENCE : LIVE ]
+        .--------.
+       /  .----.  \            ____          _      ____  _            _   _
+      /__/______\__\          / ___|___   __| | ___/ ___|| | ___ _   _| |_| |__
+         |  • •  |           | |   / _ \ / _` |/ _ \___ \| |/ _ \ | | | __| '_ \
+         |   ▿   |           | |__| (_) | (_| |  __/___) | |  __/ |_| | |_| | | |
+        /|  ---  |\           \____\___/ \__,_|\___|____/|_|\___|\__,_|\__|_| |_|
+       / |       | \
+         |  ◯    |
+         | /|\   |            CODE:SLEUTH // EVIDENCE OPERATIONS CONSOLE
+        /  / \    \           repository → evidence → verify → finding
 ```
 
 Essential state must never exist only inside ASCII art.
 
-## 9. Colormap contract
+## Colormap
 
 Machine-readable source: [`CODESLEUTH-COLORMAP.json`](CODESLEUTH-COLORMAP.json).  
 OpenCode implementation: [`../pack/.opencode/themes/codesleuth.json`](../pack/.opencode/themes/codesleuth.json).
-
-Dark-mode core:
 
 | Role | Hex | Meaning |
 |---|---|---|
@@ -260,67 +175,19 @@ Dark-mode core:
 | warning | `#F0C36A` | attention/incomplete |
 | error | `#F07178` | failure/blocking |
 
-Green is never generic decoration. It means successful/verified state.
+Green means successful/verified state, not decoration.
 
-## 10. Responsive rules
+## Responsive acceptance
 
-Production acceptance must include at least:
+Exercise at least:
 
 ```text
 80x24
 120x35
 ```
 
-Also exercise narrower layouts representative of a phone/Termux/remote-terminal viewport.
+At narrow widths use one column and compact navigation. At wide widths use the extra space for status/evidence detail, not more features. No essential content should require horizontal scrolling.
 
-At narrow widths:
+## Governance
 
-- use one-column cards/rows;
-- navigation may move to a compact footer/selector;
-- full ASCII art may collapse to `CODE:SLEUTH // EVIDENCE CONSOLE`;
-- repository, readiness, Verify, Help, extension discovery, and launch must remain reachable;
-- no essential content may require horizontal scrolling.
-
-At wide widths:
-
-- prefer a persistent navigation rail;
-- use the additional width for status/evidence detail, not feature proliferation.
-
-## 11. Production acceptance runbook
-
-Required static checks:
-
-```bash
-python3 -m py_compile \
-  pack/.opencode/bin/codesleuth_tui.py \
-  pack/.opencode/bin/review_pack_tui_bootstrap.py \
-  pack/.opencode/bin/review-pack-smoke.py \
-  smoke.py \
-  tests/test_lifecycle.py
-
-python3 -m json.tool pack/.opencode/themes/codesleuth.json >/dev/null
-python3 -m json.tool pack/.opencode/tui.json >/dev/null
-python3 -m json.tool docs/CODESLEUTH-COLORMAP.json >/dev/null
-```
-
-Then run the complete repository test suite/gates present on the branch, including TUI and project-lifecycle tests where available.
-
-Manual acceptance:
-
-- normal install on disposable repo;
-- update existing versioned install;
-- preserve user-owned OpenCode config/theme;
-- Verify passes;
-- Help/Playbooks remain readable;
-- OpenCode launches successfully through CodeSleuth;
-- existing OpenCode commands, Skills, and tools remain directly usable;
-- long-running/large-context repository review is not constrained by the CodeSleuth shell;
-- narrow and wide layouts remain usable.
-
-## 12. Governance
-
-This runbook and `CODESLEUTH-PRODUCT-CONTRACT.md` are canonical.
-
-A core feature outside the allowed extension seams requires an explicit architecture decision. Otherwise the default answer is **do not add it**.
-
-Production work should now converge by fixing defects against these contracts, not by expanding scope.
+This runbook and `CODESLEUTH-PRODUCT-CONTRACT.md` are canonical. Core behavior outside the allowed extension seams requires an explicit architecture decision.
