@@ -1,0 +1,5 @@
+{
+  "permission": {"lsp":"allow","skill":"allow","websearch":"allow","webfetch":"allow","question":"allow"},
+  "compaction": {"auto":true,"prune":true,"reserved":20000},
+  "watcher": {"ignore":[".git/**",".opencode/cache/**",".opencode/logs/**",".opencode/state/**","node_modules/**","target/**","dist/**","build/**",".venv/**","__pycache__/**"]}
+}

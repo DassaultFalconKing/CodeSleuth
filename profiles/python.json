@@ -1,0 +1,6 @@
+{
+  "profile":"python",
+  "evidence":["pyproject.toml","requirements.txt","poetry.lock","uv.lock","tox.ini","pytest.ini"],
+  "recommendedVerification":["derive test/lint/typecheck commands from pyproject/CI before running"],
+  "reviewFocus":["async/sync boundaries","exception swallowing","typing/runtime divergence","dependency and serialization contracts","migration/state semantics"]
+}

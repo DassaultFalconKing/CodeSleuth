@@ -1,0 +1,80 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow"
+    },
+    "edit": "ask",
+    "bash": {
+      "*": "ask",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git show*": "allow",
+      "git rev-parse*": "allow",
+      "git ls-files*": "allow",
+      "git branch --show-current*": "allow",
+      "git merge-base*": "allow",
+      "git cat-file*": "allow",
+      "git hash-object*": "allow",
+      "git blame*": "allow",
+      "git grep*": "allow",
+      "git push*": "deny",
+      "git reset --hard*": "deny",
+      "git clean*": "deny"
+    },
+    "external_directory": "ask",
+    "websearch": "ask",
+    "webfetch": "ask",
+    "lsp": "allow",
+    "skill": {
+      "*": "ask",
+      "repository-deep-review": "allow"
+    },
+    "question": "allow",
+    "doom_loop": "ask"
+  },
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 20000
+  },
+  "watcher": {
+    "ignore": [
+      ".git/**",
+      ".opencode/cache/**",
+      ".opencode/logs/**",
+      ".opencode/state/**",
+      "node_modules/**",
+      "target/**",
+      "dist/**",
+      "build/**",
+      ".venv/**",
+      "__pycache__/**"
+    ]
+  },
+  "plugin": [
+    [
+      "opencode-keepalive@0.1.0",
+      {
+        "intervalMs": 10000,
+        "stallMs": 480000,
+        "childStallAction": "abort-resume-parent",
+        "maxStallRecoveries": 2,
+        "abortWaitMs": 30000,
+        "toolStallMsByTool": {
+          "glob": 90000,
+          "grep": 90000,
+          "read": 120000,
+          "webfetch": 180000,
+          "websearch": 180000
+        },
+        "bashQuickStallMs": 90000,
+        "output": "file"
+      }
+    ]
+  ]
+}

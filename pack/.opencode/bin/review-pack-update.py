@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+META_NAME = "review-pack.json"
+
+
+def run(args, **kwargs):
+    return subprocess.run(args, text=True, capture_output=True, **kwargs)
+
+
+def load_meta(repo: Path):
+    path = repo / ".opencode" / META_NAME
+    if not path.is_file():
+        raise SystemExit(f"missing {path}; this repository is not a managed review-pack installation")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def resolve_source(meta, args):
+    src = dict(meta.get("source") or {})
+    if args.source_remote: src["remote"] = args.source_remote
+    if args.source_ref: src["ref"] = args.source_ref
+    if args.source_subdir is not None: src["subdir"] = args.source_subdir
+    remote, ref = src.get("remote"), src.get("ref")
+    if not remote or not ref:
+        raise SystemExit("installation has no updateable source remote/ref; rerun the pack installer with --source-remote and --source-ref, or update from a local pack checkout using install.sh <repo> --update")
+    src.setdefault("subdir", "")
+    return src
+
+
+def remote_head(remote: str, ref: str):
+    for full_ref in (f"refs/heads/{ref}", f"refs/tags/{ref}"):
+        p = run(["git", "ls-remote", remote, full_ref])
+        if p.returncode == 0 and p.stdout.strip(): return p.stdout.split()[0]
+    raise SystemExit(f"cannot resolve {ref!r} at {remote!r}")
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Check for and apply OpenCode review-pack updates from the recorded Git source.")
+    ap.add_argument("repo", nargs="?", default=".")
+    ap.add_argument("--check", action="store_true", help="only compare installed source commit with the remote source")
+    ap.add_argument("--source-remote", help="override recorded Git remote for this run")
+    ap.add_argument("--source-ref", help="override recorded branch/tag for this run")
+    ap.add_argument("--source-subdir", help="override pack subdirectory inside the source repository")
+    ap.add_argument("--force-pack-files", action="store_true", help="replace locally modified managed files")
+    args = ap.parse_args()
+
+    repo = Path(args.repo).resolve()
+    meta = load_meta(repo); source = resolve_source(meta, args)
+    head = remote_head(source["remote"], source["ref"])
+    installed_commit = source.get("commit")
+    print("installed version:", meta.get("version", "unknown"))
+    print("installed source:", installed_commit or "unknown")
+    print("remote source:", head)
+    if installed_commit == head:
+        print("REVIEW PACK CURRENT"); return
+    print("REVIEW PACK UPDATE AVAILABLE")
+    if args.check: return
+
+    with tempfile.TemporaryDirectory(prefix="opencode-review-pack-update-") as td:
+        clone = Path(td) / "source"
+        p = subprocess.run(["git", "clone", "--depth", "1", "--branch", source["ref"], source["remote"], str(clone)])
+        if p.returncode != 0: raise SystemExit(p.returncode)
+        pack_root = clone / source.get("subdir", "")
+        installer = pack_root / "install.py"
+        if not installer.is_file():
+            raise SystemExit(f"latest source does not contain {installer.relative_to(clone)}; recorded source metadata is stale or points at the wrong repository")
+        cmd = [sys.executable, str(installer), str(repo), "--update", "--source-remote", source["remote"], "--source-ref", source["ref"], "--source-subdir", source.get("subdir", ""), "--source-commit", head]
+        if args.force_pack_files: cmd.append("--force-pack-files")
+        code = subprocess.run(cmd).returncode
+        if code: raise SystemExit(code)
+
+
+if __name__ == "__main__": main()

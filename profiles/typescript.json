@@ -1,0 +1,7 @@
+{
+  "profile":"typescript",
+  "extends":"node",
+  "evidence":["tsconfig.json","tsconfig.*.json","tracked .ts/.tsx files"],
+  "recommendedVerification":["derive package manager from lockfile","prefer project typecheck script when present","otherwise verify the repository's documented tsc invocation before running"],
+  "reviewFocus":["unsound casts and any escapes","discriminated-union exhaustiveness","runtime validation vs static types","ESM/CJS/moduleResolution drift","generated types/schema drift","async lifecycle and cleanup","frontend/backend contract compatibility"]
+}

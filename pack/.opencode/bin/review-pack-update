@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+set -eu
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON=python3
+elif command -v python >/dev/null 2>&1; then
+  PYTHON=python
+else
+  echo "review-pack updater requires Python 3" >&2
+  exit 127
+fi
+
+exec "$PYTHON" "$HERE/review-pack-update.py" "$@"
