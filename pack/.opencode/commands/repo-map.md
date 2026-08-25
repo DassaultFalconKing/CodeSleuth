@@ -1,10 +1,12 @@
 ---
 description: Build or refresh a bounded repository architecture map with optional Mermaid projection
-agent: repo-reviewer
+agent: build
 ---
 
 Build or update the bounded RepositoryContextProjection for the requested scope
-using the `repository-deep-review` protocol's architecture-mapping phase.
+using the `repository-deep-review` protocol's architecture-mapping phase. Stay
+on OpenCode's primary `build` agent so the native provider-specific controller
+prompt for the selected model remains in effect.
 
 Requested scope/focus:
 
@@ -32,4 +34,5 @@ Route:
 Stay read-only for application source; the only writes are the ignored
 `.opencode/state/` boundary used by these tools. Graph relations are
 navigation/context, not finding evidence: reopen exact source before recording
-any material finding.
+any material finding. Delegate bounded read-only inspection to `repo-scout`
+or `explore` Task subagents where useful.

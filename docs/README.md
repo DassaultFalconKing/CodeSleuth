@@ -21,6 +21,7 @@ These are reference layouts, not claims that every pixel is already implemented.
 ## User and operations
 
 - [`USER-GUIDE.md`](USER-GUIDE.md) — install, configure, validate, update, and operate CodeSleuth.
+- [`_includes/build-controller-blurb.md`](_includes/build-controller-blurb.md) — canonical OpenCode `build` controller blurb. Public copy: [root README](../README.md#opencode-build-controller).
 
 ## Maintainers
 
@@ -39,7 +40,9 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         |
         +--> pack/.opencode/themes/codesleuth.json
         +--> pack/.opencode/bin/codesleuth_tui.py
+        +--> pack/.opencode/CODESLEUTH-REPORTS.md
         +--> OpenCode runtime / commands / Skills / tools
+        +--> .codesleuth/reports/ (OpenCode-written analysis)
 ```
 
 Core CodeSleuth is feature-frozen. Growth continues through profiles, Skills, Playbooks, OpenCode-native tools/plugins, and extension-management UX.

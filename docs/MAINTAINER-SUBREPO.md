@@ -101,6 +101,10 @@ Built-in profiles are permission-neutral. They may describe stack detection, ver
 
 The TUI/project policy layer is the only owner of those explicit permission choices.
 
+## Native OpenCode controller
+
+See [OpenCode `build` controller](../README.md#opencode-build-controller). `/repo-*` commands stay `agent: build`. Agent profile in project settings may set `opencode.json` `model` only.
+
 ## Compatibility surface
 
 The following historical names remain during migration:
