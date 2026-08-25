@@ -9,6 +9,10 @@
 - [`NOVACLAW-MCP.md`](NOVACLAW-MCP.md) — first external-host MCP integration and its read-only repository-evidence boundary.
 - [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — naming inventory and staged cutover from historical `review-pack` filenames; 0.4.0 keeps live compatibility names.
 
+## Roadmap and evaluated extensions
+
+- [`MERMAID-GRAPHIFY-AUDIT.md`](MERMAID-GRAPHIFY-AUDIT.md) — audit of the current bounded Mermaid/context-graph implementation and gated evaluation of `Graphify-Labs/graphify` as an optional deterministic structural graph provider. This is a roadmap/incubation document, not approval of a production Graphify dependency.
+
 ## README language maintenance
 
 The public README is maintained in three complete language versions:
@@ -66,6 +70,7 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         |       +--> pack/.opencode/bin/codesleuth_tui.py  (canonical ASCII/TUI)
         |
         +--> CONTEXT-GRAPH-DISCIPLINE.md                  (Mermaid when useful)
+        |       +--> MERMAID-GRAPHIFY-AUDIT.md            (roadmap/incubation only)
         +--> NOVACLAW-MCP.md                              (external host seam)
         +--> ../AGENTS.md                                 (compact cross-agent entry point)
         +--> LLM-OPERATOR.md                              (task-specific operator surface)
