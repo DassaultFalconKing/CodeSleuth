@@ -8,6 +8,10 @@
 - [`CONTEXT-GRAPH-DISCIPLINE.md`](CONTEXT-GRAPH-DISCIPLINE.md) — Git source -> review state -> bounded RepositoryContextProjection -> compact context/Mermaid authority chain.
 - [`NOVACLAW-MCP.md`](NOVACLAW-MCP.md) — first external-host MCP integration and its read-only repository-evidence boundary.
 
+## Roadmap and evaluated extensions
+
+- [`MERMAID-GRAPHIFY-AUDIT.md`](MERMAID-GRAPHIFY-AUDIT.md) — audit of the current bounded Mermaid/context-graph implementation and gated evaluation of `Graphify-Labs/graphify` as an optional deterministic structural graph provider. This is a roadmap/incubation document, not approval of a production Graphify dependency.
+
 ## README language maintenance
 
 The public README is maintained in three complete language versions:
@@ -51,6 +55,7 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         |       +--> pack/.opencode/bin/codesleuth_tui.py  (canonical ASCII/TUI)
         |
         +--> CONTEXT-GRAPH-DISCIPLINE.md                  (Mermaid when useful)
+        |       +--> MERMAID-GRAPHIFY-AUDIT.md            (roadmap/incubation only)
         +--> NOVACLAW-MCP.md                              (external host seam)
         |
         +--> pack/.opencode/themes/codesleuth.json
