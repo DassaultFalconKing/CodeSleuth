@@ -4,12 +4,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
-import sys
-import tempfile
 from pathlib import Path
 
-from textual import work
 from textual.app import ComposeResult
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
@@ -18,12 +14,10 @@ from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, Rich
 import codesleuth_project as project_lifecycle
 from review_pack_tui import ConfigScreen, PromptScreen, ReviewPackApp, launch_opencode
 from review_pack_tui_core import (
-    apply_settings_to_target,
     detect_profiles,
     installation_state,
     load_settings,
     recommended_operation,
-    save_settings,
 )
 
 PERMISSION_OPTIONS = [("Ask before use", "ask"), ("Allow", "allow"), ("Deny", "deny")]
@@ -52,53 +46,67 @@ CODESLEUTH_ART = r'''
 '''.strip("\n")
 
 EVIDENCE_MARK = r"""+-- source --+     +-- evidence --+
-| repository | --> | verified    |
+| repository | --> | inspect     |
 +------------+     +--------------+"""
 
 NAV_SURFACES = {
     "home": (
         "Home · Evidence Console",
-        "Repository readiness, active profiles, safe next action, and recent control-shell activity.",
+        "Repository readiness, active profiles/runtime policy, safe next action, and recent control-shell activity.",
     ),
     "review": (
         "Review · OpenCode execution",
-        "Use Playbooks or launch OpenCode for /repo-review and /repo-review-resume. CodeSleuth does not run a second review engine.",
+        "Discover and invoke repository review commands and Playbooks. OpenCode owns the model session, agent loop, and review execution; CodeSleuth does not run a second review engine.",
     ),
     "evidence": (
         "Evidence · OpenCode state",
-        "Evidence, findings, coverage, and durable checkpoints remain OpenCode-owned. Launch OpenCode to inspect or resume them.",
+        "Inspect durable review state, findings/coverage hints, and checkpoint provenance where available. CodeSleuth only presents this state.",
     ),
     "tools": (
         "Tools · OpenCode-native capabilities",
-        "Verify and lifecycle utilities are available below. Skills, commands, tools, and plugins execute in OpenCode.",
+        "Discover installed commands, Skills, tools/plugins, Verify, and update utilities. Execution remains OpenCode-native.",
     ),
     "settings": (
         "Settings · Project-local configuration",
-        "Configure profiles, explicit evidence permissions, runtime policy, and the optional pinned dependency.",
+        "Configure profiles, explicit evidence permissions, OpenCode runtime policy, and CodeSleuth lifecycle/dependency state.",
     ),
 }
+
+SURFACE_ACTIONS = {
+    "home": ("configure", "smoke", "playbooks", "help", "launch"),
+    "review": ("playbooks", "launch"),
+    "evidence": ("help", "launch"),
+    "tools": ("smoke", "check-update", "update", "launch"),
+    "settings": ("configure", "uninstall"),
+}
+
+OPEN_CODE_COMMANDS = (
+    "/repo-prompts",
+    "/repo-profile",
+    "/repo-review",
+    "/repo-docs",
+    "/repo-review-resume",
+)
 
 HELP_SECTIONS = [
     (
         "What CodeSleuth is",
-        "CodeSleuth is an evidence-first repository intelligence layer running on OpenCode. "
-        "The TUI configures the project-local runtime; OpenCode remains the execution environment.",
+        "CodeSleuth is the control panel, project-local configuration layer, catalog, and safe lifecycle manager around OpenCode. "
+        "OpenCode and its models remain responsible for sessions, agents, tool calls, Skills, commands, and repository review execution.",
     ),
     (
         "Quick start",
         "1. Select a Git repository.\n"
         "2. Configure or install CodeSleuth.\n"
         "3. Run Verify after install/update.\n"
-        "4. Open CodeSleuth to launch OpenCode with the project-local CodeSleuth theme.\n"
+        "4. Open CodeSleuth to launch normal OpenCode execution with managed project-local defaults when applicable.\n"
         "5. Start with /repo-prompts for advice or /repo-review for a deep evidence-first review.",
     ),
     (
-        "Skills",
-        "A Skill is a reusable agent capability/protocol stored under .opencode/skills/. "
-        "CodeSleuth currently ships the real OpenCode skill 'repository-deep-review'. "
-        "The repo-reviewer agent loads it immediately and follows its inventory, architecture, "
-        "evidence-ledger, checkpoint, context-discipline, and completion contracts. "
-        "You normally use it through /repo-review or /repo-review-resume rather than invoking the skill manually.",
+        "Skills, Playbooks, Tools, and Profiles",
+        "Skill = reusable OpenCode capability/protocol. Playbook = task recipe for a concrete repository operation. "
+        "Tool/plugin = OpenCode-native executable capability or integration. Profile = repository-specific detection/configuration metadata. "
+        "CodeSleuth may discover and manage these surfaces, but OpenCode executes them.",
     ),
     (
         "Playbooks",
@@ -127,9 +135,14 @@ HELP_SECTIONS = [
     ),
     (
         "Verify and update",
-        "Verify runs the installed smoke gate. Check Updates inspects the recorded source. Update uses the safe updater: "
+        "Verify runs the installed smoke/integrity gate. Check Updates inspects the recorded source. Update uses the safe updater: "
         "unchanged managed files may be replaced, locally modified managed files are preserved and incoming versions are written under "
         ".opencode/state/update-conflicts/.",
+    ),
+    (
+        "Extension management",
+        "Profiles, Skills, Playbooks, tools, plugins, and supported integrations may be added over time. "
+        "CodeSleuth may provide discovery/install/update/remove UX, while execution after installation remains OpenCode-native.",
     ),
     (
         "Deinstallation",
@@ -146,11 +159,11 @@ HELP_SECTIONS = [
 class CodeSleuthPlaybookScreen(PromptScreen):
     CSS = """
     CodeSleuthPlaybookScreen { align: center middle; background: rgba(0,0,0,0.58); }
-    #prompt-dialog { width: 92%; height: 88%; border: round #31566a; background: #0e1822; padding: 1 2; }
+    #prompt-dialog { width: 92%; height: 88%; border: round #3e718a; background: #0e1822; padding: 1 2; }
     #prompt-title { color: #63d5f4; text-style: bold; }
     #prompt-log { height: 1fr; border: solid #29404f; }
     #prompt-actions { height: auto; align-horizontal: right; }
-    .hint { color: #8298a9; }
+    .hint { color: #71879a; }
     """
 
     def compose(self) -> ComposeResult:
@@ -158,7 +171,7 @@ class CodeSleuthPlaybookScreen(PromptScreen):
             yield Label("CodeSleuth Playbooks", id="prompt-title")
             yield Static(
                 "Ready-to-run review task recipes generated from active repository profiles. "
-                "Playbooks are prompts, not OpenCode Skills.",
+                "Playbooks are prompts, not OpenCode Skills; OpenCode executes the selected recipe.",
                 classes="hint",
             )
             yield RichLog(id="prompt-log", wrap=True, markup=True)
@@ -170,17 +183,17 @@ class CodeSleuthPlaybookScreen(PromptScreen):
 class CodeSleuthHelpScreen(ModalScreen[None]):
     CSS = """
     CodeSleuthHelpScreen { align: center middle; background: rgba(0,0,0,0.62); }
-    #help-dialog { width: 94%; height: 94%; border: round #31566a; background: #0e1822; padding: 1 2; }
+    #help-dialog { width: 94%; height: 94%; border: round #3e718a; background: #0e1822; padding: 1 2; }
     #help-title { color: #63d5f4; text-style: bold; }
-    #help-subtitle { color: #8298a9; margin-bottom: 1; }
-    #help-log { height: 1fr; border: solid #29404f; background: #0b141d; }
+    #help-subtitle { color: #71879a; margin-bottom: 1; }
+    #help-log { height: 1fr; border: solid #29404f; background: #081018; }
     #help-actions { height: auto; align-horizontal: right; margin-top: 1; }
     """
 
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="help-dialog"):
             yield Label("CodeSleuth Help", id="help-title")
-            yield Static("Operation guide, Skills, Playbooks, lifecycle, and safe removal.", id="help-subtitle")
+            yield Static("Product model, OpenCode ownership, extensions, evidence, lifecycle, and safe operations.", id="help-subtitle")
             yield RichLog(id="help-log", wrap=True, markup=True)
             with Horizontal(id="help-actions"):
                 yield Button("Close", id="close-help", variant="primary")
@@ -188,7 +201,7 @@ class CodeSleuthHelpScreen(ModalScreen[None]):
     def on_mount(self) -> None:
         log = self.query_one("#help-log", RichLog)
         for title, body in HELP_SECTIONS:
-            log.write(f"[bold cyan]{title}[/bold cyan]\n{body}\n")
+            log.write(f"[bold #63d5f4]{title}[/bold #63d5f4]\n{body}\n")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "close-help":
@@ -198,11 +211,11 @@ class CodeSleuthHelpScreen(ModalScreen[None]):
 class CodeSleuthConfigScreen(ConfigScreen):
     CSS = """
     CodeSleuthConfigScreen { align: center middle; background: rgba(0,0,0,0.58); }
-    #config-dialog { width: 94%; height: 94%; border: round #31566a; background: #0e1822; padding: 1 2; }
+    #config-dialog { width: 94%; height: 94%; border: round #3e718a; background: #0e1822; padding: 1 2; }
     #config-title { color: #63d5f4; text-style: bold; }
     #evidence-mark { color: #71879a; height: 3; margin-bottom: 1; }
     .section { margin-top: 1; color: #63d5f4; text-style: bold; }
-    .hint { color: #8298a9; }
+    .hint { color: #71879a; }
     .row { height: auto; }
     Select { width: 38; }
     Input { width: 18; }
@@ -285,12 +298,16 @@ class CodeSleuthConfigScreen(ConfigScreen):
                 yield Select(PERMISSION_OPTIONS, value=p["externalDirectory"], allow_blank=False, id="external")
 
             yield Label("4. Runtime", classes="section")
+            yield Static(
+                "These controls write project-local OpenCode configuration. OpenCode remains the runtime and execution owner.",
+                classes="hint",
+            )
             with Horizontal(classes="row"):
                 yield Switch(value=r["exaEnabled"], id="exa")
-                yield Label("Enable Exa websearch runtime (OPENCODE_ENABLE_EXA=1)")
+                yield Label("Enable OpenCode Exa websearch runtime (OPENCODE_ENABLE_EXA=1)")
             with Horizontal(classes="row"):
                 yield Switch(value=r["watchdogEnabled"], id="watchdog")
-                yield Label("Enable CodeSleuth keepalive watchdog")
+                yield Label("Enable OpenCode keepalive plugin managed by CodeSleuth")
             with Horizontal(classes="row"):
                 yield Label("Global stall seconds")
                 yield Input(str(r["stallSeconds"]), type="integer", id="stall")
@@ -299,60 +316,16 @@ class CodeSleuthConfigScreen(ConfigScreen):
                 yield Label("Max recoveries")
                 yield Input(str(r["maxStallRecoveries"]), type="integer", id="recoveries")
             with Horizontal(classes="row"):
-                yield Label("Compaction reserved tokens")
+                yield Label("OpenCode compaction reserved tokens")
                 yield Input(str(r["compactionReserved"]), type="integer", id="reserved")
                 yield Switch(value=r["checkUpdatesOnStart"], id="check-updates")
-                yield Label("Check upstream when CodeSleuth starts")
+                yield Label("Check CodeSleuth upstream when console starts")
 
             yield Label("5. Planned policy", classes="section")
             yield Static("", id="summary")
             with Horizontal(id="actions"):
-                yield Button("Apply", id="apply", variant="success")
+                yield Button("Apply", id="apply", variant="primary")
                 yield Button("Cancel", id="cancel")
-
-    @work(thread=True, exclusive=True)
-    def perform_apply(self, settings: dict, operation: str, bind_dependency: bool) -> None:
-        try:
-            if operation == "configure":
-                save_settings(self.repo, settings)
-                apply_settings_to_target(self.repo, settings)
-                if bind_dependency and not project_lifecycle.dependency_status(self.repo)["bound"]:
-                    project_lifecycle.bind_dependency(self.repo, source_metadata=self._installed_source())
-                elif not bind_dependency and project_lifecycle.dependency_status(self.repo)["bound"]:
-                    project_lifecycle.remove_dependency(self.repo)
-                output = "CodeSleuth configuration applied."
-            else:
-                if self.distribution_root is None:
-                    raise RuntimeError("CodeSleuth distribution checkout is required for install/adopt/update")
-                installer = self.distribution_root / "install.py"
-                if not installer.is_file():
-                    raise RuntimeError(f"installer not found: {installer}")
-                with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
-                    json.dump(settings, handle, indent=2)
-                    settings_path = Path(handle.name)
-                try:
-                    command = [sys.executable, str(installer), str(self.repo), "--settings-file", str(settings_path)]
-                    for profile in settings["profiles"]:
-                        command += ["--profile", profile]
-                    if operation == "update":
-                        command.append("--update")
-                    elif operation == "adopt":
-                        command.append("--adopt-existing-pack")
-                    if bind_dependency:
-                        command.append("--bind-dependency")
-                    result = subprocess.run(command, text=True, capture_output=True)
-                    if result.returncode != 0:
-                        raise RuntimeError((result.stderr or result.stdout or "installer failed").strip())
-                    output = result.stdout.strip()
-                finally:
-                    settings_path.unlink(missing_ok=True)
-                if not bind_dependency and project_lifecycle.dependency_status(self.repo)["bound"]:
-                    project_lifecycle.remove_dependency(self.repo)
-            self.app.call_from_thread(self.notify, output[-1200:] or "Applied", severity="information")
-            self.app.call_from_thread(self.dismiss, True)
-        except Exception as exc:
-            self.app.call_from_thread(self.notify, str(exc), severity="error")
-            self.app.call_from_thread(setattr, self.query_one("#apply", Button), "disabled", False)
 
 
 class CodeSleuthApp(ReviewPackApp):
@@ -362,8 +335,9 @@ class CodeSleuthApp(ReviewPackApp):
     Header { background: #0e1822; color: #63d5f4; }
     Footer { background: #0e1822; color: #8aa7b8; }
     #body { padding: 1 2; }
+    .hint { color: #71879a; }
     #workspace { height: auto; }
-    #wide-nav { width: 18; min-width: 18; height: auto; margin-right: 2; padding: 1; border: round #29404f; background: #0b141d; }
+    #wide-nav { width: 18; min-width: 18; height: auto; margin-right: 2; padding: 1; border: round #29404f; background: #0e1822; }
     #wide-nav .nav-button { width: 100%; margin-bottom: 1; }
     #compact-nav { display: none; width: 100%; margin-bottom: 1; }
     #main-panel { width: 1fr; height: auto; }
@@ -371,20 +345,19 @@ class CodeSleuthApp(ReviewPackApp):
     #compact-brand { display: none; color: #63d5f4; height: 1; text-style: bold; }
     #tagline { color: #8aa7b8; margin-bottom: 1; }
     #target { width: 100%; }
-    #security { color: #f0c36a; margin-bottom: 1; }
+    #security { color: #f0c36a; margin: 1 0; }
     #surface { border-left: thick #3e718a; padding-left: 1; margin: 1 0; color: #d8e3eb; }
     #status { border: round #29404f; padding: 1; margin: 1 0; background: #0e1822; }
-    #actions { grid-size: 5 2; grid-gutter: 0 1; height: 6; }
+    #actions { grid-size: 5 1; grid-gutter: 0 1; height: 3; }
     #actions Button { width: 100%; min-width: 0; }
-    #log { height: 1fr; border: solid #29404f; margin-top: 1; background: #0b141d; }
-    #configure { background: #155e75; }
-    #launch { background: #166534; }
+    #activity-title { color: #63d5f4; margin-top: 1; text-style: bold; }
+    #log { height: 6; border: solid #29404f; background: #081018; }
     #workspace.compact { layout: vertical; }
     #workspace.compact #wide-nav { display: none; }
     #workspace.compact #compact-nav { display: block; }
     #workspace.compact #brand { display: none; }
     #workspace.compact #compact-brand { display: block; }
-    #workspace.compact #actions { grid-size: 2 4; height: 12; }
+    #workspace.compact #actions { grid-size: 2 3; height: 9; }
     """
     BINDINGS = [
         ("q", "quit", "Quit"),
@@ -395,6 +368,10 @@ class CodeSleuthApp(ReviewPackApp):
         ("k", "check_updates", "Check Updates"),
         ("u", "uninstall", "Uninstall"),
     ]
+
+    def __init__(self, target: Path, distribution_root: Path | None) -> None:
+        super().__init__(target, distribution_root)
+        self.current_surface = "home"
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -416,13 +393,8 @@ class CodeSleuthApp(ReviewPackApp):
                     yield Static("Evidence-first repository intelligence", id="tagline")
                     yield Label("Repository")
                     yield Input(str(self.target), id="target")
-                    yield Static(
-                        "Evidence may contain developer credentials visible to authorized tests/services. "
-                        "Local state is ignored by default; inspect reports before sharing or committing them.",
-                        id="security",
-                    )
-                    yield Static("", id="surface")
                     yield Static("", id="status")
+                    yield Static("", id="surface")
                     with Grid(id="actions"):
                         yield Button("Configure", id="configure", variant="primary")
                         yield Button("Verify", id="smoke")
@@ -431,14 +403,21 @@ class CodeSleuthApp(ReviewPackApp):
                         yield Button("Playbooks", id="playbooks")
                         yield Button("Help", id="help")
                         yield Button("Uninstall", id="uninstall", variant="error")
-                        yield Button("Open CodeSleuth", id="launch", variant="success")
+                        yield Button("Open CodeSleuth", id="launch", variant="primary")
+                    yield Static("Recent activity", id="activity-title")
                     yield RichLog(id="log", wrap=True, markup=True)
+                    yield Static(
+                        "Evidence may contain developer credentials visible to authorized tests/services. "
+                        "Local state is ignored by default; inspect reports before sharing or committing them.",
+                        id="security",
+                    )
         yield Footer()
 
     def on_mount(self) -> None:
         super().on_mount()
         self._apply_responsive_layout()
         self.show_surface("home")
+        self.write_ui_log("[dim]Console opened. No CodeSleuth control action has run in this session yet.[/dim]")
 
     def on_resize(self) -> None:
         if self.is_mounted:
@@ -448,20 +427,143 @@ class CodeSleuthApp(ReviewPackApp):
         compact = self.size.width < 100 or self.size.height < 30
         self.query_one("#workspace").set_class(compact, "compact")
 
-    def show_surface(self, route: str) -> None:
+    @staticmethod
+    def _catalog_entries(root: Path, subdir: str) -> list[str]:
+        directory = root / ".opencode" / subdir
+        if not directory.is_dir():
+            return []
+        entries: list[str] = []
+        for path in sorted(directory.iterdir(), key=lambda item: item.name.lower()):
+            if path.name.startswith("."):
+                continue
+            entries.append(path.name if path.is_dir() else path.stem)
+        return entries
+
+    @staticmethod
+    def _short_list(values: list[str], limit: int = 6) -> str:
+        if not values:
+            return "none discovered"
+        shown = values[:limit]
+        suffix = f" (+{len(values) - limit} more)" if len(values) > limit else ""
+        return ", ".join(shown) + suffix
+
+    def _plugin_entries(self, repo: Path) -> list[str]:
+        config = repo / ".opencode" / "opencode.json"
+        if not config.is_file():
+            return []
+        try:
+            data = json.loads(config.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+        plugins: list[str] = []
+        for entry in data.get("plugin") or []:
+            package = entry[0] if isinstance(entry, list) and entry else entry
+            if isinstance(package, str):
+                plugins.append(package)
+        return plugins
+
+    def _evidence_state_summary(self, repo: Path) -> str:
+        state_root = repo / ".opencode" / "state"
+        if not state_root.is_dir():
+            return (
+                "Durable state: .opencode/state/ not present yet.\n"
+                "OpenCode creates/uses review state when the invoked workflow needs it. "
+                "Use /repo-review or /repo-review-resume in OpenCode; CodeSleuth does not create a parallel evidence store."
+            )
+        files = [path for path in state_root.rglob("*") if path.is_file()]
+        try:
+            recent = sorted(files, key=lambda path: path.stat().st_mtime, reverse=True)[:5]
+        except OSError:
+            recent = files[:5]
+        recent_text = ", ".join(str(path.relative_to(repo)) for path in recent) or "no state files"
+        return (
+            "Durable state root: .opencode/state/ (OpenCode-owned)\n"
+            f"State files visible: {len(files)}\n"
+            f"Recent state: {recent_text}\n"
+            "Resume/inspect through OpenCode commands; CodeSleuth only presents filesystem-visible state and provenance."
+        )
+
+    def _settings_summary(self, repo: Path) -> str:
+        try:
+            settings = load_settings(repo, detect_profiles(repo))
+        except Exception as exc:
+            return f"Settings unavailable: {exc}"
+        permissions = settings["permissions"]
+        runtime = settings["runtime"]
+        return (
+            f"Profiles: {', '.join(settings['profiles'])} ({settings.get('profilesMode', 'unknown')})\n"
+            f"Permission preset: {permissions['preset']}\n"
+            f"Evidence permissions: search={permissions['websearch']}, fetch={permissions['webfetch']}, "
+            f"edit={permissions['edit']}, external={permissions['externalDirectory']}\n"
+            f"OpenCode runtime: Exa={'on' if runtime['exaEnabled'] else 'off'}; "
+            f"keepalive plugin={'on' if runtime['watchdogEnabled'] else 'off'}; "
+            f"compaction reserved={runtime['compactionReserved']}"
+        )
+
+    def _surface_detail(self, route: str) -> str:
         title, detail = NAV_SURFACES[route]
-        self.query_one("#surface", Static).update(f"[bold #63d5f4]{title}[/bold #63d5f4]\n{detail}")
+        try:
+            repo = self.validate_target()
+        except Exception as exc:
+            return f"[bold #63d5f4]{title}[/bold #63d5f4]\n{detail}\n\n[bold #f07178]Target error:[/bold #f07178] {exc}"
+
+        if route == "home":
+            extra = "Core actions stay intentionally small. Update/remove controls live under Tools/Settings when relevant."
+        elif route == "review":
+            extra = (
+                "OpenCode commands:\n  " + "\n  ".join(OPEN_CODE_COMMANDS) + "\n"
+                "Playbooks are task recipes that route into the same OpenCode execution path."
+            )
+        elif route == "evidence":
+            extra = self._evidence_state_summary(repo)
+        elif route == "tools":
+            commands = self._catalog_entries(repo, "commands")
+            skills = self._catalog_entries(repo, "skills")
+            tools = self._catalog_entries(repo, "tools")
+            plugins = self._plugin_entries(repo)
+            extra = (
+                "Execution owner: OpenCode\n"
+                f"Commands: {self._short_list(commands)}\n"
+                f"Skills: {self._short_list(skills)}\n"
+                f"Tools: {self._short_list(tools)}\n"
+                f"Plugins: {self._short_list(plugins)}\n"
+                "Verify/update below are CodeSleuth lifecycle utilities; installed commands/Skills/tools execute through OpenCode."
+            )
+        else:
+            dependency = project_lifecycle.dependency_status(repo)
+            extra = (
+                self._settings_summary(repo)
+                + "\n"
+                + f"CodeSleuth dependency: {'pinned at ' + str(dependency['commit']) if dependency['bound'] else 'not pinned'}"
+            )
+        return f"[bold #63d5f4]{title}[/bold #63d5f4]\n{detail}\n\n{extra}"
+
+    def show_surface(self, route: str) -> None:
+        if route not in NAV_SURFACES:
+            return
+        self.current_surface = route
+        self.query_one("#surface", Static).update(self._surface_detail(route))
+        visible = set(SURFACE_ACTIONS[route])
+        for button_id in {item for actions in SURFACE_ACTIONS.values() for item in actions}:
+            self.query_one(f"#{button_id}", Button).display = button_id in visible
         for name in NAV_SURFACES:
             self.query_one(f"#nav-{name}", Button).variant = "primary" if name == route else "default"
+        selector = self.query_one("#compact-nav", Select)
+        if selector.value != route:
+            selector.value = route
 
     def refresh_status(self) -> None:
         try:
             self.target = self.validate_target()
             profiles = detect_profiles(self.target)
+            settings = load_settings(self.target, profiles)
+            runtime = settings["runtime"]
+            permissions = settings["permissions"]
             state = installation_state(self.target)
             meta_path = self.target / ".opencode" / "review-pack.json"
             version = "not installed"
             complete = None
+            meta: dict = {}
             if meta_path.is_file():
                 meta = json.loads(meta_path.read_text(encoding="utf-8"))
                 version = str(meta.get("version") or "unknown")
@@ -469,24 +571,33 @@ class CodeSleuthApp(ReviewPackApp):
             operation = recommended_operation(self.target, self.distribution_root is not None)
             dependency = project_lifecycle.dependency_status(self.target)
             lifecycle = project_lifecycle.lifecycle_state(self.target)
-            source = meta.get("source", {}) if meta_path.is_file() else {}
+            source = meta.get("source", {})
             update_mode = "pinned: advance/revert the gitlink, then materialize that checkout" if dependency["bound"] else (
                 "floating" if source.get("remote") and source.get("ref") else "unavailable: no explicit floating source ref"
             )
             self.query_one("#check-update", Button).disabled = dependency["bound"] or update_mode.startswith("unavailable")
             self.query_one("#update", Button).disabled = dependency["bound"] or update_mode.startswith("unavailable")
             readiness = "READY" if state == "versioned" and complete else ("ATTENTION" if state == "versioned" else "SETUP")
+            readiness_markup = {
+                "READY": "[bold #62d394]READY[/bold #62d394]",
+                "ATTENTION": "[bold #f0c36a]ATTENTION[/bold #f0c36a]",
+                "SETUP": "[bold #63d5f4]SETUP[/bold #63d5f4]",
+            }[readiness]
             complete_text = "yes" if complete is True else ("no" if complete is False else "n/a")
             self.query_one("#status", Static).update(
-                f"{readiness}  CodeSleuth {version}\n"
+                f"{readiness_markup}  CodeSleuth {version}\n"
                 f"Installation: {state}; lifecycle: {lifecycle}; complete: {complete_text}\n"
+                f"Profiles: {', '.join(profiles)}\n"
+                f"Runtime policy: permissions={permissions['preset']}; Exa={'on' if runtime['exaEnabled'] else 'off'}; "
+                f"keepalive={'on' if runtime['watchdogEnabled'] else 'off'}\n"
                 f"Dependency: {dependency['commit'] if dependency['bound'] else 'not pinned'}\n"
                 f"Update path: {update_mode}\n"
-                f"Profiles: {', '.join(profiles)}\n"
                 f"Next action: {operation}"
             )
+            if self.is_mounted:
+                self.show_surface(self.current_surface)
         except Exception as exc:
-            self.query_one("#status", Static).update(f"ATTENTION\n{exc}")
+            self.query_one("#status", Static).update(f"[bold #f07178]ATTENTION[/bold #f07178]\n{exc}")
 
     def action_configure(self) -> None:
         try:
