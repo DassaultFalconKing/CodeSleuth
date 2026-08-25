@@ -18,7 +18,7 @@ CodeSleuth = Skills / control surface / evidence discipline / lifecycle
 Host       = controller / model / agents / tools / execution
 ```
 
-OpenCode is the current full installed host. NovaClaw is the first tested external MCP host. Other host integrations may reuse the same Skills, evidence discipline and narrow tools without moving execution authority into CodeSleuth.
+OpenCode is the current full installed host. NovaClaw is the first tested external MCP host. Other host integrations may reuse the same Skills, evidence discipline and narrow tools without moving execution authority into CodeSleuth. The canonical installed-host controller description is [OpenCode `build` controller](../README.md#opencode-build-controller); this UI contract does not duplicate that controller diagram.
 
 ## Visual direction
 

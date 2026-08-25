@@ -24,7 +24,7 @@ The active host owns:
 - permissions and execution policy;
 - reasoning/orchestration behavior provided by the selected model/runtime.
 
-For the installed OpenCode integration this means OpenCode owns `build`, its native provider-specific prompt, native `explore` / `general` Task subagents, OpenCode commands, Skills, tools and long-running repository review.
+For the installed OpenCode integration this means OpenCode owns `build`, its native provider-specific prompt, native `explore` / `general` Task subagents, OpenCode commands, Skills, tools and long-running repository review. The canonical public controller description is [`OpenCode build controller`](../README.md#opencode-build-controller); this contract links to it instead of duplicating the controller diagram.
 
 For an external host, that host owns the equivalent runtime responsibilities. The current MCP server owns only deterministic bounded repository evidence and never replaces the host controller.
 
