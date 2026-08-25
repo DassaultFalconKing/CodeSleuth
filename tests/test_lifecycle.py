@@ -45,6 +45,26 @@ def main():
         assert "rust" in detected and "typescript" in detected
         assert (oc / "bin" / "review-pack-update.py").is_file()
 
+        # Branding is additive: compatibility identifiers remain, while the installed
+        # user-facing console and OpenCode runtime select CodeSleuth assets.
+        assert (oc / "bin" / "review_pack_tui.py").is_file()
+        branded_tui = oc / "bin" / "codesleuth_tui.py"
+        assert branded_tui.is_file()
+        branded_source = branded_tui.read_text(encoding="utf-8")
+        assert "CodeSleuth · Evidence Console" in branded_source
+        assert "CODESLEUTH_ART" in branded_source
+        assert "Evidence-first repository intelligence" in branded_source
+        assert "APP = HERE / \"codesleuth_tui.py\"" in (oc / "bin" / "review_pack_tui_bootstrap.py").read_text(encoding="utf-8")
+
+        tui_cfg = load(oc / "tui.json")
+        assert tui_cfg["$schema"] == "https://opencode.ai/tui.json"
+        assert tui_cfg["theme"] == "codesleuth"
+        theme = load(oc / "themes" / "codesleuth.json")
+        assert theme["$schema"] == "https://opencode.ai/theme.json"
+        assert theme["theme"]["primary"]["dark"] == "csPrimary"
+        assert "OPENCODE_TUI_CONFIG" in (oc / "bin" / "opencode-review").read_text(encoding="utf-8")
+        assert "OPENCODE_TUI_CONFIG" in (oc / "bin" / "opencode-review.ps1").read_text(encoding="utf-8")
+
         cfg_path = oc / "opencode.json"
         cfg = load(cfg_path)
         cfg["compaction"]["reserved"] = 12345

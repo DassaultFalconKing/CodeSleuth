@@ -16,10 +16,11 @@ required = [
     "profiles/builtin/node.json", "profiles/builtin/typescript.json",
     "bin/opencode-review", "bin/opencode-review.ps1",
     "bin/review-pack", "bin/review-pack.ps1",
-    "bin/review_pack_tui.py", "bin/review_pack_tui_core.py", "bin/review_pack_tui_bootstrap.py",
+    "bin/review_pack_tui.py", "bin/codesleuth_tui.py", "bin/review_pack_tui_core.py", "bin/review_pack_tui_bootstrap.py",
     "bin/requirements-tui.txt",
     "bin/review-pack-update", "bin/review-pack-update.ps1", "bin/review-pack-update.py",
-    "bin/review-pack-smoke.py", "opencode.json", "review-pack.json", "review-pack-user.json"
+    "bin/review-pack-smoke.py", "themes/codesleuth.json", "tui.json",
+    "opencode.json", "review-pack.json", "review-pack-user.json"
 ]
 missing = [x for x in required if not (oc / x).is_file()]
 if missing:
@@ -73,12 +74,35 @@ profiles = settings.get("profiles")
 if not isinstance(profiles, list) or "generic" not in profiles:
     raise SystemExit("review-pack-user profiles must include generic")
 
+tui = json.loads((oc / "tui.json").read_text(encoding="utf-8"))
+if tui.get("$schema") != "https://opencode.ai/tui.json":
+    raise SystemExit("CodeSleuth tui.json has an unexpected schema")
+if tui.get("theme") != "codesleuth":
+    raise SystemExit("CodeSleuth tui.json must select the codesleuth theme")
+
+theme = json.loads((oc / "themes" / "codesleuth.json").read_text(encoding="utf-8"))
+if theme.get("$schema") != "https://opencode.ai/theme.json" or not isinstance(theme.get("theme"), dict):
+    raise SystemExit("CodeSleuth theme is missing or malformed")
+for required_color in ("primary", "background", "text", "success", "warning", "error", "diffAdded", "diffRemoved"):
+    if required_color not in theme["theme"]:
+        raise SystemExit(f"CodeSleuth theme is missing {required_color}")
+
+branding = (oc / "bin" / "codesleuth_tui.py").read_text(encoding="utf-8")
+for marker in ("CodeSleuth", "Evidence Console", "Evidence-first repository intelligence", "CODESLEUTH_ART"):
+    if marker not in branding:
+        raise SystemExit(f"CodeSleuth TUI branding marker missing: {marker}")
+for launcher_name in ("opencode-review", "opencode-review.ps1"):
+    if "OPENCODE_TUI_CONFIG" not in (oc / "bin" / launcher_name).read_text(encoding="utf-8"):
+        raise SystemExit(f"{launcher_name} does not activate the project-local CodeSleuth TUI config")
+
 print("PACK SMOKE PASS")
+print("product: CodeSleuth")
 print("version:", meta["version"])
 print("installation complete:", bool(meta.get("complete", False)))
 print("profiles:", ", ".join(profiles))
+print("theme: codesleuth")
 print("Exa runtime:", "enabled" if settings.get("runtime", {}).get("exaEnabled", True) else "disabled")
-print("TUI: .opencode/bin/review-pack")
+print("CodeSleuth console: .opencode/bin/review-pack")
 print("POSIX launcher: .opencode/bin/opencode-review")
 print("PowerShell launcher: .opencode/bin/opencode-review.ps1")
 print("update check: .opencode/bin/review-pack-update --check")
