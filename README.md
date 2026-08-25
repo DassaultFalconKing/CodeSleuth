@@ -28,14 +28,14 @@ A target repository can contain three deliberately separate layers:
 
 ```text
 project/
-├── AGENTS.md            # reports pointer (managed block)
+├── AGENTS.md            # worktree reports pointer (managed block)
 ├── tools/codesleuth/    # optional pinned CodeSleuth submodule
 ├── .opencode/           # installed policy, agents, profiles, tools
 └── .codesleuth/         # local backups / reports / archives
-    └── reports/         # analytical reports for later sessions
+    └── reports/         # analytical reports for later worktree sessions
 ```
 
-`tools/codesleuth/` is intentionally **not** gitignored when the user chooses dependency mode. The superproject records an exact CodeSleuth commit as a Git gitlink. `.opencode/` is the target project's installed contract. `.codesleuth/` backups and report bodies are ignored by default; `.codesleuth/reports/README.md` may be committed so other assistants can find the convention.
+`tools/codesleuth/` is intentionally **not** ignored when the user chooses dependency mode. The superproject records an exact CodeSleuth commit as a Git gitlink. `.opencode/` is the target project's installed contract. `.codesleuth/` backups and report bodies are locally excluded from Git by default; `.codesleuth/reports/README.md` may be intentionally committed so other assistants can find the convention. Installer-created report state and the `AGENTS.md` pointer are worktree-local unless a maintainer deliberately commits sanitized material or shared guidance.
 
 ## Security and credential warning
 
@@ -45,14 +45,15 @@ CodeSleuth **does not blindly redact all evidence**. Blanket redaction would mak
 
 Safety defaults:
 
-- `.codesleuth/` backups, archives, and report bodies are gitignored;
+- `.codesleuth/` backups, archives, and report bodies are locally excluded from Git;
 - `.codesleuth/reports/README.md` may be tracked as the report-folder convention;
-- `.opencode/state/`, logs, caches, sessions and snapshots are gitignored;
-- preserved uninstall archives remain gitignored;
+- `.opencode/state/`, logs, caches, sessions and snapshots are locally excluded;
+- preserved uninstall archives remain locally excluded;
+- CodeSleuth writes its managed ignore patterns to the repository-local Git exclude file rather than silently editing a tracked project `.gitignore`;
 - CodeSleuth warns before destructive uninstall choices;
 - project policy controls web/edit/external-directory permissions;
 - built-in repository profiles do not grant extra permissions;
-- **inspect and sanitize reports before sharing or force-adding ignored artifacts to Git.**
+- **inspect and sanitize reports before intentionally adding or sharing local artifacts.**
 
 CodeSleuth cannot guarantee that arbitrary reports authored by an LLM outside its managed local-state paths contain no secrets. Treat audit output like other developer diagnostics.
 
@@ -106,7 +107,7 @@ The backup records hashes and copies project configuration while excluding obvio
 
 A pointer is kept at `.codesleuth/preinstall.json`. An upgrade from an older already-installed review-pack records a `pre-0.3-upgrade` baseline instead of falsely claiming it predates CodeSleuth.
 
-The installer also writes a managed block to the target root `.gitignore` for local CodeSleuth/OpenCode state. It does not add an ignore for `tools/codesleuth`. If the project already ignores that dependency path, CodeSleuth refuses to override the project's ignore policy and explains the conflict.
+The installer writes a managed block to the repository-local Git exclude file returned by `git rev-parse --git-path info/exclude` (normally `.git/info/exclude`) for local CodeSleuth/OpenCode state. It does not silently modify the target root `.gitignore`, and it does not add an ignore for `tools/codesleuth`. If the project already ignores that dependency path, CodeSleuth refuses to override the project's ignore policy and explains the conflict.
 
 ## Uninstall
 
@@ -122,7 +123,7 @@ Default uninstall behavior:
 2. restore the pre-CodeSleuth `.opencode` snapshot when safe;
 3. remove CodeSleuth-owned runtime files;
 4. remove the bound `tools/codesleuth` submodule/gitlink when present and clean;
-5. keep the archive gitignored.
+5. keep the archive locally excluded from Git.
 
 To remove CodeSleuth and its local traces/backups:
 
@@ -136,7 +137,7 @@ To remove the installed runtime while intentionally retaining the pinned submodu
 .opencode/bin/codesleuth-project --uninstall . --keep-dependency
 ```
 
-Restore compares pre-install, post-install, and current files. A post-install edit to a pre-existing `.opencode` file stays in the worktree; baseline/current copies and an explicit manifest are retained under gitignored `.codesleuth/restore-conflicts/`. Required conflict evidence survives purge.
+Restore compares pre-install, post-install, and current files. A post-install edit to a pre-existing `.opencode` file stays in the worktree; baseline/current copies and an explicit manifest are retained under locally excluded `.codesleuth/restore-conflicts/`. Required conflict evidence survives purge.
 
 The TUI exposes the same **Preserve traces** / **Purge traces** choice. CodeSleuth refuses to remove either a dirty submodule or a clean detached local commit that differs from the recorded gitlink.
 
@@ -178,7 +179,7 @@ A detached CodeSleuth checkout records its exact source commit but **does not in
 /repo-report
 ```
 
-Those commands run on OpenCode's native `build` agent. `/repo-review` and `/repo-report` persist markdown under `.codesleuth/reports/` for later CodeSleuth sessions and other coding assistants.
+Those commands run on OpenCode's native `build` agent. `/repo-review` and `/repo-report` persist markdown under `.codesleuth/reports/` for later CodeSleuth sessions and other coding assistants in the same worktree by default. Cross-clone reuse requires deliberately sanitized and committed reports or repository guidance.
 
 Review state is durable under local `.opencode/state/reviews/` and is bound to tracked source blob hashes so changed files can invalidate stale coverage.
 
@@ -199,11 +200,12 @@ ruff check .
 
 The dev set includes `pytest`, `pytest-asyncio`, Ruff, and the pinned Textual runtime used by the TUI. Textual UI tests use `App.run_test()` and `Pilot` rather than terminal scraping.
 
-The existing Bun durable-state smoke remains part of acceptance:
+The Bun durable-state smokes remain part of acceptance:
 
 ```bash
 bun install --frozen-lockfile
 bun tests/review_state_smoke.ts
+bun tests/context_graph_smoke.ts
 ```
 
 ## Current compatibility names
