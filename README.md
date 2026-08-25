@@ -93,6 +93,8 @@ For a reproducible development-repository install with a pinned CodeSleuth depen
 
 The binding is an explicit Git change: `.gitmodules` and the `tools/codesleuth` gitlink are staged for the operator to review and commit. CodeSleuth never commits or pushes the target repository on the user's behalf.
 
+Self-hosting exception: if the target repository is the CodeSleuth source checkout itself, ordinary self-install is supported but `--bind-dependency` is rejected. CodeSleuth will not create a recursive `tools/codesleuth` self-submodule inside its own source repository.
+
 CLI targets are normalized to the containing Git root, so passing `/path/to/project/subdir` still installs into `/path/to/project`.
 
 ## Reversible first install

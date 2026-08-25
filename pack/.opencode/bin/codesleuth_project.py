@@ -193,6 +193,51 @@ def _git_info_exclude(repo: Path) -> Path:
     return path.resolve()
 
 
+def _restore_text_file(path: Path, existed: bool, content: str) -> None:
+    if existed:
+        path.write_text(content, encoding="utf-8")
+    elif path.exists():
+        path.unlink()
+
+
+def _abort_if_tracked_codesleuth_would_be_ignored(repo: Path) -> None:
+    """Refuse ignore updates that would cover already-tracked ``.codesleuth`` paths.
+
+    Uses ``git check-ignore --no-index`` so ignore rules are evaluated even for
+    paths that remain tracked in the index (for example self-hosted report bodies).
+    The README whitelist in ``IGNORE_LINES`` is respected by those rules.
+    """
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "ls-files", "-z", "--", ".codesleuth"],
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return
+    tracked = [x for x in proc.stdout.decode("utf-8", "surrogateescape").split("\0") if x]
+    for rel in tracked:
+        check = subprocess.run(
+            ["git", "-C", str(repo), "check-ignore", "--no-index", "-q", "--", rel],
+            capture_output=True,
+            check=False,
+        )
+        if check.returncode == 0:
+            raise RuntimeError(
+                f"tracked file {rel} would become ignored by CodeSleuth gitignore; aborting installation"
+            )
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        tmp.write_text(content, encoding="utf-8")
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink(missing_ok=True)
+
+
 def _replace_ignore_block(path: Path, lines: list[str], *, label: str) -> Path:
     """Replace the CodeSleuth ignore block in one Git ignore/exclude file."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -216,22 +261,24 @@ def ensure_local_gitignore(repo: Path, *, preserve_archive_only: bool = False) -
     The historical function name is kept for compatibility with installer and
     lifecycle callers. New installations write only to ``.git/info/exclude``
     (or Git's worktree-aware equivalent from ``git rev-parse --git-path``).
+
+    If applying the managed block would ignore an already-tracked ``.codesleuth``
+    path (other than patterns explicitly negated, such as reports README), the
+    exclude file is restored and installation aborts.
     """
     repo = git_root(repo)
+    _abort_if_tracked_codesleuth_would_be_ignored(repo)
+    path = _git_info_exclude(repo)
+    existed = path.is_file()
+    original_raw = path.read_text(encoding="utf-8") if existed else ""
     lines = [".codesleuth/"] if preserve_archive_only else list(IGNORE_LINES)
-    return _replace_ignore_block(_git_info_exclude(repo), lines, label="Git info/exclude")
-
-
-
-def _atomic_write_text(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     try:
-        tmp.write_text(content, encoding="utf-8")
-        os.replace(tmp, path)
-    finally:
-        if tmp.exists():
-            tmp.unlink(missing_ok=True)
+        _replace_ignore_block(path, lines, label="Git info/exclude")
+        _abort_if_tracked_codesleuth_would_be_ignored(repo)
+    except Exception:
+        _restore_text_file(path, existed, original_raw)
+        raise
+    return path
 
 
 def report_timestamp_key(name: str) -> tuple[int, ...]:
@@ -578,7 +625,6 @@ def remove_agents_reports_pointer(repo: Path) -> None:
     else:
         path.unlink()
 
-
 def _remove_ignore_block(path: Path, *, label: str) -> None:
     if not path.exists():
         return
@@ -760,6 +806,46 @@ def _source_from_checkout(source_root: Path | None, metadata: dict[str, Any] | N
     return str(remote), str(commit)
 
 
+def is_self_target(repo: Path, source_root: Path | None = None, source_metadata: dict[str, Any] | None = None) -> bool:
+    """Return True when the source checkout and target repo resolve to the same Git root."""
+    target_root = git_root(repo)
+    candidate_roots: list[Path] = []
+    if source_root is not None and source_root.exists():
+        try:
+            candidate_roots.append(git_root(source_root))
+        except subprocess.CalledProcessError:
+            pass
+    source_subdir = ""
+    if source_metadata:
+        source_subdir = str(source_metadata.get("subdir") or "")
+    if not candidate_roots and source_metadata:
+        source_commit = source_metadata.get("commit")
+        source_remote = source_metadata.get("remote")
+        try:
+            target_commit = run_git(target_root, ["rev-parse", "HEAD"], check=False)
+        except subprocess.CalledProcessError:
+            target_commit = None
+        try:
+            target_remote = run_git(target_root, ["remote", "get-url", "origin"], check=False)
+        except subprocess.CalledProcessError:
+            target_remote = None
+        if (
+            source_commit
+            and source_remote
+            and target_commit
+            and target_commit.returncode == 0
+            and target_commit.stdout.strip() == source_commit
+            and target_remote
+            and target_remote.returncode == 0
+            and target_remote.stdout.strip() == source_remote
+        ):
+            candidate_roots.append(target_root)
+    for candidate in candidate_roots:
+        if candidate == target_root and source_subdir in {"", "."}:
+            return True
+    return False
+
+
 def bind_dependency(
     repo: Path,
     *,
@@ -772,6 +858,11 @@ def bind_dependency(
     rel = _safe_rel(dependency_path).as_posix()
     current = dependency_status(repo, rel)
     remote, commit = _source_from_checkout(source_root, source_metadata)
+    if is_self_target(repo, source_root=source_root, source_metadata=source_metadata):
+        raise RuntimeError(
+            "cannot bind CodeSleuth as a dependency of its own source repository; "
+            "self-install is supported, recursive self-submodule binding is not"
+        )
 
     if current["bound"]:
         worktree = repo / rel

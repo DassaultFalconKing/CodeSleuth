@@ -172,6 +172,20 @@ def test_ignored_dependency_path_is_rejected(tmp_path: Path) -> None:
         lifecycle.bind_dependency(target, source_metadata={"remote": str(source), "commit": sha})
 
 
+def test_self_bind_dependency_is_rejected(tmp_path: Path) -> None:
+    repo = tmp_path / "source"
+    init_repo(repo)
+    sha = git(repo, "rev-parse", "HEAD")
+    with pytest.raises(RuntimeError, match="self-submodule binding is not"):
+        lifecycle.bind_dependency(
+            repo,
+            source_root=repo,
+            source_metadata={"remote": str(repo), "commit": sha, "subdir": ""},
+        )
+    assert not (repo / ".gitmodules").exists()
+    assert not (repo / "tools" / "codesleuth").exists()
+
+
 def test_uninstall_preserves_sensitive_traces_in_ignored_archive(tmp_path: Path) -> None:
     repo = tmp_path / "target"
     init_repo(repo)
@@ -287,8 +301,8 @@ def test_uninstall_purge_restores_config_and_removes_local_root(tmp_path: Path) 
     assert result["archive"] is None
     assert not (repo / ".codesleuth").exists()
     assert json.loads((oc / "opencode.json").read_text(encoding="utf-8"))["before"] == 1
-    if (repo / ".gitignore").exists():
-        assert lifecycle.IGNORE_BEGIN not in (repo / ".gitignore").read_text(encoding="utf-8")
+    if info_exclude(repo).exists():
+        assert lifecycle.IGNORE_BEGIN not in info_exclude(repo).read_text(encoding="utf-8")
 
 
 def test_invalid_dependency_path_fails_closed(tmp_path: Path) -> None:

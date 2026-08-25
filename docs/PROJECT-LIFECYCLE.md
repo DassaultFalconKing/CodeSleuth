@@ -54,7 +54,7 @@ The purpose is to keep CodeSleuth/OpenCode runtime noise local without silently 
 
 Reports and the installer-created `AGENTS.md` pointer are worktree-local unless a maintainer intentionally commits sanitized material or repository guidance. Fresh clones therefore do not inherit local evidence by accident.
 
-The dependency path `tools/codesleuth` is never added to that block. If an existing project rule ignores the proposed submodule path, binding fails closed rather than silently rewriting project ignore policy.
+The dependency path `tools/codesleuth` is never added to that block. If an existing project rule ignores the proposed submodule path, binding fails closed rather than silently rewriting project ignore policy. If the source checkout and target repository are the same Git root, ordinary self-install remains valid but dependency binding fails closed rather than creating a recursive self-submodule.
 
 ## Dependency binding
 
