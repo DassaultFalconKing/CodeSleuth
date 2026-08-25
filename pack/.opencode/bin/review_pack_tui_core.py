@@ -8,12 +8,13 @@ from pathlib import Path
 from typing import Any
 
 from constants import (
-    AGENT_PROFILE_OPTIONS,
+    AGENT_PROFILE_OPTIONS as AGENT_PROFILE_OPTIONS
+)
+from constants import (
     AGENT_PROFILES,
     PERMISSION_VALUES,
     PROFILES,
     SETTINGS_SCHEMA,
-    TEXTUAL_VERSION,
 )
 
 SAFE_GIT_RULES = {

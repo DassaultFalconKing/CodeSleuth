@@ -12,9 +12,9 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, RichLog, Select, Static, Switch
 
 import codesleuth_project as project_lifecycle
+from constants import AGENT_PROFILE_OPTIONS
 from review_pack_tui import ConfigScreen, PromptScreen, ReviewPackApp, launch_opencode
 from review_pack_tui_core import (
-    AGENT_PROFILE_OPTIONS,
     detect_profiles,
     installation_state,
     load_settings,

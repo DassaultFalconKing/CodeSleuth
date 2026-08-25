@@ -17,7 +17,7 @@ OpenCode primary build
     ↓
 native provider-specific controller prompt
     ↓
-Task → explore / general / CodeSleuth skills
+Task → explore / general / CodeSleuth skills and subagents
 ```
 
 OpenCode is the current runtime/integration environment. Historical `review-pack*` commands remain compatibility aliases while the public surface moves to `codesleuth`.
