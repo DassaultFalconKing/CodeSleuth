@@ -181,7 +181,7 @@ def _abort_if_tracked_codesleuth_would_be_ignored(
     tracked = [x for x in proc.stdout.decode("utf-8", "surrogateescape").split("\0") if x]
     for rel in tracked:
         check = subprocess.run(
-            ["git", "-C", str(repo), "check-ignore", "-q", "--", rel],
+            ["git", "-C", str(repo), "check-ignore", "--no-index", "-q", "--", rel],
             capture_output=True,
             check=False,
         )
@@ -232,15 +232,18 @@ def ensure_reports_workspace(repo: Path) -> Path:
 def ensure_agents_reports_pointer(repo: Path) -> Path:
     path = repo / "AGENTS.md"
     original = path.read_text(encoding="utf-8") if path.is_file() else ""
-    if original.rstrip("\n").endswith(AGENTS_POINTER.rstrip("\n")):
+    if original.rstrip("\n").endswith(AGENTS_POINTER.rstrip("\n")) and original.count(AGENTS_BEGIN) == 1:
         return path
-    before, marker, tail = original.partition(AGENTS_BEGIN)
-    if marker:
+    cleaned = original
+    while True:
+        before, marker, tail = cleaned.partition(AGENTS_BEGIN)
+        if not marker:
+            break
         _, end_marker, after = tail.partition(AGENTS_END)
         if not end_marker:
             raise RuntimeError("malformed CodeSleuth reports block in AGENTS.md")
-        original = before.rstrip("\n") + ("\n" if before else "") + after.lstrip("\n")
-    body = original.rstrip("\n")
+        cleaned = before.rstrip("\n") + ("\n" if before else "") + after.lstrip("\n")
+    body = cleaned.rstrip("\n")
     new_content = (
         textwrap.dedent(
             f"""\

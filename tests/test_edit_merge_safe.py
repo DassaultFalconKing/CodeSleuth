@@ -95,8 +95,8 @@ def test_update_config_merge_missing_adds_reports_edit_allow_without_clobbering_
     assert merged["permission"]["edit"][".codesleuth/reports/**"] == "allow"
     # persisted result also preserves compaction
     assert merged["compaction"]["reserved"] == 12345
-    # exercise actual update_config helper (non-update)
-    installer.update_config(repo, old_meta=None, update=False)
+    # exercise actual update_config helper (non-update) - target is .opencode dir
+    installer.update_config(oc, old_meta=None, update=False)
     on_disk = json.loads((oc / "opencode.json").read_text(encoding="utf-8"))
     assert on_disk["permission"]["edit"]["custom/path/**"] == "allow"
     assert on_disk["permission"]["edit"][".codesleuth/reports/**"] == "allow"
@@ -121,7 +121,7 @@ def test_update_config_three_way_preserves_user_override(tmp_path: Path) -> None
     orig = pack_cfg.read_text(encoding="utf-8")
     try:
         pack_cfg.write_text(json.dumps(base_new, indent=2) + "\n", encoding="utf-8")
-        installer.update_config(repo, old_meta=old_meta, update=True)
+        installer.update_config(oc, old_meta=old_meta, update=True)
     finally:
         pack_cfg.write_text(orig, encoding="utf-8")
     after = json.loads((oc / "opencode.json").read_text(encoding="utf-8"))

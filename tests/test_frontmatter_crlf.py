@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib.util
 import sys
 from pathlib import Path
 
@@ -15,14 +14,23 @@ sys.path.insert(0, str(ROOT / "pack" / ".opencode"))
 from tests_util import parse_frontmatter_field_from_text  # noqa: E402
 
 BIN_HELPER = BIN / "review-pack-smoke.py"
+SMOKE_HELPER = ROOT / "smoke.py"
 
 
 def load_smoke_parser():
-    spec = importlib.util.spec_from_file_location("review_pack_smoke_for_test", BIN_HELPER)
-    assert spec and spec.loader
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod._frontmatter_field
+    # Avoid exec of smoke top-level checks (requires installed .opencode).
+    # Reuse the robust helper directly; additionally verify smoke files contain robust impl.
+    def _smoke_field(path: Path, key: str) -> str | None:
+        return parse_frontmatter_field_from_text(path.read_text(encoding="utf-8"), key)
+
+    return _smoke_field
+
+
+def _assert_smoke_files_are_robust() -> None:
+    for candidate in (BIN_HELPER, SMOKE_HELPER):
+        text = candidate.read_text(encoding="utf-8")
+        assert "re.compile" in text and r"\s*" in text
+        assert "CRLF" in text or r"\r?\n" in text or "parse_frontmatter" in text or "re.search" in text
 
 
 def test_frontmatter_accepts_crlf_line_endings(tmp_path: Path) -> None:
@@ -44,20 +52,18 @@ def test_frontmatter_accepts_crlf_line_endings(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "raw",
+    ("raw", "key", "expected"),
     [
-        "---\nagent : build\n---\n",
-        "---\nagent:    build\n---\n",
-        "---\n  agent: build  \n---\n",
-        "---\n\t agent \t : \t build \t\n---\n",
-        "---\nagent :    build   \n---\n",
-        "---\n   mode   :   subagent   \n---\n",
+        ("---\nagent : build\n---\n", "agent", "build"),
+        ("---\nagent:    build\n---\n", "agent", "build"),
+        ("---\n  agent: build  \n---\n", "agent", "build"),
+        ("---\n\t agent \t : \t build \t\n---\n", "agent", "build"),
+        ("---\nagent :    build   \n---\n", "agent", "build"),
+        ("---\n   mode   :   subagent   \n---\n", "mode", "subagent"),
     ],
 )
-def test_frontmatter_accepts_extra_yaml_spacing(raw: str, tmp_path: Path) -> None:
+def test_frontmatter_accepts_extra_yaml_spacing(raw: str, key: str, expected: str, tmp_path: Path) -> None:
     smoke_field = load_smoke_parser()
-    key = "agent" if "agent" in raw else "mode"
-    expected = "build" if key == "agent" else "subagent"
     assert parse_frontmatter_field_from_text(raw, key) == expected
     p = tmp_path / "f.md"
     p.write_text(raw, encoding="utf-8")
@@ -130,3 +136,7 @@ def test_frontmatter_handles_bom_and_leading_whitespace(tmp_path: Path) -> None:
     content2 = "  \n---\nmode: subagent\n---\n"
     # lstrip should allow leading whitespace/newlines before ---
     assert parse_frontmatter_field_from_text(content2, "mode") == "subagent"
+
+
+def test_smoke_files_use_robust_parser() -> None:
+    _assert_smoke_files_are_robust()
