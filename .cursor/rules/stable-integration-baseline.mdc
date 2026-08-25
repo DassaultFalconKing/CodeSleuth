@@ -1,0 +1,27 @@
+---
+description: Stable Integration Baseline discipline for release-bound changes
+alwaysApply: true
+---
+
+# Stable Integration Baseline (SIB)
+
+CodeSleuth release construction follows this invariant:
+
+`SIB -> integration build -> feature composition -> acceptance -> RC -> release`
+
+The `SIB` branch is the known-good starting point for a new release. At policy introduction it points to `c5e41a73b84e65645dec5d0a4032b19928291193`.
+
+## Required behavior
+
+- Do not implement release-bound feature work directly on `SIB`.
+- Start new release/integration work from `SIB` or from an explicitly accepted descendant.
+- Apply changes incrementally. After each substantial layer, run the repository's full canonical acceptance gate.
+- A feature being green on an old branch or old base is not acceptance evidence for the current composition.
+- Only an exact tested commit may be treated as an accepted integration state.
+- Preserve current semantics when transplanting stale work. Re-apply the intended delta rather than replacing newer files wholesale.
+- Never weaken, skip, xfail, or rewrite acceptance tests to promote a change.
+- Record the tested commit SHA and gate result when claiming compatibility.
+- RC status is downstream of completed, accepted feature composition. SIB itself is not an RC.
+- Repointing `SIB` is a separate maintainer promotion decision after a proven release/post-release state exists. Never advance it as a side effect of ordinary feature work.
+
+See [`CONTRIBUTING.md`](../../CONTRIBUTING.md) for the contributor-facing contract.
