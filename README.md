@@ -1,4 +1,27 @@
-# OpenCode Repository Deep Review Pack
+# CodeSleuth
+
+**Evidence-first repository intelligence**
+
+CodeSleuth is the product name. OpenCode is the runtime/integration environment
+used by the current implementation. The imported `review-pack*` commands and
+file names remain temporary compatibility identifiers.
+
+## Import provenance
+
+- Product: `CodeSleuth`
+- Imported from: `DassaultFalconKing/Aleph_Rugent`
+- Source commit: `b00f83b81d50b2ac804fd24c83df0db86fe01c00`
+- Source subtree: `opencode-repo-review-pack/`
+- Imported behavior/version: `0.2.1`
+
+This import is not a new `v0.2.1` release tag. The following standalone release
+blockers remain open:
+
+- **EXT-001:** detached/pinned source metadata must not invent a floating ref
+  from `origin/HEAD`.
+- **EXT-002:** built-in profiles must not widen project permissions.
+
+## Current compatibility implementation
 
 Portable, evidence-first OpenCode environment for deep repository review,
 architecture documentation, profile generation, and long-running large-context
