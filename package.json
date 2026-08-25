@@ -7,6 +7,6 @@
     "test:context-graph": "bun tests/context_graph_smoke.ts"
   },
   "devDependencies": {
-    "@opencode-ai/plugin": "1.14.48"
+    "@opencode-ai/plugin": "^1.14.48"
   }
 }
