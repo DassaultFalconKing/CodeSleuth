@@ -12,6 +12,7 @@ from pathlib import Path
 from textual import work
 from textual.app import ComposeResult
 from textual.containers import Horizontal, VerticalScroll
+from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, RichLog, Select, Static, Switch
 
 from review_pack_tui import ConfigScreen, PromptScreen, ReviewPackApp, launch_opencode
@@ -25,7 +26,6 @@ from review_pack_tui_core import (
     save_settings,
     settings_summary,
     validate_settings,
-    write_prompts,
 )
 
 PERMISSION_OPTIONS = [("Ask before use", "ask"), ("Allow", "allow"), ("Deny", "deny")]
@@ -35,19 +35,99 @@ PRESET_OPTIONS = [
     ("Autonomous local work", "autonomous"),
 ]
 
-CODESLEUTH_ART = r"""   ___          __     _____ __           __
-  / __|___  ___/ /__  / __// /___ __ __ / /_
- / /__/ _ \/ _  / -_)_\ \/ / -_) // // __/
-/____/\___/\_,_/\__/___/_/\__/\_,_/ \__/"""
+CODESLEUTH_ART = r"""
++-------------------------------------------------+
+|  CODE:SLEUTH // EVIDENCE OPERATIONS CONSOLE    |
++----------------------+--------------------------+
+                       .-\"\"\"\"-.
+                     .'  ____  '.
+                    /   /_  _\   \
+                   |   |o || o|   |
+                   |   |__||__|   |
+                   |      /\      |
+                    \   .____.   /
+                 ____'.\____/.'____
+               .' ___/|  /\  |\___ '.
+              /__/    | /  \ |    \__\
+                   [ TARGET : SOURCE ]
+                   [ EVIDENCE : LIVE ]
+""".strip("\n")
 
 EVIDENCE_MARK = r"""+-- source --+     +-- evidence --+
 | repository | --> | verified    |
 +------------+     +--------------+"""
 
+HELP_SECTIONS = [
+    (
+        "What CodeSleuth is",
+        "CodeSleuth is an evidence-first repository intelligence layer running on OpenCode. "
+        "The TUI configures the project-local runtime; OpenCode remains the execution environment.",
+    ),
+    (
+        "Quick start",
+        "1. Select a Git repository.\n"
+        "2. Configure or install CodeSleuth.\n"
+        "3. Run Verify after install/update.\n"
+        "4. Open CodeSleuth to launch OpenCode with the project-local CodeSleuth theme.\n"
+        "5. Start with /repo-prompts for advice or /repo-review for a deep evidence-first review.",
+    ),
+    (
+        "Skills",
+        "A Skill is a reusable agent capability/protocol stored under .opencode/skills/. "
+        "CodeSleuth currently ships the real OpenCode skill 'repository-deep-review'. "
+        "The repo-reviewer agent loads it immediately and follows its inventory, architecture, "
+        "evidence-ledger, checkpoint, context-discipline, and completion contracts. "
+        "You normally use it through /repo-review or /repo-review-resume rather than invoking the skill manually.",
+    ),
+    (
+        "Playbooks",
+        "Playbooks are ready-to-run task recipes generated from the repository profile. "
+        "They are intentionally not called Skills because they are prompts/command templates, not reusable OpenCode capabilities. "
+        "Open Playbooks from this console, copy a useful recipe into OpenCode, or save the generated set to "
+        ".opencode/state/tui/suggested-prompts.md (compatibility path retained for now).",
+    ),
+    (
+        "OpenCode commands",
+        "/repo-review          deep repository or PR review\n"
+        "/repo-review-resume   continue from durable review state\n"
+        "/repo-docs            evidence-first repository documentation\n"
+        "/repo-profile         inspect/build repository profile\n"
+        "/repo-prompts         in-OpenCode task advisor",
+    ),
+    (
+        "Evidence and durable state",
+        "Scout summaries are leads, not proof. Material findings are re-opened against exact current source and recorded with identity/provenance. "
+        "Durable review checkpoints live under .opencode/state/ so work can survive compaction or resume without pretending conversation history is project truth.",
+    ),
+    (
+        "Permissions",
+        "Review-safe is the recommended least-privilege preset. Web search/fetch, edits, external directories, "
+        "and shell execution remain explicit policy choices. Destructive Git commands are denied or require confirmation according to the selected preset.",
+    ),
+    (
+        "Verify and update",
+        "Verify runs the installed smoke gate. Check Updates inspects the recorded source. Update uses the safe updater: "
+        "unchanged managed files may be replaced, locally modified managed files are preserved and incoming versions are written under "
+        ".opencode/state/update-conflicts/.",
+    ),
+    (
+        "Deinstallation",
+        "There is no automated uninstaller yet. Do not delete the whole .opencode directory unless it belongs only to CodeSleuth.\n"
+        "Safe manual removal:\n"
+        "1. Stop CodeSleuth/OpenCode and preserve any review checkpoints you care about.\n"
+        "2. Open .opencode/review-pack.json and use managedFiles as the authoritative CodeSleuth-owned file list.\n"
+        "3. Remove only managed files whose current content still matches the recorded managed hash; preserve locally modified files for manual review.\n"
+        "4. If .opencode/state/installer-backups/opencode.json.before-pack exists and is the desired pre-CodeSleuth config, restore it. Otherwise edit opencode.json manually; do not blindly delete a shared OpenCode config.\n"
+        "5. Remove review-pack.json and review-pack-user.json after the managed files/config are handled.\n"
+        "6. Remove .opencode/state/ only if you no longer need checkpoints, backups, logs, or conflict evidence.\n"
+        "Compatibility filenames still use review-pack* until a separate migration changes those contracts.",
+    ),
+]
 
-class CodeSleuthPromptScreen(PromptScreen):
+
+class CodeSleuthPlaybookScreen(PromptScreen):
     CSS = """
-    CodeSleuthPromptScreen { align: center middle; background: rgba(0,0,0,0.58); }
+    CodeSleuthPlaybookScreen { align: center middle; background: rgba(0,0,0,0.58); }
     #prompt-dialog { width: 92%; height: 88%; border: round #31566a; background: #0e1822; padding: 1 2; }
     #prompt-title { color: #63d5f4; text-style: bold; }
     #prompt-log { height: 1fr; border: solid #29404f; }
@@ -57,12 +137,44 @@ class CodeSleuthPromptScreen(PromptScreen):
 
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="prompt-dialog"):
-            yield Label("CodeSleuth Review Prompts", id="prompt-title")
-            yield Static("Evidence-focused prompts generated from the active repository profiles.", classes="hint")
+            yield Label("CodeSleuth Playbooks", id="prompt-title")
+            yield Static(
+                "Ready-to-run review task recipes generated from active repository profiles. "
+                "Playbooks are prompts, not OpenCode Skills.",
+                classes="hint",
+            )
             yield RichLog(id="prompt-log", wrap=True, markup=True)
             with Horizontal(id="prompt-actions"):
-                yield Button("Save to repo state", id="save-prompts", variant="primary")
+                yield Button("Save playbooks", id="save-prompts", variant="primary")
                 yield Button("Close", id="close-prompts")
+
+
+class CodeSleuthHelpScreen(ModalScreen[None]):
+    CSS = """
+    CodeSleuthHelpScreen { align: center middle; background: rgba(0,0,0,0.62); }
+    #help-dialog { width: 94%; height: 94%; border: round #31566a; background: #0e1822; padding: 1 2; }
+    #help-title { color: #63d5f4; text-style: bold; }
+    #help-subtitle { color: #8298a9; margin-bottom: 1; }
+    #help-log { height: 1fr; border: solid #29404f; background: #0b141d; }
+    #help-actions { height: auto; align-horizontal: right; margin-top: 1; }
+    """
+
+    def compose(self) -> ComposeResult:
+        with VerticalScroll(id="help-dialog"):
+            yield Label("CodeSleuth Help", id="help-title")
+            yield Static("Operation guide, Skills, Playbooks, lifecycle, and safe removal.", id="help-subtitle")
+            yield RichLog(id="help-log", wrap=True, markup=True)
+            with Horizontal(id="help-actions"):
+                yield Button("Close", id="close-help", variant="primary")
+
+    def on_mount(self) -> None:
+        log = self.query_one("#help-log", RichLog)
+        for title, body in HELP_SECTIONS:
+            log.write(f"[bold cyan]{title}[/bold cyan]\n{body}\n")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "close-help":
+            self.dismiss(None)
 
 
 class CodeSleuthConfigScreen(ConfigScreen):
@@ -99,11 +211,18 @@ class CodeSleuthConfigScreen(ConfigScreen):
             yield Static(f"Repository: {self.repo}\nInstallation state: {self.state}", classes="hint")
 
             yield Label("1. Installation", classes="section")
-            yield Static("CodeSleuth currently targets OpenCode V1 stable. OpenCode V2 is beta and uses a different plugin API; this control center will not silently migrate V1 plugins/configuration.", classes="hint")
+            yield Static(
+                "CodeSleuth currently targets OpenCode V1 stable. OpenCode V2 is beta and uses a different plugin API; "
+                "this control center will not silently migrate V1 plugins/configuration.",
+                classes="hint",
+            )
             yield Select(ops, value=selected_op, allow_blank=False, id="operation")
 
             yield Label("2. Repository profile", classes="section")
-            yield Static("Auto-detection uses tracked manifests/source. Switch to manual selection for mixed or unusual repositories.", classes="hint")
+            yield Static(
+                "Auto-detection uses tracked manifests/source. Switch to manual selection for mixed or unusual repositories.",
+                classes="hint",
+            )
             yield Switch(value=self.settings.get("profilesMode") == "auto", id="profiles-auto")
             yield Label("Auto-detect profiles", classes="hint")
             with Horizontal(classes="row"):
@@ -111,7 +230,11 @@ class CodeSleuthConfigScreen(ConfigScreen):
                     yield Checkbox(profile, value=profile in self.settings["profiles"], id=f"profile-{profile}")
 
             yield Label("3. Evidence permissions", classes="section")
-            yield Static("Review-safe is least-privilege. Web search/fetch can disclose queries and requested URLs to external services; choose explicit consent behavior.", classes="hint")
+            yield Static(
+                "Review-safe is least-privilege. Web search/fetch can disclose queries and requested URLs to external services; "
+                "choose explicit consent behavior.",
+                classes="hint",
+            )
             yield Select(PRESET_OPTIONS, value=p["preset"], allow_blank=False, id="preset")
             with Horizontal(classes="row"):
                 yield Label("websearch")
@@ -194,7 +317,7 @@ class CodeSleuthApp(ReviewPackApp):
     Header { background: #0e1822; color: #63d5f4; }
     Footer { background: #0e1822; color: #8aa7b8; }
     #body { padding: 1 2; }
-    #brand { color: #63d5f4; height: 4; text-style: bold; }
+    #brand { color: #63d5f4; height: 15; text-style: bold; }
     #tagline { color: #8aa7b8; margin-bottom: 1; }
     #target { width: 100%; }
     #status { border: round #29404f; padding: 1; margin: 1 0; background: #0e1822; }
@@ -204,7 +327,12 @@ class CodeSleuthApp(ReviewPackApp):
     #configure { background: #155e75; }
     #launch { background: #166534; }
     """
-    BINDINGS = [("q", "quit", "Quit"), ("c", "configure", "Configure"), ("p", "prompts", "Prompts")]
+    BINDINGS = [
+        ("q", "quit", "Quit"),
+        ("c", "configure", "Configure"),
+        ("p", "playbooks", "Playbooks"),
+        ("h", "help", "Help"),
+    ]
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -219,7 +347,8 @@ class CodeSleuthApp(ReviewPackApp):
                 yield Button("Verify", id="smoke")
                 yield Button("Check Updates", id="check-update")
                 yield Button("Update", id="update")
-                yield Button("Review Prompts", id="prompts")
+                yield Button("Playbooks", id="playbooks")
+                yield Button("Help", id="help")
                 yield Button("Open CodeSleuth", id="launch", variant="success")
             yield RichLog(id="log", wrap=True, markup=True)
         yield Footer()
@@ -256,13 +385,24 @@ class CodeSleuthApp(ReviewPackApp):
             return
         self.push_screen(CodeSleuthConfigScreen(repo, self.distribution_root), self._configured)
 
-    def action_prompts(self) -> None:
+    def action_playbooks(self) -> None:
         try:
             repo = self.validate_target()
             profiles = load_settings(repo, detect_profiles(repo))["profiles"]
-            self.push_screen(CodeSleuthPromptScreen(repo, profiles))
+            self.push_screen(CodeSleuthPlaybookScreen(repo, profiles))
         except Exception as exc:
             self.notify(str(exc), severity="error")
+
+    def action_help(self) -> None:
+        self.push_screen(CodeSleuthHelpScreen())
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "playbooks":
+            self.action_playbooks()
+        elif event.button.id == "help":
+            self.action_help()
+        else:
+            super().on_button_pressed(event)
 
     def _configured(self, changed: bool) -> None:
         if changed:
