@@ -37,27 +37,27 @@ AGENTS_END = "<!-- END CodeSleuth reports -->"
 AGENTS_POINTER = textwrap.dedent(
     f"""\
     {AGENTS_BEGIN}
-    Analytical reports for this repository live in `.codesleuth/reports/` (see `INDEX.md`). Format: `.opencode/CODESLEUTH-REPORTS.md`. OpenCode `build` writes them; later CodeSleuth sessions and other coding assistants should read them before repeating analysis.
+    Analytical reports for this worktree live in `.codesleuth/reports/` (see `INDEX.md`). Format: `.opencode/CODESLEUTH-REPORTS.md`. OpenCode `build` writes them. They are local-only by default because reports may contain source excerpts or credentials; reuse them in this worktree, and only publish sanitized reports or guidance intentionally when cross-clone reuse is desired.
     {AGENTS_END}
     """
 )
 REPORTS_README = """# CodeSleuth analytical reports
 
-This folder is the durable, assistant-readable report store for this repository.
+This folder is the durable, assistant-readable report store for this worktree.
 
 - **Writer:** OpenCode's primary `build` agent (via `/repo-review`, `/repo-docs`, `/repo-report`).
-- **Readers:** later CodeSleuth/OpenCode sessions, Cursor, Claude, Codex, Copilot, and humans.
+- **Readers:** later CodeSleuth/OpenCode sessions, Cursor, Claude, Codex, Copilot, and humans working in this worktree by default.
 - **Do not** invent a second CodeSleuth supervisor prompt. Reports are ordinary markdown files.
 
 ## Files
 
 | Path | Git | Purpose |
 |---|---|---|
-| `README.md` | tracked (this file) | convention for every assistant |
-| `INDEX.md` | gitignored | catalog of reports in this worktree |
-| `YYYY-MM-DDTHHMMZ-<slug>.md` | gitignored | one analysis report |
+| `README.md` | may be tracked | convention that can be intentionally shared |
+| `INDEX.md` | locally excluded by default | catalog of reports in this worktree |
+| `YYYY-MM-DDTHHMMZ-<slug>.md` | locally excluded by default | one analysis report |
 
-Report bodies are gitignored because they may contain secrets, source excerpts, or credentials. Sanitize before force-adding them to Git.
+Report bodies are excluded from Git by default because they may contain secrets, source excerpts, or credentials. CodeSleuth uses the repository-local Git exclude file (`.git/info/exclude`) and does not rewrite the project's tracked `.gitignore` for this purpose. Inspect and sanitize material before intentionally adding or publishing it. Fresh clones only receive reports or guidance that a maintainer deliberately commits.
 
 ## Required report sections
 
@@ -181,9 +181,32 @@ def _snapshot_candidates(repo: Path) -> list[Path]:
     return candidates
 
 
-def _abort_if_tracked_codesleuth_would_be_ignored(
-    repo: Path, original_content: str, original_existed: bool
-) -> None:
+def _git_info_exclude(repo: Path) -> Path:
+    """Return this worktree's repository-local Git exclude file."""
+    proc = run_git(repo, ["rev-parse", "--git-path", "info/exclude"])
+    raw = proc.stdout.strip()
+    if not raw:
+        raise RuntimeError("git rev-parse --git-path info/exclude returned an empty path")
+    path = Path(raw)
+    if not path.is_absolute():
+        path = repo / path
+    return path.resolve()
+
+
+def _restore_text_file(path: Path, existed: bool, content: str) -> None:
+    if existed:
+        path.write_text(content, encoding="utf-8")
+    elif path.exists():
+        path.unlink()
+
+
+def _abort_if_tracked_codesleuth_would_be_ignored(repo: Path) -> None:
+    """Refuse ignore updates that would cover already-tracked ``.codesleuth`` paths.
+
+    Uses ``git check-ignore --no-index`` so ignore rules are evaluated even for
+    paths that remain tracked in the index (for example self-hosted report bodies).
+    The README whitelist in ``IGNORE_LINES`` is respected by those rules.
+    """
     proc = subprocess.run(
         ["git", "-C", str(repo), "ls-files", "-z", "--", ".codesleuth"],
         capture_output=True,
@@ -199,55 +222,9 @@ def _abort_if_tracked_codesleuth_would_be_ignored(
             check=False,
         )
         if check.returncode == 0:
-            path = repo / ".gitignore"
-            if original_existed:
-                path.write_text(original_content, encoding="utf-8")
-            else:
-                if path.exists():
-                    path.unlink()
             raise RuntimeError(
                 f"tracked file {rel} would become ignored by CodeSleuth gitignore; aborting installation"
             )
-
-
-def _git_local_exclude_path(repo: Path) -> Path:
-    exclude = run_git(repo, ["rev-parse", "--git-path", "info/exclude"]).stdout.strip()
-    return (repo / Path(exclude)).resolve()
-
-
-def _restore_text_file(path: Path, existed: bool, content: str) -> None:
-    if existed:
-        path.write_text(content, encoding="utf-8")
-    elif path.exists():
-        path.unlink()
-
-
-def ensure_local_gitignore(repo: Path, *, preserve_archive_only: bool = False) -> Path:
-    """Ensure the managed CodeSleuth local-only ignore block exists in Git local exclude."""
-    _abort_if_tracked_codesleuth_would_be_ignored(repo, "", False)
-    path = _git_local_exclude_path(repo)
-    existed = path.exists()
-    original_raw = path.read_text(encoding="utf-8") if existed else ""
-    original = original_raw
-    before, marker, tail = original.partition(IGNORE_BEGIN)
-    if marker:
-        _, end_marker, after = tail.partition(IGNORE_END)
-        if not end_marker:
-            raise RuntimeError("malformed CodeSleuth block in local Git exclude")
-        original = before.rstrip("\n") + ("\n" if before else "") + after.lstrip("\n")
-    lines = [".codesleuth/"] if preserve_archive_only else list(IGNORE_LINES)
-    block = "\n".join([IGNORE_BEGIN, *lines, IGNORE_END])
-    body = original.rstrip("\n")
-    new_content = f"{body}\n\n{block}\n" if body else f"{block}\n"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(new_content, encoding="utf-8")
-    try:
-        _abort_if_tracked_codesleuth_would_be_ignored(repo, original_raw, existed)
-    except Exception:
-        _restore_text_file(path, existed, original_raw)
-        raise
-    return path
-
 
 
 def _atomic_write_text(path: Path, content: str) -> None:
@@ -259,6 +236,49 @@ def _atomic_write_text(path: Path, content: str) -> None:
     finally:
         if tmp.exists():
             tmp.unlink(missing_ok=True)
+
+
+def _replace_ignore_block(path: Path, lines: list[str], *, label: str) -> Path:
+    """Replace the CodeSleuth ignore block in one Git ignore/exclude file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    original = path.read_text(encoding="utf-8") if path.is_file() else ""
+    before, marker, tail = original.partition(IGNORE_BEGIN)
+    if marker:
+        _, end_marker, after = tail.partition(IGNORE_END)
+        if not end_marker:
+            raise RuntimeError(f"malformed CodeSleuth block in {label}")
+        original = before.rstrip("\n") + ("\n" if before else "") + after.lstrip("\n")
+    block = "\n".join([IGNORE_BEGIN, *lines, IGNORE_END])
+    body = original.rstrip("\n")
+    new_content = f"{body}\n\n{block}\n" if body else f"{block}\n"
+    _atomic_write_text(path, new_content)
+    return path
+
+
+def ensure_local_gitignore(repo: Path, *, preserve_archive_only: bool = False) -> Path:
+    """Ensure CodeSleuth local-only ignores without modifying tracked .gitignore.
+
+    The historical function name is kept for compatibility with installer and
+    lifecycle callers. New installations write only to ``.git/info/exclude``
+    (or Git's worktree-aware equivalent from ``git rev-parse --git-path``).
+
+    If applying the managed block would ignore an already-tracked ``.codesleuth``
+    path (other than patterns explicitly negated, such as reports README), the
+    exclude file is restored and installation aborts.
+    """
+    repo = git_root(repo)
+    _abort_if_tracked_codesleuth_would_be_ignored(repo)
+    path = _git_info_exclude(repo)
+    existed = path.is_file()
+    original_raw = path.read_text(encoding="utf-8") if existed else ""
+    lines = [".codesleuth/"] if preserve_archive_only else list(IGNORE_LINES)
+    try:
+        _replace_ignore_block(path, lines, label="Git info/exclude")
+        _abort_if_tracked_codesleuth_would_be_ignored(repo)
+    except Exception:
+        _restore_text_file(path, existed, original_raw)
+        raise
+    return path
 
 
 def report_timestamp_key(name: str) -> tuple[int, ...]:
@@ -605,9 +625,7 @@ def remove_agents_reports_pointer(repo: Path) -> None:
     else:
         path.unlink()
 
-def remove_local_gitignore_block(repo: Path) -> None:
-    """Remove the managed CodeSleuth local-only ignore block if present."""
-    path = _git_local_exclude_path(repo)
+def _remove_ignore_block(path: Path, *, label: str) -> None:
     if not path.exists():
         return
     original = path.read_text(encoding="utf-8")
@@ -616,12 +634,22 @@ def remove_local_gitignore_block(repo: Path) -> None:
         return
     _, end_marker, after = tail.partition(IGNORE_END)
     if not end_marker:
-        raise RuntimeError("malformed CodeSleuth block in local Git exclude")
+        raise RuntimeError(f"malformed CodeSleuth block in {label}")
     body = (before.rstrip("\n") + "\n" + after.lstrip("\n")).strip("\n")
     if body:
-        path.write_text(body + "\n", encoding="utf-8")
+        _atomic_write_text(path, body + "\n")
     else:
         path.unlink()
+
+
+def remove_local_gitignore_block(repo: Path) -> None:
+    """Remove current local excludes and any legacy root .gitignore block."""
+    repo = git_root(repo)
+    _remove_ignore_block(_git_info_exclude(repo), label="Git info/exclude")
+    # Backward compatibility: versions before this hardening release wrote the
+    # same managed block into the user's root .gitignore. Uninstall/update may
+    # clean that old block, but new installs never create it.
+    _remove_ignore_block(repo / ".gitignore", label=".gitignore")
 
 
 def create_preinstall_snapshot(repo: Path) -> dict[str, Any]:

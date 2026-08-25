@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import {
@@ -25,6 +25,25 @@ async function expectFailure(action: () => Promise<unknown>, message: string): P
     failed = true
   }
   assert(failed, message)
+}
+
+async function captureFailure(action: () => Promise<unknown>): Promise<string> {
+  try {
+    await action()
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error)
+  }
+  throw new Error("expected action to fail")
+}
+
+async function listedGraphState(root: string): Promise<string[]> {
+  const dir = path.join(root, ".opencode", "state", "context-graphs")
+  try {
+    return (await readdir(dir, { recursive: true })).filter((name) => String(name).length > 0)
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return []
+    throw error
+  }
 }
 
 async function git(root: string, args: string[]): Promise<string> {
@@ -127,6 +146,110 @@ async function main() {
     contextEdgeId("calls", "file", "a", "file", "b") !== contextEdgeId("calls", "file", "b", "file", "a"),
     "edge direction participates in identity",
   )
+
+  // --- consolidated save validation + dry run ---------------------------------
+  const validation = await makeFixture("validation", "graph-validation-session")
+  try {
+    const invalidNodes = [
+      ...baseNodes(),
+      {
+        kind: "component" as const,
+        key: "component:export-pipeline",
+        origin: "verified_source" as const,
+      },
+      {
+        kind: "external" as const,
+        key: "model-guessed-runtime",
+        origin: "review_inference" as const,
+      },
+    ]
+    const invalidEdges = [
+      {
+        relation: "depends_on" as const,
+        origin: "review_inference" as const,
+        sourceKind: "file" as const,
+        sourceKey: "src/app.ts",
+        targetKind: "file" as const,
+        targetKey: "src/util.ts",
+        note: "model assertion deliberately uses the wrong relation for validation coverage",
+      },
+      {
+        relation: "imports" as const,
+        origin: "verified_source" as const,
+        sourceKind: "file" as const,
+        sourceKey: "src/app.ts",
+        targetKind: "file" as const,
+        targetKey: "src/util.ts",
+      },
+      {
+        relation: "imports" as const,
+        origin: "verified_source" as const,
+        sourceKind: "file" as const,
+        sourceKey: "src/app.ts",
+        targetKind: "symbol" as const,
+        targetKey: "helper@src/util.ts",
+        path: "src/app.ts",
+        endLine: 2,
+      },
+    ]
+
+    const dryInvalid = JSON.parse(
+      await save.execute({ nodes: invalidNodes, edges: invalidEdges, validate_only: true }, validation.context),
+    )
+    assert(dryInvalid.valid === false, "dry-run validation reports invalid input without throwing")
+    assert(dryInvalid.validationOnly === true && dryInvalid.wroteState === false, "validation-only mode never writes state")
+    assert(dryInvalid.violationCount === 5, "all independent semantic violations are returned in one round trip")
+    const indexedMessages = dryInvalid.violations.map((item: any) => `${item.path}: ${item.message}`).join("\n")
+    assert(indexedMessages.includes("nodes[3]"), "verified_source node violation carries its array index")
+    assert(indexedMessages.includes("nodes[4]"), "review_inference node violation carries its array index")
+    assert(indexedMessages.includes("edges[0]"), "review_inference edge violation carries its array index")
+    assert(indexedMessages.includes("edges[1]"), "verified_source edge violation carries its array index")
+    assert(indexedMessages.includes("edges[2]"), "endLine-without-startLine violation carries its array index")
+    assert(indexedMessages.includes("requires a tracked source path"), "missing verified source paths are self-describing")
+    assert(indexedMessages.includes("requires a note"), "missing inference notes are self-describing")
+    assert(indexedMessages.includes("must use the review_inference relation"), "inference relation constraint is self-describing")
+    assert(indexedMessages.includes("endLine requires startLine"), "endLine without startLine remains invalid")
+    assert(!indexedMessages.includes("component:component:export-pipeline"), "semantic labels do not duplicate their kind prefix")
+    assert((await listedGraphState(validation.root)).length === 0, "invalid dry-run writes no projection or pointer files")
+
+    const thrown = await captureFailure(
+      async () => save.execute({ nodes: invalidNodes, edges: invalidEdges }, validation.context),
+    )
+    assert(thrown.includes("5 violation(s)"), "normal save throws one consolidated validation error")
+    assert(thrown.includes("nodes[3]") && thrown.includes("edges[1]"), "consolidated error preserves indexed locations")
+    assert((await listedGraphState(validation.root)).length === 0, "invalid normal save remains atomic and writes no state")
+
+    const validDry = JSON.parse(
+      await save.execute({ scopePrefix: "src", nodes: baseNodes(), edges: baseEdges(), validate_only: true }, validation.context),
+    )
+    assert(validDry.valid === true && validDry.violationCount === 0, "valid dry run returns an explicit clean result")
+    assert(validDry.wroteState === false && validDry.projectionId.startsWith("sha256:"), "valid dry run computes identity without persisting")
+    await expectFailure(
+      async () => load.execute({}, validation.context),
+      "a successful validation-only call must not create session/latest projection pointers",
+    )
+    assert((await listedGraphState(validation.root)).length === 0, "valid dry-run still writes no projection or pointer files")
+
+    const singleLineNodes = baseNodes().map((node, index) =>
+      index === 2 ? { ...node, startLine: 1, endLine: undefined } : node,
+    )
+    const singleLineSaved = JSON.parse(
+      await save.execute({ nodes: singleLineNodes, edges: baseEdges(), complete: true }, validation.context),
+    )
+    const singleLineProjection = JSON.parse(
+      await readFile(path.join(validation.root, singleLineSaved.savedPath), "utf8"),
+    )
+    const helperNode = singleLineProjection.nodes.find((node: any) => node.key === "helper@src/util.ts")
+    assert(helperNode.sourceRef.startLine === 1 && helperNode.sourceRef.endLine === 1, "startLine alone becomes a single-line range")
+    const loaded = JSON.parse(await load.execute({}, validation.context))
+    assert(loaded.projectionId === singleLineSaved.projectionId, "load returns the saved projection after a successful write")
+    const neighborhood = JSON.parse(await query.execute({ nodeLimit: 20, edgeLimit: 20 }, validation.context))
+    assert(neighborhood.returnedNodes.length >= 1 && neighborhood.returnedEdges.length >= 1, "query returns a bounded neighborhood from the saved projection")
+    const diagram = JSON.parse(await mermaid.execute({}, validation.context))
+    assert(diagram.mermaidSource.includes("flowchart"), "mermaid derives flowchart source from the saved projection")
+  } finally {
+    await validation.cleanup()
+  }
 
   const primary = await makeFixture("primary", "graph-session-a")
   try {

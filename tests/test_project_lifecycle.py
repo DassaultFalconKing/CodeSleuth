@@ -27,8 +27,10 @@ def init_repo(path: Path) -> None:
     git(path, "commit", "-m", "init")
 
 
-def local_exclude(repo: Path) -> Path:
-    return repo / Path(git(repo, "rev-parse", "--git-path", "info/exclude"))
+def info_exclude(repo: Path) -> Path:
+    raw = git(repo, "rev-parse", "--git-path", "info/exclude")
+    path = Path(raw)
+    return path if path.is_absolute() else repo / path
 
 
 def test_preinstall_backup_and_restore(tmp_path: Path) -> None:
@@ -40,14 +42,15 @@ def test_preinstall_backup_and_restore(tmp_path: Path) -> None:
     (oc / "opencode.json").write_text('{"original":true}\n', encoding="utf-8")
     (oc / "agents" / "custom.md").write_text("custom\n", encoding="utf-8")
 
+    original_ignore = (repo / ".gitignore").read_bytes()
     pointer = lifecycle.create_preinstall_snapshot(repo)
     assert (repo / pointer["manifest"]).is_file()
-    exclude = local_exclude(repo).read_text(encoding="utf-8")
+    assert (repo / ".gitignore").read_bytes() == original_ignore
+    exclude = info_exclude(repo).read_text(encoding="utf-8")
     assert ".codesleuth/*" in exclude
     assert "!.codesleuth/reports/README.md" in exclude
     assert ".opencode/state/" in exclude
     assert "tools/codesleuth" not in exclude
-    assert (repo / ".gitignore").read_text(encoding="utf-8") == "target/\n"
     assert subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", "tools/codesleuth"]).returncode != 0
 
     (oc / "opencode.json").write_text('{"codesleuth":true}\n', encoding="utf-8")
@@ -202,7 +205,8 @@ def test_uninstall_preserves_sensitive_traces_in_ignored_archive(tmp_path: Path)
     assert archive.is_dir()
     archived_finding = archive / "files" / ".opencode" / "state" / "reviews" / "r1" / "findings.ndjson"
     assert "TOKEN=secret" in archived_finding.read_text(encoding="utf-8")
-    assert ".codesleuth/" in local_exclude(repo).read_text(encoding="utf-8")
+    assert not (repo / ".gitignore").exists()
+    assert ".codesleuth/" in info_exclude(repo).read_text(encoding="utf-8")
     assert subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", ".codesleuth/archive"]).returncode == 0
     assert json.loads((oc / "opencode.json").read_text(encoding="utf-8"))["before"] == "codesleuth"
 
@@ -236,7 +240,8 @@ def test_uninstall_never_loses_postinstall_change_to_preexisting_file(
     conflict = json.loads(manifest.read_text(encoding="utf-8"))["conflicts"][0]
     assert (repo / conflict["baseline"]).read_text(encoding="utf-8") == "baseline\n"
     assert (repo / conflict["current"]).read_text(encoding="utf-8") == "user change after install\n"
-    assert ".codesleuth/" in local_exclude(repo).read_text(encoding="utf-8")
+    assert not (repo / ".gitignore").exists()
+    assert ".codesleuth/" in info_exclude(repo).read_text(encoding="utf-8")
     if not preserve_traces:
         assert not (repo / ".codesleuth" / "backups").exists()
         assert (repo / ".codesleuth" / "restore-conflicts").is_dir()
@@ -296,8 +301,8 @@ def test_uninstall_purge_restores_config_and_removes_local_root(tmp_path: Path) 
     assert result["archive"] is None
     assert not (repo / ".codesleuth").exists()
     assert json.loads((oc / "opencode.json").read_text(encoding="utf-8"))["before"] == 1
-    if local_exclude(repo).exists():
-        assert lifecycle.IGNORE_BEGIN not in local_exclude(repo).read_text(encoding="utf-8")
+    if info_exclude(repo).exists():
+        assert lifecycle.IGNORE_BEGIN not in info_exclude(repo).read_text(encoding="utf-8")
 
 
 def test_invalid_dependency_path_fails_closed(tmp_path: Path) -> None:
@@ -319,9 +324,10 @@ def test_installer_normalizes_nested_target_to_git_root(tmp_path: Path) -> None:
     assert (reports / "README.md").is_file()
     assert (reports / "INDEX.md").is_file()
     assert "CodeSleuth reports" in (repo / "AGENTS.md").read_text(encoding="utf-8")
-    exclude = local_exclude(repo).read_text(encoding="utf-8")
-    assert "!.codesleuth/reports/README.md" in exclude
     assert not (repo / ".gitignore").exists()
+    exclude = info_exclude(repo).read_text(encoding="utf-8")
+    assert "!.codesleuth/reports/README.md" in exclude
+    assert "tools/codesleuth" not in exclude
     assert subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", ".codesleuth/reports/secret.md"]).returncode == 0
     assert subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", ".codesleuth/reports/README.md"]).returncode != 0
 

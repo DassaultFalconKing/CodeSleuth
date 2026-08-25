@@ -34,6 +34,16 @@ def test_validate_agents_pointer_accepts_missing_and_well_formed(tmp_path: Path)
     lifecycle.validate_agents_pointer(repo)
 
 
+def test_agents_pointer_declares_local_report_scope(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    init_repo(repo)
+    path = lifecycle.ensure_agents_reports_pointer(repo)
+    text = path.read_text(encoding="utf-8")
+    assert "local-only by default" in text
+    assert "this worktree" in text
+    assert "only publish sanitized reports or guidance intentionally" in text
+
+
 def test_validate_agents_pointer_rejects_begin_without_end(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     init_repo(repo)
