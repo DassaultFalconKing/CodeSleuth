@@ -92,6 +92,8 @@ For a reproducible development-repository install with a pinned CodeSleuth depen
 
 The binding is an explicit Git change: `.gitmodules` and the `tools/codesleuth` gitlink are staged for the operator to review and commit. CodeSleuth never commits or pushes the target repository on the user's behalf.
 
+Self-hosting exception: if the target repository is the CodeSleuth source checkout itself, ordinary self-install is supported but `--bind-dependency` is rejected. CodeSleuth will not create a recursive `tools/codesleuth` self-submodule inside its own source repository.
+
 CLI targets are normalized to the containing Git root, so passing `/path/to/project/subdir` still installs into `/path/to/project`.
 
 ## Reversible first install
@@ -106,7 +108,7 @@ The backup records hashes and copies project configuration while excluding obvio
 
 A pointer is kept at `.codesleuth/preinstall.json`. An upgrade from an older already-installed review-pack records a `pre-0.3-upgrade` baseline instead of falsely claiming it predates CodeSleuth.
 
-The installer also writes a managed block to the target root `.gitignore` for local CodeSleuth/OpenCode state. It does not add an ignore for `tools/codesleuth`. If the project already ignores that dependency path, CodeSleuth refuses to override the project's ignore policy and explains the conflict.
+The installer writes a managed block to the repository-local Git exclude file returned by `git rev-parse --git-path info/exclude` for local CodeSleuth/OpenCode state. It does not silently edit the target root `.gitignore`, and it does not add an ignore for `tools/codesleuth`. If the project already ignores that dependency path, CodeSleuth refuses to override the project's ignore policy and explains the conflict.
 
 ## Uninstall
 

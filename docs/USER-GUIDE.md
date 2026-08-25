@@ -35,7 +35,7 @@ The setup screen controls:
 
 The dependency control is reversible: binding/unbinding the source dependency is independent of installing/uninstalling the `.opencode` runtime.
 
-Before first install CodeSleuth writes a pre-install backup under `.codesleuth/backups/pre-install/` and adds a managed root `.gitignore` block for local CodeSleuth/OpenCode state.
+Before first install CodeSleuth writes a pre-install backup under `.codesleuth/backups/pre-install/` and adds a managed block to the repository-local Git exclude file returned by `git rev-parse --git-path info/exclude` for local CodeSleuth/OpenCode state.
 
 `tools/codesleuth` is never ignored by CodeSleuth. If the target project's own ignore rules hide that path, dependency binding refuses to proceed until the project owner resolves the policy intentionally.
 
@@ -77,6 +77,8 @@ Install and pin CodeSleuth in the target repository:
 ```
 
 The bind operation stages `.gitmodules` and `tools/codesleuth`. It does not commit or push the target repository.
+
+If the target repository is the CodeSleuth source checkout itself, `--bind-dependency` is invalid. Self-install is supported; recursive self-submodule binding is rejected before any `tools/codesleuth` gitlink is created.
 
 Passing a nested project directory is safe: CLI entrypoints normalize it to the containing Git repository root before writing `.opencode` or `.codesleuth`.
 

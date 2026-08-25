@@ -210,9 +210,22 @@ def _abort_if_tracked_codesleuth_would_be_ignored(
             )
 
 
+def _git_local_exclude_path(repo: Path) -> Path:
+    exclude = run_git(repo, ["rev-parse", "--git-path", "info/exclude"]).stdout.strip()
+    return (repo / Path(exclude)).resolve()
+
+
+def _restore_text_file(path: Path, existed: bool, content: str) -> None:
+    if existed:
+        path.write_text(content, encoding="utf-8")
+    elif path.exists():
+        path.unlink()
+
+
 def ensure_local_gitignore(repo: Path, *, preserve_archive_only: bool = False) -> Path:
-    """Ensure the managed CodeSleuth local-only ignore block exists."""
-    path = repo / ".gitignore"
+    """Ensure the managed CodeSleuth local-only ignore block exists in Git local exclude."""
+    _abort_if_tracked_codesleuth_would_be_ignored(repo, "", False)
+    path = _git_local_exclude_path(repo)
     existed = path.exists()
     original_raw = path.read_text(encoding="utf-8") if existed else ""
     original = original_raw
@@ -220,14 +233,19 @@ def ensure_local_gitignore(repo: Path, *, preserve_archive_only: bool = False) -
     if marker:
         _, end_marker, after = tail.partition(IGNORE_END)
         if not end_marker:
-            raise RuntimeError("malformed CodeSleuth block in .gitignore")
+            raise RuntimeError("malformed CodeSleuth block in local Git exclude")
         original = before.rstrip("\n") + ("\n" if before else "") + after.lstrip("\n")
     lines = [".codesleuth/"] if preserve_archive_only else list(IGNORE_LINES)
     block = "\n".join([IGNORE_BEGIN, *lines, IGNORE_END])
     body = original.rstrip("\n")
     new_content = f"{body}\n\n{block}\n" if body else f"{block}\n"
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(new_content, encoding="utf-8")
-    _abort_if_tracked_codesleuth_would_be_ignored(repo, original_raw, existed)
+    try:
+        _abort_if_tracked_codesleuth_would_be_ignored(repo, original_raw, existed)
+    except Exception:
+        _restore_text_file(path, existed, original_raw)
+        raise
     return path
 
 
@@ -589,7 +607,7 @@ def remove_agents_reports_pointer(repo: Path) -> None:
 
 def remove_local_gitignore_block(repo: Path) -> None:
     """Remove the managed CodeSleuth local-only ignore block if present."""
-    path = repo / ".gitignore"
+    path = _git_local_exclude_path(repo)
     if not path.exists():
         return
     original = path.read_text(encoding="utf-8")
@@ -598,7 +616,7 @@ def remove_local_gitignore_block(repo: Path) -> None:
         return
     _, end_marker, after = tail.partition(IGNORE_END)
     if not end_marker:
-        raise RuntimeError("malformed CodeSleuth block in .gitignore")
+        raise RuntimeError("malformed CodeSleuth block in local Git exclude")
     body = (before.rstrip("\n") + "\n" + after.lstrip("\n")).strip("\n")
     if body:
         path.write_text(body + "\n", encoding="utf-8")
@@ -760,6 +778,46 @@ def _source_from_checkout(source_root: Path | None, metadata: dict[str, Any] | N
     return str(remote), str(commit)
 
 
+def is_self_target(repo: Path, source_root: Path | None = None, source_metadata: dict[str, Any] | None = None) -> bool:
+    """Return True when the source checkout and target repo resolve to the same Git root."""
+    target_root = git_root(repo)
+    candidate_roots: list[Path] = []
+    if source_root is not None and source_root.exists():
+        try:
+            candidate_roots.append(git_root(source_root))
+        except subprocess.CalledProcessError:
+            pass
+    source_subdir = ""
+    if source_metadata:
+        source_subdir = str(source_metadata.get("subdir") or "")
+    if not candidate_roots and source_metadata:
+        source_commit = source_metadata.get("commit")
+        source_remote = source_metadata.get("remote")
+        try:
+            target_commit = run_git(target_root, ["rev-parse", "HEAD"], check=False)
+        except subprocess.CalledProcessError:
+            target_commit = None
+        try:
+            target_remote = run_git(target_root, ["remote", "get-url", "origin"], check=False)
+        except subprocess.CalledProcessError:
+            target_remote = None
+        if (
+            source_commit
+            and source_remote
+            and target_commit
+            and target_commit.returncode == 0
+            and target_commit.stdout.strip() == source_commit
+            and target_remote
+            and target_remote.returncode == 0
+            and target_remote.stdout.strip() == source_remote
+        ):
+            candidate_roots.append(target_root)
+    for candidate in candidate_roots:
+        if candidate == target_root and source_subdir in {"", "."}:
+            return True
+    return False
+
+
 def bind_dependency(
     repo: Path,
     *,
@@ -772,6 +830,11 @@ def bind_dependency(
     rel = _safe_rel(dependency_path).as_posix()
     current = dependency_status(repo, rel)
     remote, commit = _source_from_checkout(source_root, source_metadata)
+    if is_self_target(repo, source_root=source_root, source_metadata=source_metadata):
+        raise RuntimeError(
+            "cannot bind CodeSleuth as a dependency of its own source repository; "
+            "self-install is supported, recursive self-submodule binding is not"
+        )
 
     if current["bound"]:
         worktree = repo / rel

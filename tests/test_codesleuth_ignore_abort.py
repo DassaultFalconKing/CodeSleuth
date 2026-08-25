@@ -26,6 +26,10 @@ def init_repo(path: Path) -> None:
     git(path, "commit", "-m", "init")
 
 
+def local_exclude(repo: Path) -> Path:
+    return Path(git(repo, "rev-parse", "--git-path", "info/exclude"))
+
+
 def test_ensure_local_gitignore_aborts_when_tracked_codesleuth_file_would_be_ignored(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     init_repo(repo)
@@ -40,9 +44,9 @@ def test_ensure_local_gitignore_aborts_when_tracked_codesleuth_file_would_be_ign
     assert subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", ".codesleuth/reports/secret.md"]).returncode != 0
     with pytest.raises(RuntimeError, match="would become ignored"):
         lifecycle.ensure_local_gitignore(repo)
-    # original .gitignore must be restored (or not created) and not contain CodeSleuth block
-    if (repo / ".gitignore").exists():
-        assert lifecycle.IGNORE_BEGIN not in (repo / ".gitignore").read_text(encoding="utf-8")
+    exclude = repo / local_exclude(repo)
+    if exclude.exists():
+        assert lifecycle.IGNORE_BEGIN not in exclude.read_text(encoding="utf-8")
 
 
 def test_ensure_local_gitignore_allows_tracked_readme_negation(tmp_path: Path) -> None:
@@ -55,7 +59,8 @@ def test_ensure_local_gitignore_allows_tracked_readme_negation(tmp_path: Path) -
     git(repo, "add", "-f", ".codesleuth/reports/README.md")
     git(repo, "commit", "-m", "add tracked readme")
     lifecycle.ensure_local_gitignore(repo)
-    assert lifecycle.IGNORE_BEGIN in (repo / ".gitignore").read_text(encoding="utf-8")
+    exclude = repo / local_exclude(repo)
+    assert lifecycle.IGNORE_BEGIN in exclude.read_text(encoding="utf-8")
     assert subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", ".codesleuth/reports/README.md"]).returncode != 0
     assert subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", ".codesleuth/reports/secret.md"]).returncode == 0 or True
     # also ensure .codesleuth archive file not tracked is still ignored after
@@ -72,7 +77,8 @@ def test_ensure_local_gitignore_allows_untracked_secret(tmp_path: Path) -> None:
     # not added to git, so ls-files should be empty
     assert git(repo, "ls-files", "--", ".codesleuth") == ""
     lifecycle.ensure_local_gitignore(repo)
-    assert lifecycle.IGNORE_BEGIN in (repo / ".gitignore").read_text(encoding="utf-8")
+    exclude = repo / local_exclude(repo)
+    assert lifecycle.IGNORE_BEGIN in exclude.read_text(encoding="utf-8")
     assert subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", ".codesleuth/reports/secret.md"]).returncode == 0
 
 
@@ -87,12 +93,12 @@ def test_ensure_local_gitignore_restores_original_on_abort(tmp_path: Path) -> No
     tracked.write_text("tracked\n", encoding="utf-8")
     git(repo, "add", "-f", ".codesleuth/notes.txt")
     git(repo, "commit", "-m", "tracked notes")
-    original = (repo / ".gitignore").read_text(encoding="utf-8")
+    exclude = repo / local_exclude(repo)
+    original = exclude.read_text(encoding="utf-8") if exclude.exists() else ""
     with pytest.raises(RuntimeError, match="tracked file"):
         lifecycle.ensure_local_gitignore(repo)
-    after = (repo / ".gitignore").read_text(encoding="utf-8")
+    after = exclude.read_text(encoding="utf-8") if exclude.exists() else ""
     assert after == original
-    assert "node_modules/" in after
     assert lifecycle.IGNORE_BEGIN not in after
 
 
@@ -106,9 +112,9 @@ def test_create_preinstall_snapshot_aborts_when_tracked_codesleuth_would_be_igno
     git(repo, "commit", "-m", "evil")
     with pytest.raises(RuntimeError, match="would become ignored"):
         lifecycle.create_preinstall_snapshot(repo)
-    # snapshot should not have been left half-written with gitignore block
-    if (repo / ".gitignore").exists():
-        assert lifecycle.IGNORE_BEGIN not in (repo / ".gitignore").read_text(encoding="utf-8")
+    exclude = repo / local_exclude(repo)
+    if exclude.exists():
+        assert lifecycle.IGNORE_BEGIN not in exclude.read_text(encoding="utf-8")
 
 
 def test_ensure_local_gitignore_preserve_archive_only_still_guards(tmp_path: Path) -> None:

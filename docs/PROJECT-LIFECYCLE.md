@@ -21,11 +21,11 @@ The snapshot includes the target root `.gitignore` and `.gitmodules` for forensi
 
 For an older target that already has review-pack metadata when 0.3 first sees it, the manifest records `pre-0.3-upgrade` rather than pretending the snapshot predates the historical installation.
 
-Automatic uninstall compares each pre-existing file's pre-install, post-install, and current hashes. An unchanged installed file can be restored automatically. If a pre-existing file changed again after installation, its current worktree version is never overwritten: CodeSleuth retains baseline/current copies plus an explicit manifest under `.codesleuth/restore-conflicts/`. This recovery evidence survives purge. The target root `.gitignore` and `.gitmodules` are not blindly replaced; CodeSleuth manages only its marked ignore block and its own submodule section/gitlink.
+Automatic uninstall compares each pre-existing file's pre-install, post-install, and current hashes. An unchanged installed file can be restored automatically. If a pre-existing file changed again after installation, its current worktree version is never overwritten: CodeSleuth retains baseline/current copies plus an explicit manifest under `.codesleuth/restore-conflicts/`. This recovery evidence survives purge. The target root `.gitignore` and `.gitmodules` are not blindly replaced; CodeSleuth manages only its marked local-exclude block and its own submodule section/gitlink.
 
 ## Ignore policy
 
-During installation CodeSleuth adds a marked root `.gitignore` block for local-only data:
+During installation CodeSleuth adds a marked block to the repository-local Git exclude file returned by `git rev-parse --git-path info/exclude` for local-only data:
 
 ```text
 .codesleuth/*
@@ -42,7 +42,7 @@ During installation CodeSleuth adds a marked root `.gitignore` block for local-o
 
 `.codesleuth/reports/` is the OpenCode-written analytical report store. Report bodies and `INDEX.md` stay gitignored (they may contain secrets). `README.md` in that folder may be tracked so other assistants can find the convention. Format: `.opencode/CODESLEUTH-REPORTS.md`. Discovery pointer: a managed block in root `AGENTS.md`.
 
-The dependency path `tools/codesleuth` is never added to that block. If an existing project rule ignores the proposed submodule path, binding fails closed rather than silently rewriting project ignore policy.
+The dependency path `tools/codesleuth` is never added to that block. If an existing project rule ignores the proposed submodule path, binding fails closed rather than silently rewriting project ignore policy. If the source checkout and target repository are the same Git root, ordinary self-install remains valid but dependency binding fails closed rather than creating a recursive self-submodule.
 
 ## Dependency binding
 
