@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import stat
 import subprocess
 import sys
 import threading
@@ -20,6 +21,7 @@ MAX_SEARCH_RESULTS = 200
 MAX_SEARCH_BYTES = 2_000_000
 MAX_DIFF_CHARS = 40_000
 MAX_GIT_STDERR_BYTES = 64_000
+REGULAR_FILE_MODES = frozenset({"100644", "100755"})
 
 
 def _trace(message: str) -> None:
@@ -210,21 +212,28 @@ class RepositoryEvidence:
                 raise RuntimeError(f"unresolved index stages for {path}: {stages}")
         return records
 
-    def _tracked(self) -> set[str]:
-        return {record["path"] for record in self._records()}
-
-    def _safe_tracked_path(self, raw_path: str) -> str:
+    def _safe_tracked_path(self, raw_path: str) -> tuple[str, dict[str, str]]:
         normalized = raw_path.replace("\\", "/").removeprefix("./")
         candidate = PurePosixPath(normalized)
         if not normalized or candidate.is_absolute() or ".." in candidate.parts:
             raise ValueError(f"path must name a tracked file inside the repository: {raw_path}")
         value = candidate.as_posix()
-        if value not in self._tracked():
+        record = next((item for item in self._records() if item["path"] == value), None)
+        if record is None:
             raise ValueError(f"path is not a tracked file: {value}")
-        resolved = (self.root / Path(*candidate.parts)).resolve()
+        if record["mode"] not in REGULAR_FILE_MODES:
+            raise ValueError(f"path is not a regular tracked file: {value} (mode {record['mode']})")
+        absolute = self.root / Path(*candidate.parts)
+        try:
+            working_mode = absolute.lstat().st_mode
+        except FileNotFoundError as error:
+            raise ValueError(f"tracked file is missing from the working tree: {value}") from error
+        if not stat.S_ISREG(working_mode):
+            raise ValueError(f"working path is not a regular file: {value}")
+        resolved = absolute.resolve()
         if self.root != resolved and self.root not in resolved.parents:
             raise ValueError(f"path escapes repository: {raw_path}")
-        return value
+        return value, record
 
     def _working_blob(self, path: str) -> str:
         return self._git("hash-object", "--", path).strip()
@@ -279,7 +288,7 @@ class RepositoryEvidence:
         }
 
     def read_evidence(self, path: str, start_line: int = 1, end_line: int = 200) -> dict[str, Any]:
-        safe_path = self._safe_tracked_path(path)
+        safe_path, record = self._safe_tracked_path(path)
         if start_line < 1 or end_line < start_line:
             raise ValueError("line range must be positive and ordered")
         if end_line - start_line + 1 > MAX_READ_LINES:
@@ -297,7 +306,7 @@ class RepositoryEvidence:
         return {
             "path": safe_path,
             "workingBlob": self._working_blob(safe_path),
-            "indexBlob": next(record["blob"] for record in self._records() if record["path"] == safe_path),
+            "indexBlob": record["blob"],
             "lineCount": len(lines),
             "startLine": start_line,
             "endLine": start_line + len(numbered) - 1 if numbered else start_line - 1,

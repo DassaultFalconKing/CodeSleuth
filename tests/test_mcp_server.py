@@ -152,6 +152,51 @@ def test_path_escape_and_untracked_files_fail_closed(repository: Path) -> None:
         evidence.read_evidence("../outside.txt")
 
 
+def test_tracked_symlink_cannot_expose_untracked_target(repository: Path) -> None:
+    secret = repository / "secret.txt"
+    secret.write_text("UNTRACKED SECRET\n", encoding="utf-8", newline="\n")
+    link = repository / "source-link.txt"
+    try:
+        link.symlink_to(secret.name)
+        git(repository, "add", "source-link.txt")
+    except OSError:
+        link.write_text(secret.name, encoding="utf-8", newline="")
+        blob = git(repository, "hash-object", "-w", "source-link.txt").strip()
+        git(repository, "update-index", "--add", "--cacheinfo", f"120000,{blob},source-link.txt")
+    git(repository, "commit", "-m", "tracked symlink")
+    assert git(repository, "ls-files", "--stage", "source-link.txt").startswith("120000 ")
+
+    with pytest.raises(ValueError, match=r"not a regular tracked file.*mode 120000") as captured:
+        RepositoryEvidence(repository).read_evidence("source-link.txt")
+
+    assert "UNTRACKED SECRET" not in str(captured.value)
+
+
+def test_regular_index_entry_replaced_by_working_symlink_fails_closed(repository: Path) -> None:
+    secret = repository / "secret.txt"
+    secret.write_text("UNTRACKED SECRET\n", encoding="utf-8", newline="\n")
+    tracked = repository / "README.md"
+    tracked.unlink()
+    try:
+        tracked.symlink_to(secret.name)
+    except OSError as error:
+        pytest.skip(f"symlink creation is unavailable: {error}")
+
+    with pytest.raises(ValueError, match="working path is not a regular file") as captured:
+        RepositoryEvidence(repository).read_evidence("README.md")
+
+    assert "UNTRACKED SECRET" not in str(captured.value)
+
+
+def test_gitlink_cannot_be_returned_as_source_evidence(repository: Path) -> None:
+    head = git(repository, "rev-parse", "HEAD").strip()
+    git(repository, "update-index", "--add", "--cacheinfo", f"160000,{head},vendor/dependency")
+    assert git(repository, "ls-files", "--stage", "vendor/dependency").startswith("160000 ")
+
+    with pytest.raises(ValueError, match=r"not a regular tracked file.*mode 160000"):
+        RepositoryEvidence(repository).read_evidence("vendor/dependency")
+
+
 def test_test_map_is_explicitly_not_coverage(repository: Path) -> None:
     result = RepositoryEvidence(repository).test_map()
     paths = {item["path"] for item in result["candidates"]}
