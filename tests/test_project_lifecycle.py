@@ -222,6 +222,45 @@ def test_uninstall_never_loses_postinstall_change_to_preexisting_file(
         assert (repo / ".codesleuth" / "restore-conflicts").is_dir()
 
 
+@pytest.mark.parametrize("preserve_traces", [True, False])
+@pytest.mark.parametrize("current_state", ["absent", "directory"])
+def test_uninstall_preserves_postinstall_deletion_or_type_change(
+    tmp_path: Path, preserve_traces: bool, current_state: str
+) -> None:
+    repo = tmp_path / "target"
+    init_repo(repo)
+    custom = repo / ".opencode" / "agents" / "custom.md"
+    custom.parent.mkdir(parents=True)
+    custom.write_text("baseline\n", encoding="utf-8")
+    lifecycle.create_preinstall_snapshot(repo)
+
+    custom.write_text("installed\n", encoding="utf-8")
+    meta = repo / ".opencode" / "review-pack.json"
+    meta.write_text(json.dumps({"managedFiles": {}}), encoding="utf-8")
+    lifecycle.record_postinstall_snapshot(repo)
+    custom.unlink()
+    if current_state == "directory":
+        custom.mkdir()
+        (custom / "user.txt").write_text("type changed after install\n", encoding="utf-8")
+
+    result = lifecycle.uninstall_project(
+        repo,
+        preserve_traces=preserve_traces,
+        remove_bound_dependency=False,
+    )
+    conflict = result["restore"]["conflicts"][0]
+    assert conflict["path"] == ".opencode/agents/custom.md"
+    assert conflict["currentState"] == current_state
+    assert conflict["current"] is None
+    assert (repo / conflict["baseline"]).read_text(encoding="utf-8") == "baseline\n"
+    if current_state == "absent":
+        assert not custom.exists()
+    else:
+        assert custom.is_dir()
+        assert (custom / "user.txt").read_text(encoding="utf-8") == "type changed after install\n"
+    assert (repo / result["restore"]["conflictManifest"]).is_file()
+
+
 def test_uninstall_purge_restores_config_and_removes_local_root(tmp_path: Path) -> None:
     repo = tmp_path / "target"
     init_repo(repo)

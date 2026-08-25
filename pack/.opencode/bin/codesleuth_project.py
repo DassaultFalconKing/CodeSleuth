@@ -77,6 +77,25 @@ def _copy_file(src: Path, dst: Path) -> None:
     shutil.copy2(src, dst)
 
 
+def _path_state(path: Path) -> str:
+    if path.is_symlink():
+        return "symlink"
+    if path.is_file():
+        return "file"
+    if path.is_dir():
+        return "directory"
+    if not path.exists():
+        return "absent"
+    return "other"
+
+
+def _remove_path(path: Path) -> None:
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.is_dir():
+        shutil.rmtree(path)
+
+
 def _snapshot_candidates(repo: Path) -> list[Path]:
     candidates: list[Path] = []
     for root_name in (".gitignore", ".gitmodules"):
@@ -202,9 +221,11 @@ def record_postinstall_snapshot(repo: Path) -> None:
         if rel.as_posix() in {".gitignore", ".gitmodules"}:
             continue
         current = repo / rel
-        installed_hash = sha256_file(current) if current.is_file() else None
+        installed_state = _path_state(current)
+        installed_hash = sha256_file(current) if installed_state == "file" else None
         if "installedSha256" not in entry:
             entry["installedSha256"] = installed_hash
+            entry["installedState"] = installed_state
             changed = True
     if changed:
         _write_json(snapshot_dir / "manifest.json", manifest)
@@ -423,24 +444,27 @@ def restore_preinstall_snapshot(repo: Path) -> dict[str, Any]:
         if rel_key in {".gitignore", ".gitmodules"}:
             continue
         current = repo / rel
-        if not current.is_file():
-            continue
-        current_hash = sha256_file(current)
+        current_state = _path_state(current)
         baseline_hash = entry["sha256"]
         installed_hash = entry.get("installedSha256")
-        if current_hash == baseline_hash or (installed_hash is not None and current_hash == installed_hash):
+        installed_state = entry.get("installedState", "file" if installed_hash is not None else "absent")
+        current_hash = sha256_file(current) if current_state == "file" else None
+        if current_hash == baseline_hash or (current_state == installed_state and current_hash == installed_hash):
             continue
         preserve_paths.add(rel_key)
         baseline_copy = conflict_root / "baseline" / rel
-        current_copy = conflict_root / "current" / rel
         _copy_file(snapshot_dir / "files" / rel, baseline_copy)
-        _copy_file(current, current_copy)
+        current_copy = conflict_root / "current" / rel if current_state == "file" else None
+        if current_copy is not None:
+            _copy_file(current, current_copy)
         conflicts.append(
             {
                 "path": rel_key,
                 "reason": "pre-install file changed after CodeSleuth installation",
                 "baseline": baseline_copy.relative_to(repo).as_posix(),
-                "current": current_copy.relative_to(repo).as_posix(),
+                "current": current_copy.relative_to(repo).as_posix() if current_copy else None,
+                "currentState": current_state,
+                "currentLinkTarget": str(current.readlink()) if current_state == "symlink" else None,
                 "worktreePreserved": True,
             }
         )
@@ -485,6 +509,7 @@ def restore_preinstall_snapshot(repo: Path) -> dict[str, Any]:
             continue
         source = snapshot_dir / "files" / rel
         if source.is_file():
+            _remove_path(repo / rel)
             _copy_file(source, repo / rel)
     return {
         "restored": True,
