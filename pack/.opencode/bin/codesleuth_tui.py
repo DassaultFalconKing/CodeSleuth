@@ -10,7 +10,22 @@ from pathlib import Path
 from textual import work
 from textual.app import ComposeResult
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
-from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, RichLog, Select, Static, Switch
+from textual.css.query import NoMatches
+from textual.widgets import (
+    Button,
+    Checkbox,
+    Footer,
+    Header,
+    HelpPanel,
+    Input,
+    KeyPanel,
+    Label,
+    Markdown,
+    RichLog,
+    Select,
+    Static,
+    Switch,
+)
 
 import codesleuth_project as project_lifecycle
 from constants import AGENT_PROFILE_OPTIONS
@@ -221,6 +236,69 @@ class CodeSleuthHelpScreen(AbortableModalScreen[None]):
         self._abort_from_button(event)
 
 
+class CodeSleuthHelpPanel(HelpPanel):
+    """Textual key/help side panel with explicit collapse and session-close controls."""
+
+    DEFAULT_CSS = """
+    CodeSleuthHelpPanel {
+        split: right;
+        width: 33%;
+        min-width: 30;
+        max-width: 60;
+        border-left: vkey #8aa7b8 30%;
+        padding: 0 1;
+        height: 1fr;
+        layout: vertical;
+    }
+    #right-panel-controls { height: 3; align-horizontal: right; }
+    #right-panel-controls Button { min-width: 3; width: 4; margin-left: 1; }
+    CodeSleuthHelpPanel #widget-help {
+        height: auto;
+        max-height: 50%;
+        width: 1fr;
+        padding: 1 0;
+        margin-top: 1;
+        display: none;
+        background: #0e1822;
+    }
+    CodeSleuthHelpPanel.-show-help #widget-help { display: block; }
+    CodeSleuthHelpPanel KeyPanel#keys-help {
+        width: 1fr;
+        height: 1fr;
+        min-width: initial;
+        split: initial;
+        border-left: none;
+        padding: 0;
+    }
+    CodeSleuthHelpPanel.collapsed {
+        width: 5;
+        min-width: 5;
+        max-width: 5;
+        padding: 0;
+    }
+    CodeSleuthHelpPanel.collapsed #widget-help,
+    CodeSleuthHelpPanel.collapsed #keys-help,
+    CodeSleuthHelpPanel.collapsed #right-close { display: none; }
+    CodeSleuthHelpPanel.collapsed #right-panel-controls { width: 100%; align-horizontal: center; }
+    CodeSleuthHelpPanel.collapsed #right-collapse { width: 4; margin: 0; }
+    """
+
+    def compose(self) -> ComposeResult:
+        with Horizontal(id="right-panel-controls"):
+            yield Button("<", id="right-collapse")
+            yield Button("X", id="right-close", variant="error")
+        yield Markdown(id="widget-help")
+        yield KeyPanel(id="keys-help")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "right-collapse":
+            event.stop()
+            self.app.action_toggle_right_panel()
+        elif event.button.id == "right-close":
+            event.stop()
+            self.app.action_close_right_panel()
+
+
 class CodeSleuthConfigScreen(ConfigScreen):
     CSS = """
     CodeSleuthConfigScreen { align: center middle; background: rgba(0,0,0,0.58); }
@@ -373,7 +451,15 @@ class CodeSleuthApp(ReviewPackApp):
     .hint { color: #71879a; }
     #workspace { height: auto; }
     #wide-nav { width: 18; min-width: 18; height: auto; margin-right: 2; padding: 1; border: round #29404f; background: #0e1822; }
+    #nav-chrome { height: 3; width: 100%; }
+    #nav-title { width: 1fr; }
+    #nav-collapse { min-width: 3; width: 3; margin-left: 1; }
     #wide-nav .nav-button { width: 100%; margin-bottom: 1; }
+    #wide-nav.collapsed { width: 5; min-width: 5; max-width: 5; padding: 1 0; margin-right: 1; }
+    #wide-nav.collapsed #nav-title,
+    #wide-nav.collapsed .nav-button { display: none; }
+    #wide-nav.collapsed #nav-chrome { width: 100%; }
+    #wide-nav.collapsed #nav-collapse { width: 100%; margin: 0; }
     #compact-nav { display: none; width: 100%; margin-bottom: 1; }
     #main-panel { width: 1fr; height: auto; }
     #brand { color: #63d5f4; height: 15; text-style: bold; }
@@ -401,7 +487,9 @@ class CodeSleuthApp(ReviewPackApp):
         ("k", "check_updates", "Check Updates"),
         ("u", "uninstall", "Uninstall"),
         ("b", "toggle_brand", "Logo"),
-        ("f2", "toggle_keys", "Keys"),
+        ("f2", "toggle_keys", "Footer"),
+        ("f3", "toggle_left_nav", "Left panel"),
+        ("f4", "toggle_right_panel", "Right panel"),
     ]
 
     def __init__(self, target: Path, distribution_root: Path | None) -> None:
@@ -409,13 +497,18 @@ class CodeSleuthApp(ReviewPackApp):
         self.current_surface = "home"
         self.brand_visible = True
         self.keys_visible = True
+        self.left_nav_collapsed = False
+        self.right_panel_collapsed = False
+        self.right_panel_closed = False
 
     def compose(self) -> ComposeResult:
         yield Header()
         with VerticalScroll(id="body"):
             with Horizontal(id="workspace"):
                 with Vertical(id="wide-nav"):
-                    yield Static("CodeSleuth\nEvidence Console", classes="hint")
+                    with Horizontal(id="nav-chrome"):
+                        yield Static("CodeSleuth\nEvidence Console", id="nav-title", classes="hint")
+                        yield Button("<", id="nav-collapse")
                     for route in NAV_SURFACES:
                         yield Button(route.title(), id=f"nav-{route}", classes="nav-button")
                 with Vertical(id="main-panel"):
@@ -425,8 +518,7 @@ class CodeSleuthApp(ReviewPackApp):
                         allow_blank=False,
                         id="compact-nav",
                     )
-                    # The active navigation surface is intentionally first. Changing Review/Evidence/Tools/Settings
-                    # must put the relevant context where the operator can see it without hunting below branding/status.
+                    # Active navigation context is first so Review/Evidence/Tools/Settings stays visible.
                     yield Static("", id="surface")
                     yield Static(CODESLEUTH_ART, id="brand")
                     yield Static("CODE:SLEUTH // EVIDENCE CONSOLE", id="compact-brand")
@@ -479,7 +571,62 @@ class CodeSleuthApp(ReviewPackApp):
         self.keys_visible = not self.keys_visible
         self.query_one("#keys", Footer).display = self.keys_visible
         if not self.keys_visible:
-            self.notify("Keys hidden; press F2 to restore them")
+            self.notify("Footer hidden; press F2 to restore it")
+
+    def action_toggle_left_nav(self) -> None:
+        self.left_nav_collapsed = not self.left_nav_collapsed
+        nav = self.query_one("#wide-nav")
+        nav.set_class(self.left_nav_collapsed, "collapsed")
+        self.query_one("#nav-collapse", Button).label = ">" if self.left_nav_collapsed else "<"
+
+    def action_show_help_panel(self) -> None:
+        if self.right_panel_closed:
+            self.notify("Right key/help panel is closed for this session", severity="warning")
+            return
+        try:
+            panel = self.screen.query_one(CodeSleuthHelpPanel)
+        except NoMatches:
+            panel = CodeSleuthHelpPanel()
+            self.screen.mount(panel)
+        panel.set_class(self.right_panel_collapsed, "collapsed")
+        try:
+            panel.query_one("#right-collapse", Button).label = ">" if self.right_panel_collapsed else "<"
+        except NoMatches:
+            pass
+
+    def action_hide_help_panel(self) -> None:
+        """Textual's normal hide action becomes a reversible collapse in CodeSleuth."""
+        if self.right_panel_closed:
+            return
+        try:
+            panel = self.screen.query_one(CodeSleuthHelpPanel)
+        except NoMatches:
+            return
+        self.right_panel_collapsed = True
+        panel.add_class("collapsed")
+        panel.query_one("#right-collapse", Button).label = ">"
+
+    def action_toggle_right_panel(self) -> None:
+        if self.right_panel_closed:
+            self.notify("Right key/help panel is closed for this session", severity="warning")
+            return
+        try:
+            panel = self.screen.query_one(CodeSleuthHelpPanel)
+        except NoMatches:
+            self.right_panel_collapsed = False
+            self.action_show_help_panel()
+            return
+        self.right_panel_collapsed = not self.right_panel_collapsed
+        panel.set_class(self.right_panel_collapsed, "collapsed")
+        panel.query_one("#right-collapse", Button).label = ">" if self.right_panel_collapsed else "<"
+
+    def action_close_right_panel(self) -> None:
+        self.right_panel_closed = True
+        self.right_panel_collapsed = False
+        panels = self.screen.query(CodeSleuthHelpPanel)
+        if panels:
+            panels.remove()
+        self.notify("Right key/help panel closed for this session")
 
     @staticmethod
     def _catalog_entries(root: Path, subdir: str) -> list[str]:
@@ -832,7 +979,10 @@ class CodeSleuthApp(ReviewPackApp):
             self.app.call_from_thread(self.notify, f"{action} failed", severity="error")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id and event.button.id.startswith("nav-"):
+        if event.button.id == "nav-collapse":
+            event.stop()
+            self.action_toggle_left_nav()
+        elif event.button.id and event.button.id.startswith("nav-"):
             event.stop()
             self.show_surface(event.button.id.removeprefix("nav-"))
         elif event.button.id == "playbooks":
