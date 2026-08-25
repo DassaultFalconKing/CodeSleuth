@@ -5,7 +5,9 @@ import json
 import os
 import subprocess
 import sys
+import threading
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -15,7 +17,9 @@ from mcp.server.fastmcp import FastMCP
 MAX_FILE_BYTES = 1_000_000
 MAX_READ_LINES = 400
 MAX_SEARCH_RESULTS = 200
+MAX_SEARCH_BYTES = 2_000_000
 MAX_DIFF_CHARS = 40_000
+MAX_GIT_STDERR_BYTES = 64_000
 
 
 def _trace(message: str) -> None:
@@ -23,14 +27,59 @@ def _trace(message: str) -> None:
         print(f"codesleuth-mcp: {message}", file=sys.stderr, flush=True)
 
 
+def _git_environment() -> dict[str, str]:
+    """Return a non-interactive Git environment without caller-controlled repository redirects."""
+
+    environment = {key: value for key, value in os.environ.items() if not key.upper().startswith("GIT_")}
+    environment.update(
+        {
+            "GIT_OPTIONAL_LOCKS": "0",
+            "GIT_PAGER": "cat",
+            "GIT_TERMINAL_PROMPT": "0",
+        }
+    )
+    return environment
+
+
+def _search_records(raw: bytes, limit: int | None = None) -> list[dict[str, Any]]:
+    """Parse complete ``git grep -n -z`` records, ignoring a partial trailing record."""
+
+    parts = raw.split(b"\0")
+    matches: list[dict[str, Any]] = []
+    index = 0
+    while index + 2 < len(parts) and (limit is None or len(matches) < limit):
+        path_bytes, line_bytes, remainder = parts[index], parts[index + 1], parts[index + 2]
+        if not path_bytes:
+            break
+        content, separator, tail = remainder.partition(b"\n")
+        if not separator:
+            break
+        matches.append(
+            {
+                "path": path_bytes.decode("utf-8", errors="replace").replace("\\", "/"),
+                "line": int(line_bytes.decode("ascii")),
+                "text": content.decode("utf-8", errors="replace"),
+            }
+        )
+        if tail:
+            parts[index + 2] = tail
+            index += 2
+        else:
+            index += 3
+    return matches
+
+
 class RepositoryEvidence:
     """Deterministic, bounded evidence captured from one Git worktree."""
 
     def __init__(self, requested_root: str | os.PathLike[str]) -> None:
         requested = Path(requested_root).resolve()
+        self._git_env = _git_environment()
         completed = subprocess.run(
-            ["git", "-C", str(requested), "rev-parse", "--show-toplevel"],
+            self._command(requested, "rev-parse", "--show-toplevel"),
             check=False,
+            env=self._git_env,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -39,15 +88,23 @@ class RepositoryEvidence:
             raise ValueError(message or f"not a Git worktree: {requested}")
         self.root = Path(completed.stdout.decode("utf-8", errors="strict").strip()).resolve()
 
+    @staticmethod
+    def _command(root: Path, *args: str) -> list[str]:
+        # `core.fsmonitor=false` prevents both an external fsmonitor hook and Git's built-in daemon
+        # from being started by an evidence probe. It is a command-scoped override so repository and
+        # user configuration cannot widen this boundary.
+        return ["git", "--no-pager", "-c", "core.fsmonitor=false", "-C", str(root), *args]
+
     def _git_bytes(self, *args: str, allow_no_match: bool = False) -> bytes:
         _trace(f"git start: {' '.join(args)}")
         completed = subprocess.run(
-            ["git", "-C", str(self.root), *args],
+            self._command(self.root, *args),
             check=False,
             # MCP stdio owns the process stdin. A child that inherits it can consume or hold the
             # JSON-RPC wire; on Windows even `git status` then left tools/list healthy while every
             # tools/call timed out. Repository probes are non-interactive by contract.
             stdin=subprocess.DEVNULL,
+            env=self._git_env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -56,6 +113,72 @@ class RepositoryEvidence:
             message = completed.stderr.decode("utf-8", errors="replace").strip()
             raise RuntimeError(message or f"git {' '.join(args)} failed with {completed.returncode}")
         return completed.stdout
+
+    def _git_bytes_bounded(
+        self,
+        *args: str,
+        max_bytes: int,
+        stop_when: Callable[[bytes], bool] | None = None,
+        allow_no_match: bool = False,
+    ) -> tuple[bytes, bool]:
+        """Stream Git output, terminating once a byte or semantic evidence budget is reached."""
+
+        _trace(f"git bounded start: {' '.join(args)}")
+        process = subprocess.Popen(
+            self._command(self.root, *args),
+            env=self._git_env,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if process.stdout is None or process.stderr is None:  # pragma: no cover - guaranteed by PIPE
+            process.kill()
+            raise RuntimeError("Git evidence process did not expose output pipes")
+
+        stderr = bytearray()
+
+        def drain_stderr() -> None:
+            while chunk := process.stderr.read(8192):
+                remaining = MAX_GIT_STDERR_BYTES - len(stderr)
+                if remaining > 0:
+                    stderr.extend(chunk[:remaining])
+
+        stderr_thread = threading.Thread(target=drain_stderr, name="codesleuth-git-stderr", daemon=True)
+        stderr_thread.start()
+
+        stdout = bytearray()
+        stopped = False
+        try:
+            while chunk := process.stdout.read1(65536):
+                remaining = max_bytes + 1 - len(stdout)
+                if remaining > 0:
+                    stdout.extend(chunk[:remaining])
+                if len(stdout) > max_bytes or (stop_when is not None and stop_when(bytes(stdout))):
+                    stopped = True
+                    if process.poll() is None:
+                        try:
+                            process.terminate()
+                        except ProcessLookupError:
+                            pass
+                    break
+            if stopped:
+                try:
+                    process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=2)
+            else:
+                process.wait()
+        finally:
+            process.stdout.close()
+            stderr_thread.join(timeout=2)
+            process.stderr.close()
+
+        _trace(f"git bounded complete ({process.returncode}): {' '.join(args)}")
+        if not stopped and process.returncode != 0 and not (allow_no_match and process.returncode == 1):
+            message = bytes(stderr).decode("utf-8", errors="replace").strip()
+            raise RuntimeError(message or f"git {' '.join(args)} failed with {process.returncode}")
+        return bytes(stdout[:max_bytes]), stopped
 
     def _git(self, *args: str, allow_no_match: bool = False) -> str:
         return self._git_bytes(*args, allow_no_match=allow_no_match).decode("utf-8", errors="replace")
@@ -78,6 +201,13 @@ class RepositoryEvidence:
                     "path": path_bytes.decode("utf-8", errors="replace").replace("\\", "/"),
                 }
             )
+        by_path: dict[str, list[dict[str, str]]] = {}
+        for record in records:
+            by_path.setdefault(record["path"], []).append(record)
+        for path, path_records in by_path.items():
+            if len(path_records) != 1 or path_records[0]["stage"] != "0":
+                stages = ", ".join(record["stage"] for record in path_records)
+                raise RuntimeError(f"unresolved index stages for {path}: {stages}")
         return records
 
     def _tracked(self) -> set[str]:
@@ -194,33 +324,20 @@ class RepositoryEvidence:
         args.extend(["-e", pattern])
         if prefix:
             args.extend(["--", prefix])
-        raw = self._git_bytes(*args, allow_no_match=True)
-        parts = raw.split(b"\0")
-        matches: list[dict[str, Any]] = []
-        index = 0
-        while index + 2 < len(parts) and len(matches) < limit:
-            path_bytes, line_bytes, remainder = parts[index], parts[index + 1], parts[index + 2]
-            if not path_bytes:
-                break
-            content, separator, tail = remainder.partition(b"\n")
-            matches.append(
-                {
-                    "path": path_bytes.decode("utf-8", errors="replace").replace("\\", "/"),
-                    "line": int(line_bytes.decode("ascii")),
-                    "text": content.decode("utf-8", errors="replace"),
-                }
-            )
-            if tail:
-                parts[index + 2] = tail
-                index += 2
-            else:
-                index += 3
+        raw, stream_truncated = self._git_bytes_bounded(
+            *args,
+            max_bytes=MAX_SEARCH_BYTES,
+            stop_when=lambda output: len(_search_records(output, limit + 1)) > limit,
+            allow_no_match=True,
+        )
+        discovered = _search_records(raw, limit + 1)
+        matches = discovered[:limit]
         return {
             "pattern": pattern,
             "fixedStrings": fixed_strings,
             "pathPrefix": prefix or ".",
             "matches": matches,
-            "truncated": len(matches) == limit,
+            "truncated": stream_truncated or len(discovered) > limit,
         }
 
     def test_map(self, cursor: int = 0, limit: int = 100) -> dict[str, Any]:
@@ -263,15 +380,16 @@ class RepositoryEvidence:
         }
 
     def diff_evidence(self, staged: bool = False) -> dict[str, Any]:
-        args = ["diff", "--no-ext-diff", "--unified=3"]
+        args = ["diff", "--no-ext-diff", "--no-textconv", "--unified=3"]
         if staged:
             args.append("--cached")
-        text = self._git(*args)
+        raw, stream_truncated = self._git_bytes_bounded(*args, max_bytes=MAX_DIFF_CHARS * 4 + 4)
+        text = raw.decode("utf-8", errors="replace")
         return {
             "headSha": self._git("rev-parse", "HEAD").strip(),
             "staged": staged,
             "diff": text[:MAX_DIFF_CHARS],
-            "truncated": len(text) > MAX_DIFF_CHARS,
+            "truncated": stream_truncated or len(text) > MAX_DIFF_CHARS,
         }
 
 

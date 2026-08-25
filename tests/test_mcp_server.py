@@ -55,6 +55,62 @@ def test_overview_and_inventory_are_bound_to_git(repository: Path) -> None:
     assert all(len(item["blob"]) == 40 for item in inventory["files"])
 
 
+def test_repository_binding_ignores_inherited_git_redirects(
+    repository: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    redirected = tmp_path / "redirected"
+    redirected.mkdir()
+    git(redirected, "init")
+    git(redirected, "config", "user.email", "redirected@example.invalid")
+    git(redirected, "config", "user.name", "Redirected Test")
+    (redirected / "wrong.txt").write_text("wrong repository\n", encoding="utf-8")
+    git(redirected, "add", "wrong.txt")
+    git(redirected, "commit", "-m", "redirected")
+
+    monkeypatch.setenv("GIT_DIR", str(redirected / ".git"))
+    monkeypatch.setenv("GIT_WORK_TREE", str(redirected))
+    evidence = RepositoryEvidence(repository)
+
+    assert evidence.root == repository.resolve()
+    assert {item["path"] for item in evidence.inventory(limit=100)["files"]} == {
+        "README.md",
+        "src/hello.py",
+        "tests/test_hello.py",
+    }
+
+
+def test_overview_does_not_refresh_or_write_the_index(repository: Path) -> None:
+    index = Path(git(repository, "rev-parse", "--git-path", "index").strip())
+    if not index.is_absolute():
+        index = repository / index
+    before = index.read_bytes()
+    tracked = repository / "README.md"
+    stat = tracked.stat()
+    os.utime(tracked, ns=(stat.st_atime_ns, stat.st_mtime_ns + 2_000_000_000))
+
+    assert RepositoryEvidence(repository).overview()["dirty"] is False
+    assert index.read_bytes() == before
+
+
+def test_overview_does_not_invoke_configured_fsmonitor(repository: Path) -> None:
+    marker = repository / "fsmonitor-invoked"
+    hook = repository / "fsmonitor.sh"
+    hook.write_text(
+        f'#!/bin/sh\nprintf invoked > "{marker.as_posix()}"\nexit 1\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+    hook.chmod(0o755)
+    git(repository, "config", "core.fsmonitor", hook.as_posix())
+
+    git(repository, "status", "--porcelain=v1")
+    assert marker.exists(), "negative control: configured fsmonitor hook was not executable"
+    marker.unlink()
+
+    RepositoryEvidence(repository).overview()
+    assert not marker.exists()
+
+
 def test_exact_source_and_search_carry_line_evidence(repository: Path) -> None:
     evidence = RepositoryEvidence(repository)
     source = evidence.read_evidence("src/hello.py", 1, 2)
@@ -65,6 +121,26 @@ def test_exact_source_and_search_carry_line_evidence(repository: Path) -> None:
         {"line": 2, "text": "    return 'hello'"},
     ]
     assert matches["matches"] == [{"path": "src/hello.py", "line": 2, "text": "    return 'hello'"}]
+
+
+def test_search_fetches_one_extra_match_before_reporting_truncation(repository: Path) -> None:
+    target = repository / "src" / "matches.txt"
+    target.write_text("EXACT_TOKEN one\nEXACT_TOKEN two\n", encoding="utf-8", newline="\n")
+    git(repository, "add", "src/matches.txt")
+    git(repository, "commit", "-m", "two matches")
+
+    exact = RepositoryEvidence(repository).search("EXACT_TOKEN", limit=2)
+    assert len(exact["matches"]) == 2
+    assert exact["truncated"] is False
+
+    target.write_text(
+        "EXACT_TOKEN one\nEXACT_TOKEN two\nEXACT_TOKEN three\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    extra = RepositoryEvidence(repository).search("EXACT_TOKEN", limit=2)
+    assert len(extra["matches"]) == 2
+    assert extra["truncated"] is True
 
 
 def test_path_escape_and_untracked_files_fail_closed(repository: Path) -> None:
@@ -84,10 +160,61 @@ def test_test_map_is_explicitly_not_coverage(repository: Path) -> None:
 
 
 def test_diff_is_bounded_and_tied_to_head(repository: Path) -> None:
-    (repository / "README.md").write_text("# changed\n", encoding="utf-8", newline="\n")
+    (repository / "README.md").write_text("# changed\n" + ("diff payload\n" * 20_000), encoding="utf-8", newline="\n")
     result = RepositoryEvidence(repository).diff_evidence()
     assert "README.md" in result["diff"]
     assert len(result["headSha"]) == 40
+    assert len(result["diff"]) <= 40_000
+    assert result["truncated"] is True
+
+
+def test_diff_does_not_invoke_configured_textconv(repository: Path) -> None:
+    marker = repository / "textconv-invoked"
+    script = repository / "textconv.py"
+    script.write_text(
+        "from pathlib import Path\n"
+        "import sys\n"
+        f"Path({str(marker)!r}).write_text('invoked', encoding='utf-8')\n"
+        "sys.stdout.buffer.write(Path(sys.argv[1]).read_bytes())\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    (repository / ".gitattributes").write_text("*.txt diff=marker\n", encoding="utf-8", newline="\n")
+    target = repository / "sample.txt"
+    target.write_text("before\n", encoding="utf-8", newline="\n")
+    git(repository, "add", ".gitattributes", "sample.txt")
+    git(repository, "commit", "-m", "textconv fixture")
+    textconv = f'"{Path(sys.executable).as_posix()}" "{script.as_posix()}"'
+    git(repository, "config", "diff.marker.textconv", textconv)
+    target.write_text("after\n", encoding="utf-8", newline="\n")
+
+    git(repository, "diff", "--textconv")
+    assert marker.exists(), "negative control: configured textconv command was not invoked"
+    marker.unlink()
+
+    RepositoryEvidence(repository).diff_evidence()
+    assert not marker.exists()
+
+
+def test_unresolved_merge_stages_fail_closed(repository: Path) -> None:
+    base_branch = git(repository, "branch", "--show-current").strip()
+    git(repository, "checkout", "-b", "conflicting-side")
+    (repository / "README.md").write_text("# side\n", encoding="utf-8", newline="\n")
+    git(repository, "commit", "-am", "side")
+    git(repository, "checkout", base_branch)
+    (repository / "README.md").write_text("# base\n", encoding="utf-8", newline="\n")
+    git(repository, "commit", "-am", "base")
+    merge = subprocess.run(
+        ["git", "-C", str(repository), "merge", "conflicting-side"],
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert merge.returncode != 0
+
+    with pytest.raises(RuntimeError, match=r"unresolved index stages for README\.md: 1, 2, 3"):
+        RepositoryEvidence(repository).inventory()
 
 
 def test_mcp_surface_has_only_bounded_repository_tools(repository: Path) -> None:

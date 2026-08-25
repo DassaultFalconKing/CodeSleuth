@@ -48,9 +48,16 @@ NovaClaw prefixes MCP tools with the configured server name, so these normally a
 ## Safety boundary
 
 - The repository root is fixed when the MCP child starts; tools cannot select another directory.
-- Git subprocesses receive a null stdin so they cannot consume or hold the MCP stdio wire.
+- Git subprocesses receive a null stdin so they cannot consume or hold the MCP stdio wire. Inherited
+  `GIT_*` variables are removed before repository discovery, so caller state cannot redirect probes to
+  another index, object store, or worktree.
+- Evidence probes disable optional locks and fsmonitor. Diffs also disable external diff and textconv,
+  so read-only inspection neither refreshes the index nor launches repository-configured helpers.
 - File reads accept tracked files only, reject path traversal and binary content, and cap bytes/lines.
-- Search, inventory, and diffs are bounded.
+- An unresolved index has no singular blob identity, so inventory and reads fail closed until merge
+  stages are resolved.
+- Search and diff output is streamed and the Git child is terminated at the evidence budget; bounds
+  apply while producing evidence, not only after complete output has been captured.
 - The adapter writes no project files and makes no coverage claim.
 - A model-generated relationship remains inference until exact source is reopened through `read_evidence`.
 
