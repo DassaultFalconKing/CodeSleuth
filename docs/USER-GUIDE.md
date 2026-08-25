@@ -31,6 +31,8 @@ The setup screen controls:
 - update checks;
 - whether CodeSleuth is pinned as `tools/codesleuth` Git submodule.
 
+The dependency control is reversible: binding/unbinding the source dependency is independent of installing/uninstalling the `.opencode` runtime.
+
 Before first install CodeSleuth writes a pre-install backup under `.codesleuth/backups/pre-install/` and adds a managed root `.gitignore` block for local CodeSleuth/OpenCode state.
 
 `tools/codesleuth` is never ignored by CodeSleuth. If the target project's own ignore rules hide that path, dependency binding refuses to proceed until the project owner resolves the policy intentionally.
@@ -71,6 +73,16 @@ Install and pin CodeSleuth in the target repository:
 ```
 
 The bind operation stages `.gitmodules` and `tools/codesleuth`. It does not commit or push the target repository.
+
+Passing a nested project directory is safe: CLI entrypoints normalize it to the containing Git repository root before writing `.opencode` or `.codesleuth`.
+
+After cloning a bound project:
+
+```bash
+git clone --recurse-submodules <project-url>
+# or in an existing clone
+git submodule update --init --recursive
+```
 
 ## Installed controls
 
@@ -134,6 +146,8 @@ git -C tools/codesleuth checkout --detach <accepted-sha>
 
 Then inspect the project diff and commit the gitlink plus intended `.opencode` changes together.
 
+To revert, checkout the prior accepted SHA in `tools/codesleuth`, rerun that checkout's `install.sh . --update`, inspect, and commit the gitlink/runtime changes. The TUI disables target-local check/update actions for pinned detached mode because those scripts require an explicit floating `remote + ref`.
+
 Detached CodeSleuth checkouts are normal. CodeSleuth records the exact source commit and does not infer a floating branch from `origin/HEAD`.
 
 ## Uninstall while preserving audit traces
@@ -142,7 +156,9 @@ Detached CodeSleuth checkouts are normal. CodeSleuth records the exact source co
 .opencode/bin/codesleuth-project --uninstall .
 ```
 
-This archives known CodeSleuth settings/profiles/review state under `.codesleuth/archive/`, restores the pre-install `.opencode` baseline when available, removes CodeSleuth-owned runtime files, and removes a clean bound CodeSleuth submodule.
+This archives only known CodeSleuth settings, profiles, review state and TUI state under `.codesleuth/archive/`, performs a conflict-safe pre-install restore, removes CodeSleuth-owned runtime files, and removes a safe bound CodeSleuth submodule. Arbitrary reports or project files outside managed namespaces are neither archived nor deleted.
+
+If a pre-existing `.opencode` file changed after installation, its current version stays in place. Baseline/current copies and a conflict manifest are retained under ignored `.codesleuth/restore-conflicts/` for manual resolution.
 
 The archive stays gitignored.
 
@@ -152,12 +168,18 @@ The archive stays gitignored.
 .opencode/bin/codesleuth-project --uninstall . --purge-traces
 ```
 
-This restores prior project configuration and deletes CodeSleuth backups/known local traces. CodeSleuth does not guess at arbitrary report files authored elsewhere in the repository; those remain project-owned.
+This safely restores prior project configuration and deletes ordinary CodeSleuth backups/known local traces. Required restore-conflict evidence remains when a user edit prevents automatic restore. CodeSleuth does not guess at arbitrary report files authored elsewhere in the repository; those remain project-owned.
 
 To remove only the installed runtime while keeping the pinned source dependency:
 
 ```bash
 .opencode/bin/codesleuth-project --uninstall . --keep-dependency
+```
+
+This is the first-class **dependency-only** / **bound-inactive** state. To remove only the dependency while keeping the runtime:
+
+```bash
+.opencode/bin/codesleuth-project --unbind .
 ```
 
 The TUI exposes Preserve/Purge choices and requires an explicit uninstall action.

@@ -411,7 +411,7 @@ def generate_prompts(repo: Path, profiles: list[str]) -> list[tuple[str, str]]:
 def write_prompts(repo: Path, prompts: list[tuple[str, str]]) -> Path:
     out = repo / ".opencode" / "state" / "tui" / "suggested-prompts.md"
     out.parent.mkdir(parents=True, exist_ok=True)
-    body = ["# Suggested review-pack prompts", ""]
+    body = ["# Suggested CodeSleuth prompts", ""]
     for i, (title, prompt) in enumerate(prompts, 1):
         body.extend([f"## {i}. {title}", "", prompt, ""])
     out.write_text("\n".join(body), encoding="utf-8")

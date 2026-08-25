@@ -86,8 +86,9 @@ class UninstallScreen(ModalScreen[str | None]):
             yield Label("Remove CodeSleuth from this repository?")
             yield Static(
                 "CodeSleuth restores the pre-install .opencode snapshot when available and removes its bound submodule. "
-                "Preserve keeps review reports, profiles, settings and backups under .codesleuth/archive (gitignored). "
-                "Purge deletes CodeSleuth traces/backups after restoring prior configuration."
+                "Preserve archives known CodeSleuth settings, profiles, review state and TUI state under .codesleuth/archive (gitignored). "
+                "Purge deletes CodeSleuth traces/backups after a conflict-safe restore; unrelated project files are not archived or deleted. "
+                "If a pre-existing file changed after installation, the worktree version wins and explicit recovery evidence is retained."
             )
             yield Static(
                 "SECURITY: archived review evidence can contain development credentials or secrets. "
@@ -168,7 +169,7 @@ class ConfigScreen(ModalScreen[bool]):
             yield Select(ops, value=selected_op, allow_blank=False, id="operation")
             with Horizontal(classes="row"):
                 yield Switch(value=bool(self.dependency["bound"]), id="bind-dependency")
-                yield Label("Pin CodeSleuth as tools/codesleuth Git submodule (recommended for development repos)")
+                yield Label("Bind/unbind tools/codesleuth independently of the installed runtime")
 
             yield Label("2. Repository profile", classes="section")
             yield Switch(value=self.settings.get("profilesMode") == "auto", id="profiles-auto")
@@ -337,6 +338,8 @@ class ConfigScreen(ModalScreen[bool]):
                 apply_settings_to_target(self.repo, settings)
                 if bind_dependency and not project_lifecycle.dependency_status(self.repo)["bound"]:
                     project_lifecycle.bind_dependency(self.repo, source_metadata=self._installed_source())
+                elif not bind_dependency and project_lifecycle.dependency_status(self.repo)["bound"]:
+                    project_lifecycle.remove_dependency(self.repo)
                 output = "Configured CodeSleuth."
             else:
                 if self.distribution_root is None:
@@ -361,6 +364,8 @@ class ConfigScreen(ModalScreen[bool]):
                     output = result.stdout.strip()
                 finally:
                     settings_path.unlink(missing_ok=True)
+                if not bind_dependency and project_lifecycle.dependency_status(self.repo)["bound"]:
+                    project_lifecycle.remove_dependency(self.repo)
             self.app.call_from_thread(self.notify, output[-1200:] or "Applied", severity="information")
             self.app.call_from_thread(self.dismiss, True)
         except Exception as exc:
@@ -441,10 +446,18 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
             operation = recommended_operation(self.target, self.distribution_root is not None)
             dependency = project_lifecycle.dependency_status(self.target)
             dep_text = f"{dependency['path']} @ {dependency['commit']}" if dependency["bound"] else "not pinned"
+            lifecycle = project_lifecycle.lifecycle_state(self.target)
+            source = meta.get("source", {}) if meta_path.is_file() else {}
+            update_mode = "pinned: advance/revert the gitlink, then materialize that checkout" if dependency["bound"] else (
+                "floating" if source.get("remote") and source.get("ref") else "unavailable: no explicit floating source ref"
+            )
+            pinned = dependency["bound"]
+            self.query_one("#check-update", Button).disabled = pinned or update_mode.startswith("unavailable")
+            self.query_one("#update", Button).disabled = pinned or update_mode.startswith("unavailable")
             backup = self.target / project_lifecycle.LOCAL_ROOT / "preinstall.json"
             self.query_one("#status", Static).update(
-                f"State: {state}\nVersion: {version}; complete: {complete}\n"
-                f"Dependency: {dep_text}\nPre-install backup: {'yes' if backup.is_file() else 'no'}\n"
+                f"State: {state}; lifecycle: {lifecycle}\nVersion: {version}; complete: {complete}\n"
+                f"Dependency: {dep_text}\nUpdate path: {update_mode}\nPre-install backup: {'yes' if backup.is_file() else 'no'}\n"
                 f"Detected profiles: {', '.join(profiles)}\nRecommended operation: {operation}"
             )
         except Exception as exc:
@@ -505,7 +518,7 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
     @work(thread=True, exclusive=True)
     def perform_uninstall(self, choice: str) -> None:
         try:
-            repo = self.current_target()
+            repo = self.validate_target()
             result = project_lifecycle.uninstall_project(repo, preserve_traces=choice == "preserve")
             self.app.call_from_thread(self.write_ui_log, f"[green]uninstall[/]:\n{json.dumps(result, indent=2)}")
             self.app.call_from_thread(self.refresh_status)
@@ -515,7 +528,7 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
     @work(thread=True, exclusive=False)
     def run_action(self, action: str) -> None:
         try:
-            repo = self.current_target()
+            repo = self.validate_target()
             ocbin = repo / ".opencode" / "bin"
             if action == "smoke":
                 command = [sys.executable, str(ocbin / "review-pack-smoke.py"), str(repo)]

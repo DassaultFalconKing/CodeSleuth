@@ -10,7 +10,9 @@ pytest.importorskip("textual")
 
 BIN = Path(__file__).resolve().parents[1] / "pack" / ".opencode" / "bin"
 sys.path.insert(0, str(BIN))
-from review_pack_tui import ReviewPackApp, UninstallScreen  # noqa: E402
+import codesleuth_project as lifecycle  # noqa: E402
+from review_pack_tui import ConfigScreen, ReviewPackApp, UninstallScreen  # noqa: E402
+from textual.widgets import Button, Switch  # noqa: E402
 
 
 def init_repo(path: Path) -> None:
@@ -45,3 +47,44 @@ async def test_uninstall_modal_requires_explicit_choice(tmp_path: Path) -> None:
         assert app.screen.query_one("#preserve")
         assert app.screen.query_one("#purge")
         assert app.screen.query_one("#cancel")
+        text = "\n".join(str(widget.render()) for widget in app.screen.query("Static"))
+        assert "known CodeSleuth settings" in text
+        assert "unrelated project files are not archived or deleted" in text
+
+
+@pytest.mark.asyncio
+async def test_pilot_can_unbind_dependency_without_uninstalling_runtime(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    init_repo(source)
+    init_repo(target)
+    subprocess.run(["git", "-C", str(source), "config", "user.email", "test@example.invalid"], check=True)
+    subprocess.run(["git", "-C", str(source), "config", "user.name", "CodeSleuth Test"], check=True)
+    subprocess.run(["git", "-C", str(source), "commit", "-m", "source"], check=True, capture_output=True)
+    sha = subprocess.run(
+        ["git", "-C", str(source), "rev-parse", "HEAD"], text=True, capture_output=True, check=True
+    ).stdout.strip()
+    lifecycle.bind_dependency(target, source_metadata={"remote": str(source), "commit": sha})
+    runtime = target / ".opencode" / "review-pack.json"
+    runtime.parent.mkdir()
+    runtime.write_text('{"version":"0.3.0","complete":true,"source":{"remote":null,"ref":null}}\n', encoding="utf-8")
+    (runtime.parent / "opencode.json").write_text("{}\n", encoding="utf-8")
+
+    app = ReviewPackApp(target, None)
+    async with app.run_test(size=(120, 140)) as pilot:
+        await pilot.pause()
+        assert app.query_one("#check-update", Button).disabled
+        assert app.query_one("#update", Button).disabled
+        await pilot.click("#configure")
+        await pilot.pause()
+        assert isinstance(app.screen, ConfigScreen)
+        dependency_switch = app.screen.query_one("#bind-dependency", Switch)
+        assert dependency_switch.value is True
+        await pilot.click("#bind-dependency")
+        await pilot.click("#apply")
+        for _ in range(20):
+            await pilot.pause(0.1)
+            if not isinstance(app.screen, ConfigScreen):
+                break
+        assert not lifecycle.dependency_status(target)["bound"]
+        assert runtime.is_file()
