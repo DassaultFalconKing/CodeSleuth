@@ -1,193 +1,278 @@
-# Stable Integration Baseline (SIB)
+# Stable Baseline Model: SIB0, SIB1, SIB2
 
-## Definition
+## Purpose
 
-A **Stable Integration Baseline (SIB)** is the smallest architecture-complete state of a system in which every fundamental capability class exists, works end-to-end at its basic contract, and passes the project's canonical acceptance gates.
+The SIB model separates three states that are often collapsed into one vague claim that a refactor is "done" or that a branch is "stable".
 
-A SIB is not a release candidate and not merely a development snapshot that happens to be green. It is a deliberately selected, known-good architectural baseline from which construction of a new release begins.
+The three baselines describe increasing levels of architectural maturity:
 
-The term is used here as a project engineering concept. It is not claimed to be an industry-standard definition; it names a state that is often described less precisely through terms such as *walking skeleton*, *architecture baseline*, *integration baseline*, or *pre-release*.
+- **SIB0 — Stable Initialization Baseline**: the architecture's fundamental capability-class inventory is frozen.
+- **SIB1 — Stable Implementation Baseline**: every declared capability class has a real implementation that satisfies its basic contract.
+- **SIB2 — Stable Integration Baseline**: those implementations are proven to work together as one system under the canonical acceptance gates.
 
-## The key distinction: SIB is not MVP
+The sequence is:
 
-An **MVP** and a **SIB** are minimal along different axes.
+`architectural convergence -> SIB0 -> implementation recovery -> SIB1 -> integration recovery -> full acceptance -> SIB2`
 
-An MVP is minimal by **product value**. It asks:
+Release construction begins from SIB2:
 
-> What is the smallest set of capabilities that is useful enough to validate the product hypothesis?
+`SIB2 -> integration build -> feature composition -> acceptance -> RC -> release`
 
-An MVP may therefore be architecturally incomplete. It may contain temporary shortcuts, a single happy path, partial implementations, missing future capability classes, or components that are expected to be replaced later. That can be acceptable because the purpose of an MVP is to validate usefulness, not to prove the final architecture.
+The terminology is a project engineering concept, not a claim of industry-standard naming. It gives precise names to states that are otherwise described ambiguously through terms such as *walking skeleton*, *architecture baseline*, *implementation complete*, *integration baseline*, or *pre-release*.
 
-A SIB is minimal by **implementation depth inside an architecture that is already complete in shape**. It asks:
+## Capability class
 
-> Do all fundamental parts of the intended system already exist, connect, and work at least at their basic end-to-end contract?
+A **capability class** is a fundamental type of ability the system is architected to possess. It is broader than an individual feature, command, adapter, profile, endpoint, or UI action.
 
-In short:
-
-`MVP = few functions, but already useful`
-
-`SIB = little depth inside each function, but all fundamental capability classes are already represented`
-
-This distinction matters because a SIB is intended to be extended without redesigning the system's fundamental shape.
-
-## Architecture-complete, not feature-complete
-
-A SIB contains the complete set of **architecturally significant capability classes known at the time the baseline is declared**.
-
-The wording is intentionally narrower than “all possible function types.” No project can prove that it will never discover a genuinely new architectural requirement. The relevant claim is that the architecture is complete relative to the accepted product design at the time of the baseline.
-
-For example, if a system's intended architecture includes capability classes such as:
+Examples can include:
 
 - command-line operation;
 - a terminal or graphical operator interface;
-- an extension/profile mechanism;
-- update and lifecycle management;
 - persistent state;
+- an extension/profile mechanism;
+- lifecycle and update management;
 - context or relationship graphs;
+- external tool integration;
+- report generation;
 - a controller/tool execution boundary;
-- canonical acceptance infrastructure;
+- canonical acceptance infrastructure.
 
-then a SIB does not require each class to be rich or exhaustive. It does require each declared class to exist, be integrated, and satisfy its basic contract.
+Adding another command to an existing CLI, another profile to an existing profile system, another relation to an existing graph, or another adapter through an existing adapter mechanism normally **populates** an existing capability class. It does not create a new one.
 
-After SIB, normal release construction should primarily deepen, multiply, or refine existing capability classes. Examples include:
+Adding a second execution runtime, a fundamentally new persistence model, or a new orchestration subsystem usually **changes the architecture** and therefore changes the capability-class inventory.
 
-- adding more profiles of an existing profile type;
-- adding more tools through an existing tool mechanism;
-- adding relations to an existing graph model;
-- improving the UX of an existing interface;
-- adding domain-specific operations through an existing execution model;
-- strengthening tests and observability;
-- improving performance;
-- extending existing workflows and adapters.
+This distinction is the foundation of the SIB model: ordinary release growth should deepen or multiply existing capability classes; architectural change introduces, removes, or redefines capability classes.
 
-By contrast, changes such as the following are evidence that the architectural baseline itself has changed:
+## SIB0 — Stable Initialization Baseline
 
-- introducing a second execution runtime;
-- adding a fundamentally new persistence layer;
-- introducing a new orchestration class that the architecture did not previously contain;
-- replacing a core lifecycle or ownership boundary with a different model.
+A **Stable Initialization Baseline (SIB0)** is the point at which the architecture's fundamental capability-class inventory is declared complete for the current architectural generation.
 
-Such changes are not ordinary feature population. After they are integrated and all fundamental capability classes are restored to working order, the project should establish a **new SIB**.
+At SIB0:
 
-## SIB and refactoring
+1. Every currently intended fundamental capability class is identified.
+2. A placeholder, skeleton, interface, module boundary, contract, or equivalent architectural slot exists for each class.
+3. The relationships and ownership boundaries between those classes are sufficiently defined for implementation work to proceed without repeatedly changing the architectural shape.
+4. The list of fundamental capability classes is frozen.
+5. Maintainers deliberately designate the exact repository state as SIB0.
 
-The concept is especially useful after a major refactor.
+SIB0 **does not** claim that all capability classes are implemented. Placeholders may still exist. End-to-end behavior may still be incomplete. Full-system acceptance is not required yet.
 
-A successful refactor is not complete merely because the code compiles or because individual unit tests pass. The post-refactor architecture becomes a candidate SIB only after all intended capability classes are again present, integrated, and proven by the canonical acceptance gates.
+Its claim is narrower and extremely useful:
 
-The sequence is therefore:
+> **We know what kinds of things this architecture contains, and that list is no longer expected to change during ordinary implementation of this architectural generation.**
 
-`refactor -> restore all capability classes -> canonical acceptance -> new SIB`
+This makes SIB0 an architectural initialization freeze.
 
-Only after that point should broad feature growth resume.
+### SIB0 invalidation rule
 
-This gives the team a concrete stopping condition for architectural work: the architecture is no longer “in transition” once it has a proven, extensible baseline.
+If a genuinely new fundamental capability class must be added after SIB0, or an existing fundamental class must be removed or redefined, the current SIB0 is no longer a valid initialization baseline for the resulting architecture.
 
-## SIB is not a release
+The project has reopened architectural design and must establish a new SIB0 before claiming implementation convergence again.
 
-A SIB may already be capable of running in production, but it does not have to be product-complete for the intended release scope.
+This rule is intentional. A baseline whose defining inventory can silently change is not a baseline.
 
-This yields an important distinction:
+## SIB1 — Stable Implementation Baseline
+
+A **Stable Implementation Baseline (SIB1)** is the point at which every capability class declared at SIB0 has a real implementation that satisfies its own basic contract.
+
+At SIB1:
+
+1. Every SIB0 capability class has moved beyond a mere placeholder for its required basic path.
+2. Each class performs its fundamental function in isolation or through the minimum dependencies required by its own contract.
+3. Required interfaces and ownership boundaries are implemented rather than merely sketched.
+4. Capability-level, component-level, or focused acceptance for those basic contracts passes.
+5. The architectural shape remains the one frozen at SIB0.
+6. Maintainers deliberately designate the exact repository state as SIB1.
+
+SIB1 answers:
+
+> **Have we actually implemented the architecture we said we were going to implement?**
+
+It does **not** yet make the stronger claim that all capability classes are proven to work together across every canonical integration path or supported environment.
+
+That distinction matters. A repository can have every subsystem individually implemented while still containing broken composition boundaries, lifecycle paths, migration behavior, state interactions, or environment-specific failures.
+
+SIB1 therefore marks **implementation completeness**, not integration completeness.
+
+## SIB2 — Stable Integration Baseline
+
+A **Stable Integration Baseline (SIB2)** is the smallest architecture-complete state in which every fundamental capability class exists, performs its basic contract, works with the other classes through the intended end-to-end paths, and the exact composed commit passes the project's canonical full-system acceptance gates.
+
+At SIB2:
+
+1. The SIB0 capability-class inventory remains intact.
+2. The SIB1 implementations remain functional.
+3. Cross-capability integration boundaries work.
+4. Required end-to-end execution paths work.
+5. Persistence, lifecycle, controller/runtime, migration, and environment interactions satisfy their declared contracts where applicable.
+6. The exact candidate commit passes the full canonical acceptance gate.
+7. Maintainers deliberately designate the exact repository state as SIB2.
+
+SIB2 answers:
+
+> **Does the implemented architecture actually work as one system?**
+
+SIB2 is the trusted construction base for a new release.
+
+For CodeSleuth, the branch named `SIB` is semantically an **SIB2**. At the time this model was introduced it points to:
+
+`c5e41a73b84e65645dec5d0a4032b19928291193`
+
+The practical branch name remains `SIB`; the numbered terminology describes the engineering state.
+
+## The post-refactor canon
+
+The SIB model is especially valuable when a major refactor happens at the same time that the project must begin preparing a new release.
+
+The canonical recovery sequence is:
+
+`refactor -> stabilize capability-class inventory -> SIB0 -> restore/implement all capability classes -> capability acceptance -> SIB1 -> integration hardening -> full-system acceptance -> SIB2`
+
+Only after SIB2 should broad release feature population resume.
+
+Each stage has a different stopping condition.
+
+### Refactor
+
+**Refactor** changes the internal structure of the system while preserving or deliberately redefining its intended product role. A major refactor may change module boundaries, ownership, dependency direction, persistence structure, execution paths, controller boundaries, state organization, or other architectural internals.
+
+A refactor being structurally complete does not mean the system is stable. It only means the new architectural form has been created.
+
+### SIB0 stopping condition
+
+The project can declare SIB0 when it can say:
+
+> **All fundamental capability classes for this architectural generation are known, represented by explicit architectural slots, and the list is frozen.**
+
+### SIB1 stopping condition
+
+The project can declare SIB1 when it can say:
+
+> **Every declared capability class has a real basic implementation and satisfies its own capability contract.**
+
+### SIB2 stopping condition
+
+The project can declare SIB2 when it can say:
+
+> **Those implementations work together through the intended system paths, and this exact repository state has passed canonical full-system acceptance.**
+
+This prevents the common failure mode in which post-refactor repair, missing old functionality, new product features, migration fixes, and release-specific work all accumulate in the same branch until nobody can tell whether the architecture itself is stable.
+
+The SIB boundaries force the work into evidence-backed phases.
+
+## Acceptance
+
+**Acceptance** is evidence that a concrete repository state satisfies the contracts relevant to the baseline being claimed.
+
+Acceptance is always attached to an **exact commit**, not to a vague memory that a branch or feature "was green."
+
+Evidence has the form:
+
+`exact commit SHA + canonical gate + successful result`
+
+The scope of acceptance grows through the SIB levels:
+
+- **SIB0** requires architectural/contract validation sufficient to prove the capability inventory and boundaries are coherent and frozen. It does not require full implementation.
+- **SIB1** requires implementation-level evidence that each declared capability class performs its basic contract.
+- **SIB2** requires full-system canonical acceptance proving the integrated composition.
+
+A green result on an older base is not acceptance evidence for a newer composition.
+
+## SIB and MVP
+
+MVP and the SIB levels are minimal along different axes.
+
+An **MVP** is minimal by **product value**. It asks:
+
+> What is the smallest set of capabilities that is useful enough to validate the product hypothesis?
+
+An MVP may be architecturally incomplete, temporary, or intentionally narrow. It can omit future capability classes because its purpose is to validate usefulness.
+
+The SIB sequence is about **architectural maturity**:
+
+- **SIB0**: the architecture's capability-class shape is complete and frozen.
+- **SIB1**: that shape is implemented at basic depth.
+- **SIB2**: that implementation is proven as an integrated system.
+
+A concise comparison is:
+
+`MVP = little product scope, enough to validate usefulness`
+
+`SIB0 = complete capability-class inventory, implementation may still be skeletal`
+
+`SIB1 = all capability classes basically implemented`
+
+`SIB2 = all capability classes basically implemented and proven integrated`
+
+## Architecture-complete is not release-complete
+
+SIB2 may already be capable of production operation, yet still be too thin to justify the intended public release.
+
+This remains an important distinction:
 
 `architecture-complete != release-complete`
 
-A SIB may already have:
+After SIB2, normal release construction should primarily add **similar instances and deeper content inside existing capability classes**, for example:
 
-- the correct architecture;
-- production-grade base contracts;
-- functioning integration boundaries;
-- canonical acceptance gates;
-- all fundamental capability classes;
+- more profiles through the existing profile mechanism;
+- more tools through the existing tool mechanism;
+- more graph relations through the existing graph model;
+- more adapters through the existing adapter seam;
+- richer workflows through the existing workflow model;
+- better UX inside an existing operator interface;
+- stronger tests, observability, performance, and operational polish.
 
-while still having too little of the following to justify a release:
+If ordinary planned release work requires a genuinely new fundamental capability class, that is evidence that the architecture has reopened and the project must reconsider its SIB0/SIB1/SIB2 chain.
 
-- profiles;
-- tools;
-- workflows;
-- adapters;
-- domain-specific functionality;
-- content;
-- UX refinement;
-- operational polish.
+## Release construction from SIB2
 
-The architecture is real; the product is still thin.
+Once SIB2 exists, release construction follows a controlled integration sequence:
 
-That is the intended place of SIB in the maturity model.
-
-## Two independent dimensions of maturity
-
-MVP, SIB, and release are easier to understand if product completeness and architectural completeness are treated as separate dimensions.
-
-| | Low product completeness | High product completeness |
-| --- | --- | --- |
-| **Low architectural completeness** | prototype / MVP | dangerous accumulated system or historical monolith |
-| **High architectural completeness** | **SIB** | release |
-
-A SIB therefore occupies a very specific state:
-
-> **The architecture is already real, but the product is still thin.**
-
-This is why a SIB can be a much better basis for release construction than either an old release branch or an arbitrary development head.
-
-## Release construction from SIB
-
-Once a SIB exists, release construction follows a controlled integration sequence:
-
-1. **SIB fixes a known-good state.**
-2. **A new release begins from the SIB.**
-3. **Each feature or meaningful change is applied to the SIB or to an already accepted descendant.**
+1. **SIB2 fixes a proven integrated state.**
+2. **A new release begins from SIB2.**
+3. **Each feature or meaningful change is applied to SIB2 or to an already accepted descendant.**
 4. **The full canonical acceptance gate runs after every substantial integration layer.**
 5. **Only proven-compatible layers advance the integration state.**
 6. **When the planned composition is complete and accepted, it becomes a release candidate.**
-7. **After release, a new proven commit may be deliberately selected as the next SIB.**
+7. **After release or the next major architectural cycle, maintainers deliberately select the next appropriate baseline state.**
 
 The release-construction model is:
 
-`SIB -> integration build -> feature composition -> acceptance -> RC -> release`
+`SIB2 -> integration build -> feature composition -> acceptance -> RC -> release`
 
-A green result on an old feature branch or an older base is not compatibility evidence for the current composition. Promotion belongs to the exact composed commit that passed the canonical gate.
+A release is downstream of SIB2. SIB2 itself is not an RC and does not have to contain enough feature depth to justify a public release.
 
-## What makes a state eligible to become a SIB
+## Baseline promotion and invalidation
 
-A repository state is eligible to become a SIB when all of the following are true:
+Baseline labels are evidence-backed engineering states, not ceremonial version names.
 
-1. The intended architecture for the current generation of the system is no longer in structural transition.
-2. Every architecturally significant capability class is present.
-3. Every capability class performs its basic end-to-end function.
-4. The integration boundaries between those classes work.
-5. The exact candidate commit passes the full canonical acceptance gate.
-6. The state is suitable for extension without requiring new fundamental architectural classes for ordinary planned feature growth.
-7. Maintainers deliberately designate the exact commit/ref as the baseline.
-
-A SIB is therefore an evidence-backed engineering state, not a label applied because development “feels stable.”
-
-## When a new SIB is required
-
-A new SIB should be established when a change alters the architecture rather than merely populating it. Typical triggers include:
-
-- a major architectural refactor;
-- introduction or removal of a fundamental capability class;
-- a change in execution ownership or orchestration boundaries;
-- a change in persistence architecture;
-- a major redesign of the extension mechanism;
-- replacement of a core runtime or integration model.
-
-The project first restores full basic capability coverage under the new architecture, proves it through acceptance, and only then designates the new SIB.
+- A state cannot become **SIB0** until the fundamental capability-class inventory is explicitly frozen.
+- A state cannot become **SIB1** until every SIB0 class has a real basic implementation and relevant capability acceptance evidence.
+- A state cannot become **SIB2** until the exact integrated composition passes full canonical acceptance.
+- A later SIB level does not erase the evidence for earlier levels; it builds on it.
+- A fundamental architecture change can invalidate the current SIB0 lineage and require a new SIB0 -> SIB1 -> SIB2 progression.
+- Ordinary feature population inside existing capability classes does not require restarting the baseline sequence.
 
 ## Versioning
 
-SIB should not be tied mechanically to semantic-version components. Semantic Versioning describes product/API evolution; SIB describes an engineering and integration state.
+The SIB levels should not be tied mechanically to Semantic Versioning components. Semantic Versioning describes product/API evolution; SIB0/SIB1/SIB2 describe engineering states.
 
-A SIB may therefore be represented by:
+A baseline may therefore be represented by:
 
 - an exact commit SHA;
-- a dedicated stable branch/ref such as `SIB`;
-- an internal marker or tag such as `sib-YYYY-MM-DD` if a project chooses to use one.
+- a dedicated stable branch/ref;
+- an internal marker or tag such as `sib0-YYYY-MM-DD`, `sib1-YYYY-MM-DD`, or `sib2-YYYY-MM-DD` if a project chooses to use one.
 
-A public release version or RC tag remains governed by the project's release policy.
+Public RC and release tags remain governed by the project's release policy.
 
-## Canonical short definition
+## Canonical short definitions
 
-> **Stable Integration Baseline is the smallest architecture-complete state of the system in which every fundamental capability class exists, works end-to-end at its basic contract, and passes the canonical acceptance gates. Future release work should primarily deepen or multiply those existing capability classes rather than introduce new architectural ones.**
+> **SIB0 — Stable Initialization Baseline:** the exact state in which the fundamental capability-class inventory for an architectural generation is represented and frozen; ordinary implementation work must not change that list.
 
-The practical purpose of the concept is simple: a new release should not begin from “whatever branch currently has the most work.” It should begin from the last state whose architecture and integration behavior are already known to work.
+> **SIB1 — Stable Implementation Baseline:** the exact state in which every SIB0 capability class has a real implementation satisfying its basic contract.
+
+> **SIB2 — Stable Integration Baseline:** the exact state in which the SIB1 implementations work together through the intended end-to-end system paths and the composed commit passes canonical full-system acceptance.
+
+The practical rule is simple:
+
+> **Freeze the architectural shape at SIB0, prove its implementation at SIB1, prove its composition at SIB2, and only then use that stable integrated state to build the next release.**
