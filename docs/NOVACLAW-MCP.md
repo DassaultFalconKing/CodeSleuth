@@ -53,7 +53,8 @@ NovaClaw prefixes MCP tools with the configured server name, so these normally a
   another index, object store, or worktree.
 - Evidence probes disable optional locks and fsmonitor. Diffs also disable external diff and textconv,
   so read-only inspection neither refreshes the index nor launches repository-configured helpers.
-- File reads accept tracked files only, reject path traversal and binary content, and cap bytes/lines.
+- File reads accept only stage-0 regular tracked files (`100644` or `100755`), reject symlinks,
+  gitlinks, non-regular working entries, path traversal, and binary content, and cap bytes/lines.
 - An unresolved index has no singular blob identity, so inventory and reads fail closed until merge
   stages are resolved.
 - Search and diff output is streamed and the Git child is terminated at the evidence budget; bounds
