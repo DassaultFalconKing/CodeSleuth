@@ -103,9 +103,9 @@ review binding, scope prefix, and the sorted node/edge ID sets. Display labels,
 Mermaid aliases, layout, and other presentation metadata are never identity
 inputs: relabeling a node does not change any identity.
 
-Diagnostic/presentation code avoids re-prepending a kind when a semantic key
-already starts with that same `kind:` prefix, so payloads such as
-`component:export-pipeline` are not reported as
+Save-validation diagnostics and default Mermaid node labels avoid re-prepending
+a kind when a semantic key already starts with that same `kind:` prefix, so an
+invalid payload keyed as `component:export-pipeline` is not diagnosed as
 `component:component:export-pipeline`. This is presentation-only and does not
 change identity inputs.
 
