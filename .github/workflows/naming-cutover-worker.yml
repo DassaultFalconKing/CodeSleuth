@@ -29,6 +29,18 @@ jobs:
           p.write_text(s, encoding='utf-8')
           PY
       - run: python .github/naming_cutover_apply.py
+      - name: Repair installer naming authority for current version module layout
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('install.py')
+          s = p.read_text(encoding='utf-8')
+          old = '''META_NAME = "codesleuth.json"\nSETTINGS_NAME = "codesleuth-user.json"\nsys.path.insert(0, str(PACK / "bin"))\nfrom codesleuth_version import source_version  # noqa: E402\nimport codesleuth_project as project_lifecycle  # noqa: E402\nimport codesleuth_tui_core as tui_core  # noqa: E402\n'''
+          new = '''sys.path.insert(0, str(PACK / "bin"))\nfrom codesleuth_naming import load_naming  # noqa: E402\nfrom codesleuth_version import source_version  # noqa: E402\nimport codesleuth_project as project_lifecycle  # noqa: E402\nimport codesleuth_tui_core as tui_core  # noqa: E402\n\nNAMING = load_naming(PACK / "codesleuth-naming.json")\nCANONICAL = NAMING["canonical"]\nLEGACY = NAMING["legacy"]\nMETA_NAME = CANONICAL["state"]["metadata"]\nSETTINGS_NAME = CANONICAL["state"]["settings"]\nLEGACY_META_NAME = LEGACY["state"]["metadata"]\nLEGACY_SETTINGS_NAME = LEGACY["state"]["settings"]\n'''
+          if old not in s:
+              raise SystemExit('installer authority block not found')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
       - run: python -m pip install -r requirements-dev.txt
       - run: python -m pytest -q
       - run: python -m ruff check .
