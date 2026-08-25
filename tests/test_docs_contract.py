@@ -33,7 +33,7 @@ def test_public_introduction_preserves_opencode_execution_ownership() -> None:
     assert "control panel" in readme
     assert "without replacing OpenCode's models, agents, tools, commands" in readme
     assert "OpenCode remains responsible for models, agents, tools, commands, Skills, and review execution" in guide
-    assert "## OpenCode `build` controller" in readme
+    assert re.search(r"^#{2,6} OpenCode `build` controller$", readme, flags=re.M)
     assert "OpenCode's primary controller is `build`" in readme
     assert blurb in readme
     assert ".codesleuth/reports/" in readme
