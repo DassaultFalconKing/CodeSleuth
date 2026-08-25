@@ -24,6 +24,13 @@ CodeSleuth is a small discipline layer for coding agents. It packages reusable r
 
 Current version: **0.3.0**.
 
+Current implementation baseline:
+
+- source-checkout **Update** explicitly fetches current `origin/main` and only fast-forwards a clean local `main`, ignoring stale branch-tracking metadata;
+- the active TUI surface stays at the top of the content area; the large brand block and bottom Footer can be hidden independently;
+- the left navigation can collapse/restore, while the right Keys/Help panel can collapse/restore or be closed for the current TUI session;
+- the external MCP evidence adapter is repository-bound, bounded and hardened as a read-only evidence surface rather than an alternate agent runtime.
+
 | Surface | Status |
 | --- | --- |
 | OpenCode | current full installed host integration |
