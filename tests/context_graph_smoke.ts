@@ -830,6 +830,45 @@ async function main() {
       "hostile label content cannot forge scoped diagram comments",
     )
 
+    // hostile KEYS are legal identity inputs and must stay inert in the scoped
+    // selection metadata comments (they reach %% selectionRoots verbatim-ish).
+    const hostileKey = 'k"x<img src=javascript:>y%%z`w'
+    const hostileKeySaved = JSON.parse(
+      await save.execute(
+        {
+          scopePrefix: "src",
+          scopeDescription: 'scope note with %% percents, "quotes", <b>markup</b> and `backticks`',
+          complete: true,
+          nodes: [{ kind: "symbol", key: hostileKey, origin: "review_inference", note: "hostile key holder" }],
+          edges: [],
+        },
+        scoping.context,
+      ),
+    )
+    const hostileKeyScoped = JSON.parse(
+      await mermaid.execute(
+        { projectionId: hostileKeySaved.projectionId, roots: [{ kind: "symbol", key: hostileKey }], hops: 0 },
+        scoping.context,
+      ),
+    )
+    const hostileKeySource = hostileKeyScoped.mermaidSource
+    for (const line of hostileKeySource.split("\n")) {
+      if (!line.trimStart().startsWith("%%")) continue
+      const body = line.trimStart().slice(2)
+      assert(!body.includes("%"), "scoped selection comments contain no % after the marker")
+      assert(!body.includes("<") && !body.includes(">"), "scoped selection comments never carry raw angle brackets")
+      assert(!body.includes("`") && !body.includes('"'), "scoped selection comments never carry quotes or backticks")
+    }
+    assert(hostileKeySource.includes("#lt;img"), "hostile root keys remain recognizable in escaped selection metadata")
+    assert(!hostileKeySource.includes("<img"), "hostile root keys cannot emit raw markup anywhere")
+    const hostileKeyUnscoped = JSON.parse(await mermaid.execute({ projectionId: hostileKeySaved.projectionId }, scoping.context))
+    for (const line of hostileKeyUnscoped.mermaidSource.split("\n")) {
+      if (!line.trimStart().startsWith("%%")) continue
+      const body = line.trimStart().slice(2)
+      assert(!body.includes("<") && !body.includes(">") && !body.includes("`") && !body.includes('"') && !body.includes("%"),
+        "unscoped scope/description comments get the same comment hardening")
+    }
+
     // query and Mermaid selection semantics agree for the same request
     const agreementQuery = JSON.parse(
       await query.execute(

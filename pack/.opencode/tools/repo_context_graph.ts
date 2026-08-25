@@ -880,8 +880,20 @@ export function renderContextGraphMermaid(
       .replace(/[{}[\]]/g, "()")
     return escaped.length > MERMAID_LABEL_CLAMP ? `${escaped.slice(0, MERMAID_LABEL_CLAMP)}...` : escaped
   }
+  // Comment hardening: flatten line breaks, strip Mermaid comment markers, and
+  // entity-escape markup-sensitive characters (including those legal in node
+  // keys) so untrusted keys/scopes can never forge markup or directives inside
+  // %% comment lines. Replacement tokens intentionally reuse the label scheme
+  // and introduce no characters targeted by any earlier rule.
   const escapeComment = (text: string): string =>
-    text.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").replace(/[%]/g, "").slice(0, 200)
+    text
+      .replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ")
+      .replace(/[%]/g, "")
+      .replace(/&/g, "#amp;")
+      .replace(/</g, "#lt;")
+      .replace(/>/g, "#gt;")
+      .replace(/[`"]/g, "'")
+      .slice(0, 200)
 
   const lines: string[] = []
   lines.push("%% CodeSleuth repository context graph (derived, bounded presentation; not evidence)")
