@@ -40,21 +40,28 @@ def ensure_runtime() -> Path:
     if python.is_file() and marker.is_file() and marker.read_text(encoding="utf-8").strip() == TEXTUAL_VERSION:
         return python
     root.mkdir(parents=True, exist_ok=True)
-    print(f"Preparing isolated review-pack TUI runtime in {root}", file=sys.stderr)
+    print(f"Preparing isolated CodeSleuth TUI runtime in {root}", file=sys.stderr)
     venv.EnvBuilder(with_pip=True, clear=python.exists()).create(root)
     python = venv_python(root)
-    subprocess.run([
-        str(python), "-m", "pip", "install",
-        "--disable-pip-version-check",
-        "--requirement", str(REQ),
-    ], check=True)
+    subprocess.run(
+        [
+            str(python),
+            "-m",
+            "pip",
+            "install",
+            "--disable-pip-version-check",
+            "--requirement",
+            str(REQ),
+        ],
+        check=True,
+    )
     marker.write_text(TEXTUAL_VERSION + "\n", encoding="utf-8")
     return python
 
 
 def main() -> int:
-    if sys.version_info < (3, 9):
-        print("review-pack TUI requires Python 3.9+", file=sys.stderr)
+    if sys.version_info < (3, 10):
+        print("CodeSleuth TUI requires Python 3.10+", file=sys.stderr)
         return 2
     if usable_current_python():
         python = Path(sys.executable)
