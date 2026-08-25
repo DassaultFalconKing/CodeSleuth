@@ -1,30 +1,35 @@
 # CodeSleuth
 
 ```text
-        .--------.
-       /  .----.  \            ____          _      ____  _            _   _
-      /__/______\__\          / ___|___   __| | ___/ ___|| | ___ _   _| |_| |__
-         |  • •  |           | |   / _ \ / _` |/ _ \___ \| |/ _ \ | | | __| '_ \
-         |   ▿   |           | |__| (_) | (_| |  __/___) | |  __/ |_| | |_| | | |
-        /|  ---  |\           \____\___/ \__,_|\___|____/|_|\___|\__,_|\__|_| |_|
-       / |       | \
-         |  ◯    |
-         | /|\   |            CODE:SLEUTH // EVIDENCE OPERATIONS CONSOLE
-        /  / \    \           repository → evidence → verify → finding
++-------------------------------------------------+
+|  CODE:SLEUTH // EVIDENCE OPERATIONS CONSOLE    |
++----------------------+--------------------------+
+                       .-""""-.
+                     .'  ____  '.
+                    /   /_  _\   \
+                   |   |o || o|   |
+                   |   |__||__|   |
+                   |      /\      |
+                    \   .____.   /
+                 ____'.\____/.'____
+               .' ___/|  /\  |\___ '.
+              /__/    | /  \ |    \__\
+                   [ TARGET : SOURCE ]
+                   [ EVIDENCE : LIVE ]
 ```
 
 **Code-discipline for LLM repository work.**  
 **Evidence-first repository intelligence.**
 
-CodeSleuth is a lightweight code-discipline layer for LLM-assisted repository work: a pool of review Skills, a small control surface, durable evidence conventions, and a few bounded tools. It helps the host model work on real repositories without becoming another model runtime or supervisor.
+CodeSleuth is a lightweight code-discipline layer for LLM-assisted repository work: a pool of reusable review Skills, a thin control surface, durable evidence conventions, and a few bounded tools. It helps the host model work on real repositories without becoming another model runtime, controller, or supervisor.
 
 ## Overview
 
 ### What is CodeSleuth?
 
-CodeSleuth is a helper for LLM code discipline. It gives coding agents reusable repository-review Skills, evidence/state conventions, profiles and a simple control panel. The host still owns the model, controller, permissions and execution loop.
+CodeSleuth is a helper for disciplined LLM coding and repository analysis. It packages repository-review Skills, profiles, evidence/state conventions, Playbooks, and a small operator console. The host still owns the model, controller, permissions, tool routing, session, and execution loop.
 
-A repository is larger than a model's working memory. File discovery is not semantic coverage, summaries are not evidence, and chat history is a poor source of durable project truth. CodeSleuth adds a repeatable workflow around those problems:
+A repository is larger than a model's working memory. File discovery is not semantic coverage, scout summaries are not evidence, and chat history is a poor source of durable project truth. CodeSleuth adds a repeatable workflow around those problems:
 
 ```text
 repository -> inventory -> inspect -> evidence -> verify -> finding
@@ -32,7 +37,7 @@ repository -> inventory -> inspect -> evidence -> verify -> finding
 
 ### How it is used
 
-**OpenCode integration**
+**Installed OpenCode integration**
 
 ```text
 CodeSleuth -> Skills / profiles / TUI / evidence discipline / review state
@@ -42,52 +47,38 @@ OpenCode   -> controller / model / agents / tools / execution
 **External-host integration**
 
 ```text
-CodeSleuth -> Skills + narrow bounded evidence interfaces
-Host       -> controller / model / permissions / execution
+CodeSleuth -> reusable discipline + narrow bounded evidence interfaces
+Host       -> controller / model / permissions / tools / execution
 ```
 
 Available now:
 
-- **OpenCode** — full installed integration.
+- **OpenCode** — full installed integration and current primary runtime target.
 - **NovaClaw** — tested external-host integration through the read-only MCP evidence adapter.
 
-Next integration targets: **Codex, Cursor, Hermes, BodegaOne, Pi-harness**, and other coding-agent hosts that can reuse the same Skills and evidence discipline.
+Next integration targets after current hardening: **Codex, Cursor, Hermes, BodegaOne, Pi-harness**, and other coding-agent hosts that can reuse the same Skills and evidence discipline without handing execution authority to CodeSleuth.
 
-### TUI reference
+### The current TUI surface
 
-Desktop / wide terminal:
+The README does not maintain synthetic UI mockups. The canonical brand above is copied from the implemented `CODESLEUTH_ART`; UI manuals should use terminal snapshots captured from the real application.
 
-```text
-┌─ CodeSleuth · Evidence Console ─────────────────────────────────────────────┐
-│ Home       Repository   ./project                               READY       │
-│ Review     Profile      python · Open-weight                                │
-│ Evidence   Runtime      OpenCode build                                      │
-│ Tools      Next         /repo-review                                        │
-│ Settings                                                                    │
-│            ──────────────────────────────────────────────────────────────    │
-│            Verify       PASS                                                │
-│            Evidence     no active review                                    │
-│            Recent       installation verified                              │
-│                                                                             │
-│            [ Configure ]  [ Verify ]  [ Playbooks ]  [ Help ]              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-Narrow terminal:
+Current implemented navigation and actions are:
 
 ```text
-┌─ CodeSleuth ─────────────────────┐
-│ ./project                 READY  │
-│ Profile  python                  │
-│ Runtime  OpenCode build          │
-│ Next     /repo-review            │
-│                                 │
-│ [ Configure ]   [ Verify ]       │
-│ [ Playbooks ]   [ Help ]         │
-├─────────────────────────────────┤
-│ Home · Review · Evidence · Tools │
-│ Settings                         │
-└─────────────────────────────────┘
+Home
+Review
+Evidence
+Tools
+Settings
+
+Configure
+Verify
+Check Updates
+Update
+Playbooks
+Help
+Uninstall
+Open CodeSleuth
 ```
 
 The TUI is a control surface, not an execution engine.
@@ -95,9 +86,9 @@ The TUI is a control surface, not an execution engine.
 ### What it can do
 
 - **Deep repository and PR review:** inventory-first review, bounded scouting, exact-source re-verification and explicit coverage.
-- **Deterministic evidence:** tracked-source identity, Git/blob-bound reviewed paths and separation of verified source from inference.
+- **Deterministic evidence discipline:** tracked-source identity, Git/blob-bound reviewed paths, and explicit separation of verified source from inference.
 - **Durable work:** checkpoints and findings survive context compaction; stale reviewed paths can be detected after source changes.
-- **Architecture mapping:** bounded repository context projections can be queried and rendered as Mermaid without making the diagram a second source of truth.
+- **Architecture/context encoding:** bounded repository context projections can be queried and rendered as Mermaid without making the diagram a second source of truth.
 - **Repository documentation and reports:** `/repo-docs`, `/repo-report`, and locally persistent analytical reports for later sessions.
 - **Skills, Playbooks, profiles and tools:** reusable review behavior without cloning the host's own orchestration stack.
 - **Bounded external evidence:** MCP overview, inventory, exact reads, search, test mapping and diffs for external hosts.
@@ -107,7 +98,7 @@ The practical contract is simple: **CodeSleuth makes LLM repository work more in
 
 ## OpenCode `build` controller
 
-In the installed OpenCode integration, OpenCode's primary controller is `build`. CodeSleuth does not add a second supervisor. Agent profile (Open-weight / Codex / Claude) selects a model so OpenCode's native provider prompt is used; it does not inject a CodeSleuth system prompt.
+In the installed OpenCode integration, OpenCode's primary controller is `build`. CodeSleuth does not add a second supervisor. Agent profile (Open-weight / Codex / Claude) selects a model family so OpenCode's native provider prompt is used; it does not inject a CodeSleuth system prompt.
 
 ```text
 CodeSleuth TUI
@@ -125,7 +116,7 @@ OpenCode is the current full installed runtime/integration environment. Historic
 
 ## External hosts / MCP
 
-CodeSleuth also exposes a narrow read-only MCP adapter for external agent hosts. It is a repository evidence provider, not an alternate controller.
+CodeSleuth also exposes a narrow read-only MCP adapter for external agent hosts. It is a repository-evidence provider, not an alternate controller.
 
 ```text
 overview
@@ -140,18 +131,18 @@ The external host retains ownership of its model, controller, permissions, sessi
 
 ## What CodeSleuth owns
 
-A target repository can contain three deliberately separate layers:
+A target repository can contain deliberately separate layers:
 
 ```text
 project/
 ├── AGENTS.md            # worktree reports pointer (managed block)
 ├── tools/codesleuth/    # optional pinned CodeSleuth submodule
-├── .opencode/           # installed policy, agents, profiles, tools
+├── .opencode/           # installed OpenCode policy, agents, profiles, tools
 └── .codesleuth/         # local backups / reports / archives
     └── reports/         # analytical reports for later worktree sessions
 ```
 
-`tools/codesleuth/` is intentionally **not** ignored when the user chooses dependency mode. The superproject records an exact CodeSleuth commit as a Git gitlink. `.opencode/` is the target project's installed contract. `.codesleuth/` backups and report bodies are locally excluded from Git by default; `.codesleuth/reports/README.md` may be intentionally committed so other assistants can find the convention. Installer-created report state and the `AGENTS.md` pointer are worktree-local unless a maintainer deliberately commits sanitized material or shared guidance.
+`tools/codesleuth/` is intentionally **not** ignored when the user chooses dependency mode. The superproject records an exact CodeSleuth commit as a Git gitlink. `.opencode/` is the target project's installed OpenCode contract. `.codesleuth/` backups and report bodies are locally excluded from Git by default; `.codesleuth/reports/README.md` may be intentionally committed so other assistants can find the convention.
 
 ## Security and credential warning
 
@@ -165,13 +156,13 @@ Safety defaults:
 - `.codesleuth/reports/README.md` may be tracked as the report-folder convention;
 - `.opencode/state/`, logs, caches, sessions and snapshots are locally excluded;
 - preserved uninstall archives remain locally excluded;
-- CodeSleuth writes its managed ignore patterns to the repository-local Git exclude file rather than silently editing a tracked project `.gitignore`;
+- CodeSleuth writes managed ignore patterns to the repository-local Git exclude file rather than silently editing a tracked project `.gitignore`;
 - CodeSleuth warns before destructive uninstall choices;
 - project policy controls web/edit/external-directory permissions;
 - built-in repository profiles do not grant extra permissions;
 - **inspect and sanitize reports before intentionally adding or sharing local artifacts.**
 
-CodeSleuth cannot guarantee that arbitrary reports authored by an LLM outside its managed local-state paths contain no secrets. Treat audit output like other developer diagnostics.
+Treat audit output like other developer diagnostics.
 
 ## Install with OpenCode into any Git repository
 
@@ -225,7 +216,7 @@ The backup records hashes and copies project configuration while excluding obvio
 
 A pointer is kept at `.codesleuth/preinstall.json`. An upgrade from an older already-installed review-pack records a `pre-0.3-upgrade` baseline instead of falsely claiming it predates CodeSleuth.
 
-The installer writes a managed block to the repository-local Git exclude file returned by `git rev-parse --git-path info/exclude` (normally `.git/info/exclude`) for local CodeSleuth/OpenCode state. It does not silently modify the target root `.gitignore`, and it does not add an ignore for `tools/codesleuth`. If the project already ignores that dependency path, CodeSleuth refuses to override the project's ignore policy and explains the conflict.
+The installer writes a managed block to the repository-local Git exclude file returned by `git rev-parse --git-path info/exclude` (normally `.git/info/exclude`) for local CodeSleuth/OpenCode state. It does not silently modify the target root `.gitignore`, and it does not add an ignore for `tools/codesleuth`.
 
 ## Uninstall
 
@@ -243,7 +234,7 @@ Default uninstall behavior:
 4. remove the bound `tools/codesleuth` submodule/gitlink when present and clean;
 5. keep the archive locally excluded from Git.
 
-To remove CodeSleuth and its local traces/backups:
+To remove CodeSleuth and its ordinary local traces/backups:
 
 ```bash
 .opencode/bin/codesleuth-project --uninstall . --purge-traces
@@ -257,11 +248,7 @@ To remove the installed runtime while intentionally retaining the pinned submodu
 
 Restore compares pre-install, post-install, and current files. A post-install edit to a pre-existing `.opencode` file stays in the worktree; baseline/current copies and an explicit manifest are retained under locally excluded `.codesleuth/restore-conflicts/`. Required conflict evidence survives purge.
 
-The TUI exposes the same **Preserve traces** / **Purge traces** choice. CodeSleuth refuses to remove either a dirty submodule or a clean detached local commit that differs from the recorded gitlink.
-
-CodeSleuth only knows how to archive/delete its managed settings and local review-state namespaces. Reports deliberately authored elsewhere in the project are project files and are never guessed at or deleted automatically.
-
-Runtime and dependency are independent: `--uninstall --keep-dependency` leaves a **dependency-only** state, while `.opencode/bin/codesleuth-project --unbind .` removes only the dependency and keeps the installed runtime.
+Runtime and dependency are independent: `--uninstall --keep-dependency` leaves a dependency-only state, while `.opencode/bin/codesleuth-project --unbind .` removes only the dependency and keeps the installed runtime.
 
 ## Update model
 
@@ -279,12 +266,8 @@ Fresh clone and recovery administration:
 
 ```bash
 git clone --recurse-submodules <project-url>
-git submodule update --init --recursive  # for an existing clone
+git submodule update --init --recursive
 ```
-
-To revert a pin, checkout the previous accepted SHA in `tools/codesleuth`, materialize that checkout with `install.sh . --update`, inspect, and commit both changes. The TUI disables target-local floating update controls in pinned detached mode; an explicit `remote + ref` is required for floating updates.
-
-A detached CodeSleuth checkout records its exact source commit but **does not invent a floating branch from `origin/HEAD`**. Floating update behavior requires an explicit source ref.
 
 ## Main OpenCode commands
 
@@ -297,9 +280,7 @@ A detached CodeSleuth checkout records its exact source commit but **does not in
 /repo-report
 ```
 
-Those commands run on OpenCode's native `build` agent. `/repo-review` and `/repo-report` persist markdown under `.codesleuth/reports/` for later CodeSleuth sessions and other coding assistants in the same worktree by default. Cross-clone reuse requires deliberately sanitized and committed reports or repository guidance.
-
-Review state is durable under local `.opencode/state/reviews/` and is bound to tracked source blob hashes so changed files can invalidate stale coverage.
+Those commands run on OpenCode's native `build` agent. `/repo-review` and `/repo-report` persist markdown under `.codesleuth/reports/` for later CodeSleuth sessions and other coding assistants in the same worktree by default. Review state is durable under local `.opencode/state/reviews/` and is bound to tracked source blob hashes so changed files can invalidate stale coverage.
 
 ## Development
 
@@ -315,8 +296,6 @@ Run the Python gates:
 python -m pytest
 ruff check .
 ```
-
-The dev set includes `pytest`, `pytest-asyncio`, Ruff, and the pinned Textual runtime used by the TUI. Textual UI tests use `App.run_test()` and `Pilot` rather than terminal scraping.
 
 The Bun durable-state smokes remain part of acceptance:
 
@@ -350,4 +329,4 @@ The first standalone import preserved that tree exactly. CodeSleuth development 
 
 ## Watchdog roadmap
 
-The current runtime retains the existing OpenCode keepalive watchdog. A separate follow-up will integrate the stronger watchdog/recovery functionality developed in Aleph_Rugent. That work is intentionally separate from installation/dependency/uninstall semantics so a runtime watchdog cannot accidentally become the package manager. Civilization has limits.
+The current installed OpenCode integration retains the existing OpenCode keepalive watchdog. A separate follow-up will integrate the stronger watchdog/recovery functionality developed in Aleph_Rugent. That work is intentionally separate from installation/dependency/uninstall semantics so a runtime watchdog cannot accidentally become the package manager.

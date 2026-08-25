@@ -18,7 +18,7 @@ CodeSleuth = Skills / control surface / evidence discipline / lifecycle
 Host       = controller / model / agents / tools / execution
 ```
 
-OpenCode is the current full installed host. NovaClaw is the first tested external MCP host. Other host integrations may reuse the same Skills and evidence discipline without moving execution authority into CodeSleuth.
+OpenCode is the current full installed host. NovaClaw is the first tested external MCP host. Other host integrations may reuse the same Skills, evidence discipline and narrow tools without moving execution authority into CodeSleuth.
 
 ## Visual direction
 
@@ -34,29 +34,43 @@ repository -> inventory -> inspect -> evidence -> verify -> finding
 
 Operational labels remain simple: `Repository`, `Review`, `Evidence`, `Verify`, `Finding`, `Coverage`, `Playbooks`, `Tools`, `Profiles`, `Skills`, and `Settings`.
 
-## Reference layouts
+## Graphics and documentation rule
 
-These are text design sketches, not screenshots and not separate product surfaces.
+The visual design is considered settled. Do not repeatedly regenerate interface art.
 
-### Desktop / wide terminal
+### Canonical brand
+
+The only canonical ASCII brand is the implemented `CODESLEUTH_ART` constant in:
 
 ```text
-┌─ CodeSleuth · Evidence Console ─────────────────────────────────────────────┐
-│ Home       Repository   ./project                               READY       │
-│ Review     Profile      python · Open-weight                                │
-│ Evidence   Runtime      OpenCode build                                      │
-│ Tools      Next         /repo-review                                        │
-│ Settings                                                                    │
-│            ──────────────────────────────────────────────────────────────    │
-│            Verify       PASS                                                │
-│            Evidence     no active review                                    │
-│            Recent       installation verified                              │
-│                                                                             │
-│            [ Configure ]  [ Verify ]  [ Playbooks ]  [ Help ]              │
-└─────────────────────────────────────────────────────────────────────────────┘
+pack/.opencode/bin/codesleuth_tui.py
 ```
 
-Desktop normally uses a persistent navigation rail:
+The top-level README may copy that block verbatim. Other documentation should reference the implementation instead of maintaining another hand-edited copy.
+
+### UI documentation
+
+User-facing UI documentation must be terminal-native and cheap to maintain:
+
+- use terminal/text snapshots captured from the real application;
+- use exact implemented labels and button names;
+- highlight controls with Markdown text/backticks or annotations around the captured text;
+- do not create synthetic PNG/JPEG/WebP/SVG UI mockups, reference boards, decorative renders, or pseudo-screens that need to be manually kept in sync;
+- do not ask code assistants to redraw the TUI merely to update a manual.
+
+If the real UI changes, update the textual snapshot from the real TUI. The documentation should be cheaper than taking an ordinary screenshot, not more expensive.
+
+### Mermaid exception
+
+Mermaid is the only maintained general diagram format allowed for product documentation.
+
+It is allowed because it **encodes relationships as readable/reviewable text**, not because CodeSleuth needs decorative graphs. Use it only where structure is materially clearer as a diagram, especially repository context/architecture relationships.
+
+Generated Mermaid must remain a presentation of verified structure. It is never branding, a UI mockup, or a second source of repository truth.
+
+## Navigation semantics
+
+Current navigation is:
 
 ```text
 Home
@@ -65,27 +79,6 @@ Evidence
 Tools
 Settings
 ```
-
-### Narrow terminal
-
-```text
-┌─ CodeSleuth ─────────────────────┐
-│ ./project                 READY  │
-│ Profile  python                  │
-│ Runtime  OpenCode build          │
-│ Next     /repo-review            │
-│                                 │
-│ [ Configure ]   [ Verify ]       │
-│ [ Playbooks ]   [ Help ]         │
-├─────────────────────────────────┤
-│ Home · Review · Evidence · Tools │
-│ Settings                         │
-└─────────────────────────────────┘
-```
-
-Narrow mode is a terminal layout, not a promise of a native mobile application.
-
-## Navigation semantics
 
 | Surface | Purpose |
 |---|---|
@@ -99,11 +92,16 @@ A menu item may route to host-native functionality. It must not duplicate that f
 
 ## Core actions
 
+The implemented console currently exposes these user-facing actions contextually:
+
 ```text
 Configure
 Verify
+Check Updates
+Update
 Playbooks
 Help
+Uninstall
 Open CodeSleuth
 ```
 
@@ -135,26 +133,7 @@ Do not add:
 - a replacement review engine that bypasses the host;
 - duplicate implementations of host Skills/tools only to expose them in the menu.
 
-Core work is production hardening: bug fixes, compatibility, security, accessibility, performance, packaging, tests and CI.
-
-## ASCII identity
-
-Full mark is permitted on README/entry surfaces; compact identity is preferred when space is constrained.
-
-```text
-        .--------.
-       /  .----.  \            ____          _      ____  _            _   _
-      /__/______\__\          / ___|___   __| | ___/ ___|| | ___ _   _| |_| |__
-         |  • •  |           | |   / _ \ / _` |/ _ \___ \| |/ _ \ | | | __| '_ \
-         |   ▿   |           | |__| (_) | (_| |  __/___) | |  __/ |_| | |_| | | |
-        /|  ---  |\           \____\___/ \__,_|\___|____/|_|\___|\__,_|\__|_| |_|
-       / |       | \
-         |  ◯    |
-         | /|\   |            CODE:SLEUTH // EVIDENCE OPERATIONS CONSOLE
-        /  / \    \           repository → evidence → verify → finding
-```
-
-Essential state must never exist only inside ASCII art.
+Core work is production hardening plus the explicitly allowed extension/integration seams: bug fixes, compatibility, security, accessibility, performance, packaging, tests and CI.
 
 ## Colormap
 
@@ -186,8 +165,14 @@ Exercise at least:
 120x35
 ```
 
-At narrow widths use one column and compact navigation. At wide widths use the extra space for status/evidence detail, not more features. No essential content should require horizontal scrolling.
+Also exercise narrower terminal/Termux/remote-terminal viewports when relevant.
+
+At narrow widths use one column and compact navigation. At wide widths use extra space for status/evidence detail, not more features. No essential content should require horizontal scrolling.
+
+Documentation for responsive behavior uses captured terminal text/output from those real runs, not separate artwork.
 
 ## Governance
 
 This runbook and `CODESLEUTH-PRODUCT-CONTRACT.md` are canonical. Core behavior outside the allowed extension seams requires an explicit architecture decision.
+
+The branding direction is settled. Future maintainers should spend model/context budget on correctness, host compatibility, evidence discipline and user instructions, not on regenerating visual assets.

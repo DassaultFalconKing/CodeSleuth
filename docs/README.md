@@ -2,17 +2,20 @@
 
 ## Canonical product contracts
 
-- [`CODESLEUTH-PRODUCT-CONTRACT.md`](CODESLEUTH-PRODUCT-CONTRACT.md) — architecture boundary, OpenCode ownership, extension model, and core feature freeze.
-- [`CODESLEUTH-BRANDING.md`](CODESLEUTH-BRANDING.md) — accepted UI/interaction runbook, responsive navigation, screen semantics, ASCII identity, and production visual gate.
+- [`CODESLEUTH-PRODUCT-CONTRACT.md`](CODESLEUTH-PRODUCT-CONTRACT.md) — host/runtime ownership boundary, integration model, extension seams, and core feature freeze.
+- [`CODESLEUTH-BRANDING.md`](CODESLEUTH-BRANDING.md) — accepted terminal-native UI/interaction runbook, ASCII identity source, documentation graphics rule, and responsive acceptance.
 - [`CODESLEUTH-COLORMAP.json`](CODESLEUTH-COLORMAP.json) — machine-readable semantic colormap.
 - [`CONTEXT-GRAPH-DISCIPLINE.md`](CONTEXT-GRAPH-DISCIPLINE.md) — Git source -> review state -> bounded RepositoryContextProjection -> compact context/Mermaid authority chain.
+- [`NOVACLAW-MCP.md`](NOVACLAW-MCP.md) — first external-host MCP integration and its read-only repository-evidence boundary.
 
-## Approved visual references
+## Documentation media policy
 
-- [`assets/branding/mobile-reference-board.svg`](assets/branding/mobile-reference-board.svg) — Home, Configuration, Verify, Playbooks, Help at narrow/mobile-oriented widths.
-- [`assets/branding/desktop-reference-board.svg`](assets/branding/desktop-reference-board.svg) — same surfaces and menu semantics at wide/desktop widths.
+CodeSleuth documentation is text-first and terminal-native.
 
-These are reference layouts, not claims that every pixel is already implemented.
+- The canonical ASCII brand lives in `pack/.opencode/bin/codesleuth_tui.py` as `CODESLEUTH_ART`; the root README may copy it verbatim.
+- UI manuals use terminal/text snapshots captured from the real application and exact implemented labels.
+- Maintained PNG/JPEG/WebP/SVG UI mockups/reference boards are not part of the documentation contract.
+- Mermaid is the allowed diagram format when relationships are materially clearer as encoded text. Mermaid source is reviewable presentation, not a second source of repository truth.
 
 ## Completed implementation packets
 
@@ -34,15 +37,15 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         |
         +--> CODESLEUTH-BRANDING.md
         |       +--> CODESLEUTH-COLORMAP.json
-        |       +--> assets/branding/*-reference-board.svg
+        |       +--> pack/.opencode/bin/codesleuth_tui.py  (canonical ASCII/TUI)
         |
-        +--> CONTEXT-GRAPH-DISCIPLINE.md
+        +--> CONTEXT-GRAPH-DISCIPLINE.md                  (Mermaid when useful)
+        +--> NOVACLAW-MCP.md                              (external host seam)
         |
         +--> pack/.opencode/themes/codesleuth.json
-        +--> pack/.opencode/bin/codesleuth_tui.py
         +--> pack/.opencode/CODESLEUTH-REPORTS.md
-        +--> OpenCode runtime / commands / Skills / tools
-        +--> .codesleuth/reports/ (OpenCode-written analysis)
+        +--> host runtime / commands / Skills / tools
+        +--> .codesleuth/reports/ (host-written analysis where supported)
 ```
 
-Core CodeSleuth is feature-frozen. Growth continues through profiles, Skills, Playbooks, OpenCode-native tools/plugins, and extension-management UX.
+Core CodeSleuth is feature-frozen. Growth continues through profiles, Skills, Playbooks, small tools, host integrations, and extension-management UX without adding a second execution runtime.
