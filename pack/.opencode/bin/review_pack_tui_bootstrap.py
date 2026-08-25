@@ -10,7 +10,7 @@ from pathlib import Path
 
 TEXTUAL_VERSION = "8.2.8"
 HERE = Path(__file__).resolve().parent
-APP = HERE / "review_pack_tui.py"
+APP = HERE / "codesleuth_tui.py"
 REQ = HERE / "requirements-tui.txt"
 
 
@@ -40,7 +40,7 @@ def ensure_runtime() -> Path:
     if python.is_file() and marker.is_file() and marker.read_text(encoding="utf-8").strip() == TEXTUAL_VERSION:
         return python
     root.mkdir(parents=True, exist_ok=True)
-    print(f"Preparing isolated review-pack TUI runtime in {root}", file=sys.stderr)
+    print(f"Preparing isolated CodeSleuth TUI runtime in {root}", file=sys.stderr)
     venv.EnvBuilder(with_pip=True, clear=python.exists()).create(root)
     python = venv_python(root)
     subprocess.run([
@@ -54,7 +54,7 @@ def ensure_runtime() -> Path:
 
 def main() -> int:
     if sys.version_info < (3, 9):
-        print("review-pack TUI requires Python 3.9+", file=sys.stderr)
+        print("CodeSleuth TUI requires Python 3.9+", file=sys.stderr)
         return 2
     if usable_current_python():
         python = Path(sys.executable)
@@ -62,7 +62,7 @@ def main() -> int:
         try:
             python = ensure_runtime()
         except Exception as exc:
-            print(f"Unable to prepare the isolated Textual runtime: {exc}", file=sys.stderr)
+            print(f"Unable to prepare the isolated CodeSleuth Textual runtime: {exc}", file=sys.stderr)
             print("Install textual==8.2.8 in an isolated environment or retry with network access.", file=sys.stderr)
             return 2
     return subprocess.call([str(python), str(APP), *sys.argv[1:]])

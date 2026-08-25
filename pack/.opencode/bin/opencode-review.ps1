@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root = (Resolve-Path (Join-Path $Here '../..')).Path
 $Settings = Join-Path $Root '.opencode/review-pack-user.json'
+$TuiConfig = Join-Path $Root '.opencode/tui.json'
 $ExaEnabled = $true
 if (Test-Path $Settings) {
   try {
@@ -12,5 +13,6 @@ if (Test-Path $Settings) {
   }
 }
 if ($ExaEnabled) { $env:OPENCODE_ENABLE_EXA = '1' } else { Remove-Item Env:OPENCODE_ENABLE_EXA -ErrorAction SilentlyContinue }
+if (Test-Path $TuiConfig) { $env:OPENCODE_TUI_CONFIG = $TuiConfig }
 & opencode @args
 exit $LASTEXITCODE
