@@ -14,7 +14,8 @@ class VersionMetadataError(RuntimeError):
     """Raised when CodeSleuth version metadata is absent or malformed."""
 
 
-def _validate(value: str, source: Path) -> str:
+def validate_version(value: str, source: str | Path) -> str:
+    """Validate one version string read from an identified metadata source."""
     version = value.strip()
     if not version:
         raise VersionMetadataError(f"CodeSleuth version metadata is empty: {source}")
@@ -28,7 +29,7 @@ def source_version(distribution_root: Path) -> str:
     path = distribution_root.resolve() / "VERSION"
     if not path.is_file():
         raise VersionMetadataError(f"missing CodeSleuth VERSION metadata: {path}")
-    return _validate(path.read_text(encoding="utf-8"), path)
+    return validate_version(path.read_text(encoding="utf-8"), path)
 
 
 def installed_version(target_root: Path) -> str:
@@ -43,7 +44,7 @@ def installed_version(target_root: Path) -> str:
     value = payload.get("version")
     if not isinstance(value, str):
         raise VersionMetadataError(f"installed CodeSleuth metadata has no string version: {path}")
-    return _validate(value, path)
+    return validate_version(value, path)
 
 
 def resolve_version(
