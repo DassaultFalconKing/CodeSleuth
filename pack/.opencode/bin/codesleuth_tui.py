@@ -11,7 +11,7 @@ from pathlib import Path
 
 from textual import work
 from textual.app import ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, RichLog, Select, Static, Switch
 
@@ -54,6 +54,29 @@ CODESLEUTH_ART = r'''
 EVIDENCE_MARK = r"""+-- source --+     +-- evidence --+
 | repository | --> | verified    |
 +------------+     +--------------+"""
+
+NAV_SURFACES = {
+    "home": (
+        "Home · Evidence Console",
+        "Repository readiness, active profiles, safe next action, and recent control-shell activity.",
+    ),
+    "review": (
+        "Review · OpenCode execution",
+        "Use Playbooks or launch OpenCode for /repo-review and /repo-review-resume. CodeSleuth does not run a second review engine.",
+    ),
+    "evidence": (
+        "Evidence · OpenCode state",
+        "Evidence, findings, coverage, and durable checkpoints remain OpenCode-owned. Launch OpenCode to inspect or resume them.",
+    ),
+    "tools": (
+        "Tools · OpenCode-native capabilities",
+        "Verify and lifecycle utilities are available below. Skills, commands, tools, and plugins execute in OpenCode.",
+    ),
+    "settings": (
+        "Settings · Project-local configuration",
+        "Configure profiles, explicit evidence permissions, runtime policy, and the optional pinned dependency.",
+    ),
+}
 
 HELP_SECTIONS = [
     (
@@ -185,6 +208,11 @@ class CodeSleuthConfigScreen(ConfigScreen):
     Input { width: 18; }
     #summary { border: solid #29404f; padding: 1; margin-top: 1; }
     #actions { height: auto; align-horizontal: right; margin-top: 1; }
+    CodeSleuthConfigScreen.compact #config-dialog { width: 100%; height: 100%; padding: 1; }
+    CodeSleuthConfigScreen.compact .row { layout: vertical; height: auto; }
+    CodeSleuthConfigScreen.compact Select { width: 100%; }
+    CodeSleuthConfigScreen.compact Input { width: 100%; }
+    CodeSleuthConfigScreen.compact #evidence-mark { display: none; }
     """
 
     def operation_options(self) -> tuple[list[tuple[str, str]], str]:
@@ -195,6 +223,17 @@ class CodeSleuthConfigScreen(ConfigScreen):
         if self.state == "legacy-pack":
             return [("Adopt legacy review-pack with backup", "adopt"), ("Install without claiming legacy files", "install")], "adopt"
         return [("Install CodeSleuth / safe overlay", "install")], "install"
+
+    def on_mount(self) -> None:
+        super().on_mount()
+        self._apply_responsive_layout()
+
+    def on_resize(self) -> None:
+        if self.is_mounted:
+            self._apply_responsive_layout()
+
+    def _apply_responsive_layout(self) -> None:
+        self.set_class(self.app.size.width < 80 or self.app.size.height < 24, "compact")
 
     def compose(self) -> ComposeResult:
         p = self.settings["permissions"]
@@ -323,16 +362,29 @@ class CodeSleuthApp(ReviewPackApp):
     Header { background: #0e1822; color: #63d5f4; }
     Footer { background: #0e1822; color: #8aa7b8; }
     #body { padding: 1 2; }
+    #workspace { height: auto; }
+    #wide-nav { width: 18; min-width: 18; height: auto; margin-right: 2; padding: 1; border: round #29404f; background: #0b141d; }
+    #wide-nav .nav-button { width: 100%; margin-bottom: 1; }
+    #compact-nav { display: none; width: 100%; margin-bottom: 1; }
+    #main-panel { width: 1fr; height: auto; }
     #brand { color: #63d5f4; height: 15; text-style: bold; }
+    #compact-brand { display: none; color: #63d5f4; height: 1; text-style: bold; }
     #tagline { color: #8aa7b8; margin-bottom: 1; }
     #target { width: 100%; }
     #security { color: #f0c36a; margin-bottom: 1; }
+    #surface { border-left: thick #3e718a; padding-left: 1; margin: 1 0; color: #d8e3eb; }
     #status { border: round #29404f; padding: 1; margin: 1 0; background: #0e1822; }
-    #actions { height: auto; }
-    #actions Button { margin-right: 1; }
+    #actions { grid-size: 5 2; grid-gutter: 0 1; height: 6; }
+    #actions Button { width: 100%; min-width: 0; }
     #log { height: 1fr; border: solid #29404f; margin-top: 1; background: #0b141d; }
     #configure { background: #155e75; }
     #launch { background: #166534; }
+    #workspace.compact { layout: vertical; }
+    #workspace.compact #wide-nav { display: none; }
+    #workspace.compact #compact-nav { display: block; }
+    #workspace.compact #brand { display: none; }
+    #workspace.compact #compact-brand { display: block; }
+    #workspace.compact #actions { grid-size: 2 4; height: 12; }
     """
     BINDINGS = [
         ("q", "quit", "Quit"),
@@ -347,27 +399,60 @@ class CodeSleuthApp(ReviewPackApp):
     def compose(self) -> ComposeResult:
         yield Header()
         with VerticalScroll(id="body"):
-            yield Static(CODESLEUTH_ART, id="brand")
-            yield Static("Evidence-first repository intelligence", id="tagline")
-            yield Label("Repository")
-            yield Input(str(self.target), id="target")
-            yield Static(
-                "Evidence may contain developer credentials visible to authorized tests/services. "
-                "Local state is ignored by default; inspect reports before sharing or committing them.",
-                id="security",
-            )
-            yield Static("", id="status")
-            with Horizontal(id="actions"):
-                yield Button("Configure", id="configure", variant="primary")
-                yield Button("Verify", id="smoke")
-                yield Button("Check Updates", id="check-update")
-                yield Button("Update", id="update")
-                yield Button("Playbooks", id="playbooks")
-                yield Button("Help", id="help")
-                yield Button("Uninstall", id="uninstall", variant="error")
-                yield Button("Open CodeSleuth", id="launch", variant="success")
-            yield RichLog(id="log", wrap=True, markup=True)
+            with Horizontal(id="workspace"):
+                with Vertical(id="wide-nav"):
+                    yield Static("CodeSleuth\nEvidence Console", classes="hint")
+                    for route in NAV_SURFACES:
+                        yield Button(route.title(), id=f"nav-{route}", classes="nav-button")
+                with Vertical(id="main-panel"):
+                    yield Select(
+                        [(name.title(), name) for name in NAV_SURFACES],
+                        value="home",
+                        allow_blank=False,
+                        id="compact-nav",
+                    )
+                    yield Static(CODESLEUTH_ART, id="brand")
+                    yield Static("CODE:SLEUTH // EVIDENCE CONSOLE", id="compact-brand")
+                    yield Static("Evidence-first repository intelligence", id="tagline")
+                    yield Label("Repository")
+                    yield Input(str(self.target), id="target")
+                    yield Static(
+                        "Evidence may contain developer credentials visible to authorized tests/services. "
+                        "Local state is ignored by default; inspect reports before sharing or committing them.",
+                        id="security",
+                    )
+                    yield Static("", id="surface")
+                    yield Static("", id="status")
+                    with Grid(id="actions"):
+                        yield Button("Configure", id="configure", variant="primary")
+                        yield Button("Verify", id="smoke")
+                        yield Button("Check Updates", id="check-update")
+                        yield Button("Update", id="update")
+                        yield Button("Playbooks", id="playbooks")
+                        yield Button("Help", id="help")
+                        yield Button("Uninstall", id="uninstall", variant="error")
+                        yield Button("Open CodeSleuth", id="launch", variant="success")
+                    yield RichLog(id="log", wrap=True, markup=True)
         yield Footer()
+
+    def on_mount(self) -> None:
+        super().on_mount()
+        self._apply_responsive_layout()
+        self.show_surface("home")
+
+    def on_resize(self) -> None:
+        if self.is_mounted:
+            self._apply_responsive_layout()
+
+    def _apply_responsive_layout(self) -> None:
+        compact = self.size.width < 100 or self.size.height < 30
+        self.query_one("#workspace").set_class(compact, "compact")
+
+    def show_surface(self, route: str) -> None:
+        title, detail = NAV_SURFACES[route]
+        self.query_one("#surface", Static).update(f"[bold #63d5f4]{title}[/bold #63d5f4]\n{detail}")
+        for name in NAV_SURFACES:
+            self.query_one(f"#nav-{name}", Button).variant = "primary" if name == route else "default"
 
     def refresh_status(self) -> None:
         try:
@@ -433,12 +518,18 @@ class CodeSleuthApp(ReviewPackApp):
         self.query_one("#uninstall", Button).press()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "playbooks":
+        if event.button.id and event.button.id.startswith("nav-"):
+            self.show_surface(event.button.id.removeprefix("nav-"))
+        elif event.button.id == "playbooks":
             self.action_playbooks()
         elif event.button.id == "help":
             self.action_help()
         else:
             super().on_button_pressed(event)
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id == "compact-nav" and isinstance(event.value, str):
+            self.show_surface(event.value)
 
     def _configured(self, changed: bool) -> None:
         if changed:
