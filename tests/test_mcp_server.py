@@ -7,10 +7,13 @@ import sys
 from pathlib import Path
 
 import pytest
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
 
-from codesleuth_mcp.server import RepositoryEvidence, create_server
+pytest.importorskip("mcp")
+
+from mcp import ClientSession, StdioServerParameters  # noqa: E402
+from mcp.client.stdio import stdio_client  # noqa: E402
+
+from codesleuth_mcp.server import RepositoryEvidence, create_server  # noqa: E402
 
 
 def git(repo: Path, *args: str) -> str:
