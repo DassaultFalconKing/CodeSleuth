@@ -28,12 +28,15 @@ def usable_current_python() -> bool:
         return False
 
 
+def target_root() -> Path:
+    return Path(os.environ.get(ENV_TARGET_ROOT, HERE.parents[1])).resolve()
+
+
 def runtime_root() -> Path:
     distribution = os.environ.get(ENV_DISTRIBUTION_ROOT)
     if distribution:
         return Path(distribution).resolve() / ".runtime" / "tui"
-    target = Path(os.environ.get("CODESLEUTH_TARGET_ROOT", HERE.parents[1])).resolve()
-    return target / ".opencode" / "state" / "tui-runtime"
+    return target_root() / ".opencode" / "state" / "tui-runtime"
 
 
 def venv_python(root: Path) -> Path:
@@ -64,7 +67,6 @@ def ensure_runtime(version: str) -> Path:
     )
     marker.write_text(TEXTUAL_VERSION + "\n", encoding="utf-8")
     return python
-
 
 
 def cleanup_transition_bridges(target: Path) -> None:
@@ -103,6 +105,8 @@ def main() -> int:
             print(f"Unable to prepare the isolated CodeSleuth {version} Textual runtime: {exc}", file=sys.stderr)
             print(f"Install textual=={TEXTUAL_VERSION} in an isolated environment or retry with network access.", file=sys.stderr)
             return 2
+
+    cleanup_transition_bridges(target_root())
     return subprocess.call([str(python), str(APP), *sys.argv[1:]])
 
 
