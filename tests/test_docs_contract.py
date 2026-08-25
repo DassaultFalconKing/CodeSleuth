@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 README_TRANSLATIONS = (ROOT / "README.ru.md", ROOT / "README.uk.md")
+AGENT_OPERATOR_GUIDE = ROOT / "AGENTS.md"
 README_SOURCE_BLOB_RE = re.compile(r"<!-- README-SOURCE-BLOB: ([0-9a-f]{40}) -->")
 README_SWITCH_TARGETS = ("README.md", "README.ru.md", "README.uk.md")
 
@@ -26,6 +27,38 @@ def test_readme_translations_track_current_english_source() -> None:
         assert match.group(1) == source_blob, (
             f"{path.name} is stale: translate README.md and refresh README-SOURCE-BLOB"
         )
+
+
+def test_agent_operator_guide_tracks_current_english_source() -> None:
+    source_blob = _git_blob_sha((ROOT / "README.md").read_bytes())
+    text = AGENT_OPERATOR_GUIDE.read_text(encoding="utf-8")
+    match = README_SOURCE_BLOB_RE.search(text)
+    assert match, "AGENTS.md must declare README-SOURCE-BLOB"
+    assert match.group(1) == source_blob, (
+        "AGENTS.md parity is stale: review agent-operational behavior against README.md and refresh README-SOURCE-BLOB"
+    )
+
+
+def test_agent_operator_guide_keeps_install_config_and_removal_contracts() -> None:
+    text = AGENT_OPERATOR_GUIDE.read_text(encoding="utf-8")
+    required = (
+        "--settings-file",
+        "--bind-dependency",
+        "--update",
+        "--uninstall",
+        "--purge-traces",
+        "--keep-dependency",
+        "permissions.managePolicy",
+        "review-safe",
+        "balanced",
+        "autonomous",
+        ".opencode/bin/review-pack-smoke.py",
+        ".opencode/bin/codesleuth-project . --unbind",
+        "second primary controller",
+        "release-clean",
+    )
+    for token in required:
+        assert token in text, f"AGENTS.md lost required operator contract: {token}"
 
 
 def test_readme_language_switchers_link_all_other_versions() -> None:
@@ -132,7 +165,7 @@ def test_bun_smoke_dependency_is_exactly_pinned() -> None:
 
 
 def test_internal_markdown_links_resolve() -> None:
-    docs = [*(ROOT.glob("README*.md")), *((ROOT / "docs").rglob("*.md"))]
+    docs = [AGENT_OPERATOR_GUIDE, *(ROOT.glob("README*.md")), *((ROOT / "docs").rglob("*.md"))]
     missing: list[str] = []
     for document in docs:
         text = document.read_text(encoding="utf-8")
