@@ -1,3 +1,8 @@
+<p align="right">
+  <strong>Language:</strong>
+  English · <a href="./README.ru.md">Русский</a> · <a href="./README.uk.md">Українська</a>
+</p>
+
 # CodeSleuth
 
 ```text
