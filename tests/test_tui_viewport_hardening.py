@@ -78,16 +78,13 @@ async def test_left_navigation_can_collapse_and_restore(tmp_path: Path) -> None:
         collapse = app.query_one("#nav-collapse")
         assert not nav.has_class("collapsed")
 
-        # Prove the visible mouse control can collapse the rail.
         assert await pilot.click("#nav-collapse")
         await pilot.pause()
         assert nav.has_class("collapsed")
         assert str(collapse.label) == ">"
         assert all(not button.display for button in app.query("#wide-nav .nav-button"))
 
-        # Restore through the documented parallel keyboard control. Headless Pilot mouse
-        # hit-testing becomes geometry-dependent once a split rail is intentionally tiny.
-        await pilot.press("f3")
+        assert await pilot.click("#nav-collapse")
         await pilot.pause()
         assert not nav.has_class("collapsed")
         assert str(collapse.label) == "<"
@@ -107,14 +104,12 @@ async def test_right_key_panel_can_collapse_restore_and_close_for_session(tmp_pa
         panel = app.query_one(CodeSleuthHelpPanel)
         assert not panel.has_class("collapsed")
 
-        # The visible side-panel control must collapse the panel.
         assert await pilot.click("#right-collapse")
         await pilot.pause()
         assert panel.has_class("collapsed")
         assert str(panel.query_one("#right-collapse").label) == ">"
 
-        # F4 is the documented geometry-independent restore path.
-        await pilot.press("f4")
+        assert await pilot.click("#right-collapse")
         await pilot.pause()
         assert not panel.has_class("collapsed")
         assert str(panel.query_one("#right-collapse").label) == "<"
@@ -181,11 +176,6 @@ async def test_source_checkout_update_fetches_origin_main_without_branch_trackin
         update = app.query_one("#update")
         assert update.display
         assert not update.disabled
-
-        # The active Tools context is intentionally kept at the top; lifecycle buttons may
-        # sit below a short viewport. Scroll the real button into view before exercising it.
-        app.query_one("#body").scroll_to_widget(update, animate=False)
-        await pilot.pause()
         assert await pilot.click("#update")
         for _ in range(80):
             await pilot.pause(0.1)

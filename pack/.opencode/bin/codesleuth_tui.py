@@ -105,6 +105,18 @@ OPEN_CODE_COMMANDS = (
     "/repo-review-resume",
 )
 
+
+def _rail_toggle_button(label: str, button_id: str, **kwargs) -> Button:
+    """Collapse/restore controls must accept a second click immediately.
+
+    Textual Button swallows clicks while the default 0.2s ``-active`` effect is
+    applied, which makes a toggle appear stuck after a fast collapse->restore.
+    """
+
+    button = Button(label, id=button_id, compact=True, **kwargs)
+    button.active_effect_duration = 0
+    return button
+
 HELP_SECTIONS = [
     (
         "What CodeSleuth is",
@@ -251,7 +263,7 @@ class CodeSleuthHelpPanel(HelpPanel):
         layout: vertical;
     }
     #right-panel-controls { height: 3; align-horizontal: right; }
-    #right-panel-controls Button { min-width: 3; width: 4; margin-left: 1; }
+    #right-panel-controls Button { min-width: 5; width: 5; margin-left: 1; }
     CodeSleuthHelpPanel #widget-help {
         height: auto;
         max-height: 50%;
@@ -271,22 +283,23 @@ class CodeSleuthHelpPanel(HelpPanel):
         padding: 0;
     }
     CodeSleuthHelpPanel.collapsed {
-        width: 5;
-        min-width: 5;
-        max-width: 5;
+        width: 8;
+        min-width: 8;
+        max-width: 8;
         padding: 0;
+        overflow: hidden;
     }
     CodeSleuthHelpPanel.collapsed #widget-help,
     CodeSleuthHelpPanel.collapsed #keys-help,
     CodeSleuthHelpPanel.collapsed #right-close { display: none; }
     CodeSleuthHelpPanel.collapsed #right-panel-controls { width: 100%; align-horizontal: center; }
-    CodeSleuthHelpPanel.collapsed #right-collapse { width: 4; margin: 0; }
+    CodeSleuthHelpPanel.collapsed #right-collapse { width: 5; min-width: 5; max-width: 5; margin: 0; }
     """
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="right-panel-controls"):
-            yield Button("<", id="right-collapse")
-            yield Button("X", id="right-close", variant="error")
+            yield _rail_toggle_button("<", "right-collapse")
+            yield Button("X", id="right-close", variant="error", compact=True)
         yield Markdown(id="widget-help")
         yield KeyPanel(id="keys-help")
 
@@ -453,15 +466,16 @@ class CodeSleuthApp(ReviewPackApp):
     #wide-nav { width: 18; min-width: 18; height: auto; margin-right: 2; padding: 1; border: round #29404f; background: #0e1822; }
     #nav-chrome { height: 3; width: 100%; }
     #nav-title { width: 1fr; }
-    #nav-collapse { min-width: 3; width: 3; margin-left: 1; }
+    #nav-collapse { min-width: 5; width: 5; margin-left: 1; }
     #wide-nav .nav-button { width: 100%; margin-bottom: 1; }
-    #wide-nav.collapsed { width: 5; min-width: 5; max-width: 5; padding: 1 0; margin-right: 1; }
+    #wide-nav.collapsed { width: 8; min-width: 8; max-width: 8; padding: 1 1; margin-right: 1; overflow: hidden; }
     #wide-nav.collapsed #nav-title,
     #wide-nav.collapsed .nav-button { display: none; }
-    #wide-nav.collapsed #nav-chrome { width: 100%; }
-    #wide-nav.collapsed #nav-collapse { width: 100%; margin: 0; }
+    #wide-nav.collapsed #nav-chrome { width: 100%; align-horizontal: center; }
+    #wide-nav.collapsed #nav-collapse { width: 5; min-width: 5; max-width: 5; margin: 0; }
     #compact-nav { display: none; width: 100%; margin-bottom: 1; }
     #main-panel { width: 1fr; height: auto; }
+    #operation { height: auto; }
     #brand { color: #63d5f4; height: 15; text-style: bold; }
     #compact-brand { display: none; color: #63d5f4; height: 1; text-style: bold; }
     #tagline { color: #8aa7b8; margin-bottom: 1; }
@@ -469,7 +483,7 @@ class CodeSleuthApp(ReviewPackApp):
     #security { color: #f0c36a; margin: 1 0; }
     #surface { border-left: thick #3e718a; padding-left: 1; margin: 0 0 1 0; color: #d8e3eb; }
     #status { border: round #29404f; padding: 1; margin: 1 0; background: #0e1822; }
-    #actions { grid-size: 5 1; grid-gutter: 0 1; height: 3; }
+    #actions { grid-size: 5 1; grid-gutter: 0 1; height: 3; margin-bottom: 1; }
     #actions Button { width: 100%; min-width: 0; }
     #activity-title { color: #63d5f4; margin-top: 1; text-style: bold; }
     #log { height: 6; border: solid #29404f; background: #081018; }
@@ -508,7 +522,7 @@ class CodeSleuthApp(ReviewPackApp):
                 with Vertical(id="wide-nav"):
                     with Horizontal(id="nav-chrome"):
                         yield Static("CodeSleuth\nEvidence Console", id="nav-title", classes="hint")
-                        yield Button("<", id="nav-collapse")
+                        yield _rail_toggle_button("<", "nav-collapse")
                     for route in NAV_SURFACES:
                         yield Button(route.title(), id=f"nav-{route}", classes="nav-button")
                 with Vertical(id="main-panel"):
@@ -518,23 +532,25 @@ class CodeSleuthApp(ReviewPackApp):
                         allow_blank=False,
                         id="compact-nav",
                     )
-                    # Active navigation context is first so Review/Evidence/Tools/Settings stays visible.
-                    yield Static("", id="surface")
+                    # Surface copy and the actions for that surface stay together so Tools/Review
+                    # controls are reachable without scrolling past branding/status.
+                    with Vertical(id="operation"):
+                        yield Static("", id="surface")
+                        with Grid(id="actions"):
+                            yield Button("Configure", id="configure", variant="primary")
+                            yield Button("Verify", id="smoke")
+                            yield Button("Check Updates", id="check-update")
+                            yield Button("Update", id="update")
+                            yield Button("Playbooks", id="playbooks")
+                            yield Button("Help", id="help")
+                            yield Button("Uninstall", id="uninstall", variant="error")
+                            yield Button("Open CodeSleuth", id="launch", variant="primary")
                     yield Static(CODESLEUTH_ART, id="brand")
                     yield Static("CODE:SLEUTH // EVIDENCE CONSOLE", id="compact-brand")
                     yield Static("Evidence-first repository intelligence", id="tagline")
                     yield Label("Repository")
                     yield Input(str(self.target), id="target")
                     yield Static("", id="status")
-                    with Grid(id="actions"):
-                        yield Button("Configure", id="configure", variant="primary")
-                        yield Button("Verify", id="smoke")
-                        yield Button("Check Updates", id="check-update")
-                        yield Button("Update", id="update")
-                        yield Button("Playbooks", id="playbooks")
-                        yield Button("Help", id="help")
-                        yield Button("Uninstall", id="uninstall", variant="error")
-                        yield Button("Open CodeSleuth", id="launch", variant="primary")
                     yield Static("Recent activity", id="activity-title")
                     yield RichLog(id="log", wrap=True, markup=True)
                     yield Static(
@@ -753,7 +769,9 @@ class CodeSleuthApp(ReviewPackApp):
         selector = self.query_one("#compact-nav", Select)
         if selector.value != route:
             selector.value = route
-        self.query_one("#body", VerticalScroll).scroll_to_widget(surface, animate=False)
+        self.query_one("#body", VerticalScroll).scroll_to_widget(
+            self.query_one("#operation"), animate=False
+        )
 
     def _source_checkout_root(self, repo: Path) -> Path | None:
         if self.distribution_root is None:
