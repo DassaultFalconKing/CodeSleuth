@@ -1,8 +1,14 @@
 {
   "profile": "generic",
   "config": {
-    "permission": {"lsp":"allow","skill":"allow","websearch":"allow","webfetch":"allow","question":"allow"},
-    "compaction": {"auto":true,"prune":true,"reserved":20000}
+    "compaction": {"auto": true, "prune": true, "reserved": 20000}
   },
-  "reviewFocus": ["authority boundaries","error propagation","state and recovery","authorization/scope","tests and CI","documentation/runtime truth"]
+  "reviewFocus": [
+    "authority boundaries",
+    "error propagation",
+    "state and recovery",
+    "authorization/scope",
+    "tests and CI",
+    "documentation/runtime truth"
+  ]
 }
