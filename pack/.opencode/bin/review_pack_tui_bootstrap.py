@@ -8,6 +8,8 @@ import sys
 import venv
 from pathlib import Path
 
+from codesleuth_version import VersionMetadataError, resolve_version
+
 TEXTUAL_VERSION = "8.2.8"
 HERE = Path(__file__).resolve().parent
 APP = HERE / "codesleuth_tui.py"
@@ -25,7 +27,7 @@ def runtime_root() -> Path:
     distribution = os.environ.get("REVIEW_PACK_DISTRIBUTION_ROOT")
     if distribution:
         return Path(distribution).resolve() / ".runtime" / "tui"
-    target = Path(os.environ.get("REVIEW_PACK_TARGET_ROOT", HERE.parents[2])).resolve()
+    target = Path(os.environ.get("REVIEW_PACK_TARGET_ROOT", HERE.parents[1])).resolve()
     return target / ".opencode" / "state" / "tui-runtime"
 
 
@@ -33,37 +35,54 @@ def venv_python(root: Path) -> Path:
     return root / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
-def ensure_runtime() -> Path:
+def ensure_runtime(version: str) -> Path:
     root = runtime_root()
     python = venv_python(root)
     marker = root / ".textual-version"
     if python.is_file() and marker.is_file() and marker.read_text(encoding="utf-8").strip() == TEXTUAL_VERSION:
         return python
     root.mkdir(parents=True, exist_ok=True)
-    print(f"Preparing isolated CodeSleuth TUI runtime in {root}", file=sys.stderr)
+    print(f"Preparing isolated CodeSleuth {version} TUI runtime in {root}", file=sys.stderr)
     venv.EnvBuilder(with_pip=True, clear=python.exists()).create(root)
     python = venv_python(root)
-    subprocess.run([
-        str(python), "-m", "pip", "install",
-        "--disable-pip-version-check",
-        "--requirement", str(REQ),
-    ], check=True)
+    subprocess.run(
+        [
+            str(python),
+            "-m",
+            "pip",
+            "install",
+            "--disable-pip-version-check",
+            "--requirement",
+            str(REQ),
+        ],
+        check=True,
+    )
     marker.write_text(TEXTUAL_VERSION + "\n", encoding="utf-8")
     return python
 
 
 def main() -> int:
-    if sys.version_info < (3, 9):
-        print("CodeSleuth TUI requires Python 3.9+", file=sys.stderr)
+    try:
+        version = resolve_version()
+    except VersionMetadataError as exc:
+        print(f"Unable to resolve CodeSleuth version metadata: {exc}", file=sys.stderr)
+        return 2
+
+    if sys.argv[1:] == ["--version"]:
+        print(version)
+        return 0
+
+    if sys.version_info < (3, 10):
+        print("CodeSleuth requires Python 3.10+", file=sys.stderr)
         return 2
     if usable_current_python():
         python = Path(sys.executable)
     else:
         try:
-            python = ensure_runtime()
+            python = ensure_runtime(version)
         except Exception as exc:
-            print(f"Unable to prepare the isolated CodeSleuth Textual runtime: {exc}", file=sys.stderr)
-            print("Install textual==8.2.8 in an isolated environment or retry with network access.", file=sys.stderr)
+            print(f"Unable to prepare the isolated CodeSleuth {version} Textual runtime: {exc}", file=sys.stderr)
+            print(f"Install textual=={TEXTUAL_VERSION} in an isolated environment or retry with network access.", file=sys.stderr)
             return 2
     return subprocess.call([str(python), str(APP), *sys.argv[1:]])
 
