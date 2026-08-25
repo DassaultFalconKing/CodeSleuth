@@ -8,10 +8,11 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import TypeVar
 
 from textual import work
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, RichLog, Select, Static, Switch
 
@@ -38,14 +39,43 @@ PRESET_OPTIONS = [
     ("Balanced checks", "balanced"),
     ("Autonomous local work", "autonomous"),
 ]
+ABORT_BUTTON_IDS = frozenset({"abort", "cancel", "close-prompts", "close-help"})
+TResult = TypeVar("TResult")
 
 
-class PromptScreen(ModalScreen[None]):
+class AbortableModalScreen(ModalScreen[TResult]):
+    """Modal page that can be left with no action applied or performed."""
+
+    BINDINGS = [("escape", "abort", "Back")]
+
+    def abort_result(self):
+        return None
+
+    def action_abort(self) -> None:
+        self.dismiss(self.abort_result())
+
+    def compose_chrome(self, title: str, *, title_id: str = "page-title", abort_label: str = "Back") -> ComposeResult:
+        with Horizontal(id="page-chrome"):
+            yield Button(abort_label, id="abort")
+            yield Label(title, id=title_id)
+
+    def _abort_from_button(self, event: Button.Pressed) -> bool:
+        if event.button.id in ABORT_BUTTON_IDS:
+            event.stop()
+            self.action_abort()
+            return True
+        return False
+
+
+class PromptScreen(AbortableModalScreen[None]):
     CSS = """
     PromptScreen { align: center middle; background: rgba(0,0,0,0.45); }
     #prompt-dialog { width: 92%; height: 88%; border: round $accent; background: $surface; padding: 1 2; }
+    #page-chrome { height: 3; align: left middle; }
+    #page-chrome Label { width: 1fr; height: auto; }
+    #page-chrome Button { min-width: 8; width: auto; }
     #prompt-log { height: 1fr; border: solid $panel; }
-    #prompt-actions { height: auto; align-horizontal: right; }
+    #prompt-actions { height: auto; align-horizontal: right; margin-top: 1; }
     """
 
     def __init__(self, repo: Path, profiles: list[str]) -> None:
@@ -54,8 +84,8 @@ class PromptScreen(ModalScreen[None]):
         self.prompts = generate_prompts(repo, profiles)
 
     def compose(self) -> ComposeResult:
-        with VerticalScroll(id="prompt-dialog"):
-            yield Label("Suggested CodeSleuth prompts")
+        with Vertical(id="prompt-dialog"):
+            yield from self.compose_chrome("Suggested CodeSleuth prompts")
             yield Static("Generated from the active profile set. /repo-prompts remains the in-OpenCode advisor.")
             yield RichLog(id="prompt-log", wrap=True, markup=True)
             with Horizontal(id="prompt-actions"):
@@ -68,23 +98,26 @@ class PromptScreen(ModalScreen[None]):
             log.write(f"[bold]{index}. {title}[/bold]\n{prompt}\n")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
+        if self._abort_from_button(event):
+            return
         if event.button.id == "save-prompts":
             path = write_prompts(self.repo, self.prompts)
             self.notify(f"Saved to {path.relative_to(self.repo)}")
-        elif event.button.id == "close-prompts":
-            self.dismiss(None)
 
 
-class UninstallScreen(ModalScreen[str | None]):
+class UninstallScreen(AbortableModalScreen[str | None]):
     CSS = """
     UninstallScreen { align: center middle; background: rgba(0,0,0,0.45); }
     #uninstall-dialog { width: 82%; height: auto; border: round $error; background: $surface; padding: 1 2; }
+    #page-chrome { height: 3; align: left middle; }
+    #page-chrome Label { width: 1fr; height: auto; }
+    #page-chrome Button { min-width: 8; width: auto; }
     #uninstall-actions { height: auto; align-horizontal: right; margin-top: 1; }
     """
 
     def compose(self) -> ComposeResult:
-        with VerticalScroll(id="uninstall-dialog"):
-            yield Label("Remove CodeSleuth from this repository?")
+        with Vertical(id="uninstall-dialog"):
+            yield from self.compose_chrome("Remove CodeSleuth from this repository?")
             yield Static(
                 "CodeSleuth restores the pre-install .opencode snapshot when available and removes its bound submodule. "
                 "Preserve archives known CodeSleuth settings, profiles, review state and TUI state under .codesleuth/archive (gitignored). "
@@ -105,14 +138,18 @@ class UninstallScreen(ModalScreen[str | None]):
             self.dismiss("preserve")
         elif event.button.id == "purge":
             self.dismiss("purge")
-        else:
-            self.dismiss(None)
+        elif self._abort_from_button(event):
+            return
 
 
-class ConfigScreen(ModalScreen[bool]):
+class ConfigScreen(AbortableModalScreen[bool]):
     CSS = """
     ConfigScreen { align: center middle; background: rgba(0,0,0,0.45); }
     #config-dialog { width: 94%; height: 94%; border: round $accent; background: $surface; padding: 1 2; }
+    #page-chrome { height: 3; align: left middle; }
+    #page-chrome Label { width: 1fr; height: auto; }
+    #page-chrome Button { min-width: 8; width: auto; }
+    #page-body { height: 1fr; }
     .section { margin-top: 1; color: $accent; text-style: bold; }
     .hint { color: $text-muted; }
     .warning { color: $warning; }
@@ -121,8 +158,11 @@ class ConfigScreen(ModalScreen[bool]):
     Input { width: 18; }
     #agent-model { width: 36; }
     #summary { border: solid $panel; padding: 1; margin-top: 1; }
-    #actions { height: auto; align-horizontal: right; margin-top: 1; }
+    #page-actions { height: auto; align-horizontal: right; margin-top: 1; }
     """
+
+    def abort_result(self) -> bool:
+        return False
 
     def __init__(self, repo: Path, distribution_root: Path | None) -> None:
         super().__init__()
@@ -152,87 +192,88 @@ class ConfigScreen(ModalScreen[bool]):
         p = self.settings["permissions"]
         r = self.settings["runtime"]
         ops, selected_op = self.operation_options()
-        with VerticalScroll(id="config-dialog"):
-            yield Label("CodeSleuth Setup")
-            yield Static(f"Target: {self.repo}\nCurrent state: {self.state}", classes="hint")
-            yield Static(
-                "CodeSleuth backs up pre-existing project OpenCode settings before first install. "
-                "Local backups/review state are gitignored; tools/codesleuth is intentionally NOT ignored when pinned.",
-                classes="hint",
-            )
-            yield Static(
-                "Credential warning: OpenCode may legitimately use development credentials for local tests. "
-                "CodeSleuth does not blindly redact evidence, so reports may contain credentials or secrets. "
-                "Review before sharing or committing reports.",
-                classes="warning",
-            )
+        with Vertical(id="config-dialog"):
+            yield from self.compose_chrome("CodeSleuth Setup")
+            with VerticalScroll(id="page-body"):
+                yield Static(f"Target: {self.repo}\nCurrent state: {self.state}", classes="hint")
+                yield Static(
+                    "CodeSleuth backs up pre-existing project OpenCode settings before first install. "
+                    "Local backups/review state are gitignored; tools/codesleuth is intentionally NOT ignored when pinned.",
+                    classes="hint",
+                )
+                yield Static(
+                    "Credential warning: OpenCode may legitimately use development credentials for local tests. "
+                    "CodeSleuth does not blindly redact evidence, so reports may contain credentials or secrets. "
+                    "Review before sharing or committing reports.",
+                    classes="warning",
+                )
 
-            yield Label("1. Installation and persistence", classes="section")
-            yield Select(ops, value=selected_op, allow_blank=False, id="operation")
-            with Horizontal(classes="row"):
-                yield Switch(value=bool(self.dependency["bound"]), id="bind-dependency")
-                yield Label("Bind/unbind tools/codesleuth independently of the installed runtime")
+                yield Label("1. Installation and persistence", classes="section")
+                yield Select(ops, value=selected_op, allow_blank=False, id="operation")
+                with Horizontal(classes="row"):
+                    yield Switch(value=bool(self.dependency["bound"]), id="bind-dependency")
+                    yield Label("Bind/unbind tools/codesleuth independently of the installed runtime")
 
-            yield Label("2. Repository profile", classes="section")
-            yield Switch(value=self.settings.get("profilesMode") == "auto", id="profiles-auto")
-            yield Label("Auto-detect profiles", classes="hint")
-            with Horizontal(classes="row"):
-                for profile in ("generic", "rust", "python", "node", "typescript"):
-                    yield Checkbox(profile, value=profile in self.settings["profiles"], id=f"profile-{profile}")
+                yield Label("2. Repository profile", classes="section")
+                yield Switch(value=self.settings.get("profilesMode") == "auto", id="profiles-auto")
+                yield Label("Auto-detect profiles", classes="hint")
+                with Horizontal(classes="row"):
+                    for profile in ("generic", "rust", "python", "node", "typescript"):
+                        yield Checkbox(profile, value=profile in self.settings["profiles"], id=f"profile-{profile}")
 
-            yield Label("3. Agent profile", classes="section")
-            yield Static(
-                "Selects the OpenCode model family so the native build controller prompt is used. "
-                "CodeSleuth never sets agent.build.prompt; a custom prompt would replace OpenCode's controller.",
-                classes="hint",
-            )
-            yield Select(
-                AGENT_PROFILE_OPTIONS,
-                value=self.settings.get("agent", {}).get("profile") or "native",
-                allow_blank=False,
-                id="agent-profile",
-            )
-            with Horizontal(classes="row"):
-                yield Label("OpenCode model id (optional)")
-                yield Input(str(self.settings.get("agent", {}).get("model") or ""), id="agent-model")
+                yield Label("3. Agent profile", classes="section")
+                yield Static(
+                    "Selects the OpenCode model family so the native build controller prompt is used. "
+                    "CodeSleuth never sets agent.build.prompt; a custom prompt would replace OpenCode's controller.",
+                    classes="hint",
+                )
+                yield Select(
+                    AGENT_PROFILE_OPTIONS,
+                    value=self.settings.get("agent", {}).get("profile") or "native",
+                    allow_blank=False,
+                    id="agent-profile",
+                )
+                with Horizontal(classes="row"):
+                    yield Label("OpenCode model id (optional)")
+                    yield Input(str(self.settings.get("agent", {}).get("model") or ""), id="agent-model")
 
-            yield Label("4. Permission policy", classes="section")
-            yield Static("Profiles never widen project permissions. Permission changes come only from this explicit policy layer.", classes="hint")
-            yield Select(PRESET_OPTIONS, value=p["preset"], allow_blank=False, id="preset")
-            with Horizontal(classes="row"):
-                yield Label("websearch")
-                yield Select(PERMISSION_OPTIONS, value=p["websearch"], allow_blank=False, id="websearch")
-                yield Label("webfetch")
-                yield Select(PERMISSION_OPTIONS, value=p["webfetch"], allow_blank=False, id="webfetch")
-            with Horizontal(classes="row"):
-                yield Label("edit/write")
-                yield Select(PERMISSION_OPTIONS, value=p["edit"], allow_blank=False, id="edit")
-                yield Label("external dirs")
-                yield Select(PERMISSION_OPTIONS, value=p["externalDirectory"], allow_blank=False, id="external")
+                yield Label("4. Permission policy", classes="section")
+                yield Static("Profiles never widen project permissions. Permission changes come only from this explicit policy layer.", classes="hint")
+                yield Select(PRESET_OPTIONS, value=p["preset"], allow_blank=False, id="preset")
+                with Horizontal(classes="row"):
+                    yield Label("websearch")
+                    yield Select(PERMISSION_OPTIONS, value=p["websearch"], allow_blank=False, id="websearch")
+                    yield Label("webfetch")
+                    yield Select(PERMISSION_OPTIONS, value=p["webfetch"], allow_blank=False, id="webfetch")
+                with Horizontal(classes="row"):
+                    yield Label("edit/write")
+                    yield Select(PERMISSION_OPTIONS, value=p["edit"], allow_blank=False, id="edit")
+                    yield Label("external dirs")
+                    yield Select(PERMISSION_OPTIONS, value=p["externalDirectory"], allow_blank=False, id="external")
 
-            yield Label("5. Runtime", classes="section")
-            with Horizontal(classes="row"):
-                yield Switch(value=r["exaEnabled"], id="exa")
-                yield Label("Enable Exa websearch runtime")
-            with Horizontal(classes="row"):
-                yield Switch(value=r["watchdogEnabled"], id="watchdog")
-                yield Label("Enable current OpenCode keepalive watchdog")
-            with Horizontal(classes="row"):
-                yield Label("Global stall seconds")
-                yield Input(str(r["stallSeconds"]), type="integer", id="stall")
-                yield Label("Web stall seconds")
-                yield Input(str(r["webStallSeconds"]), type="integer", id="web-stall")
-                yield Label("Max recoveries")
-                yield Input(str(r["maxStallRecoveries"]), type="integer", id="recoveries")
-            with Horizontal(classes="row"):
-                yield Label("Compaction reserved tokens")
-                yield Input(str(r["compactionReserved"]), type="integer", id="reserved")
-                yield Switch(value=r["checkUpdatesOnStart"], id="check-updates")
-                yield Label("Check updates on TUI start")
+                yield Label("5. Runtime", classes="section")
+                with Horizontal(classes="row"):
+                    yield Switch(value=r["exaEnabled"], id="exa")
+                    yield Label("Enable Exa websearch runtime")
+                with Horizontal(classes="row"):
+                    yield Switch(value=r["watchdogEnabled"], id="watchdog")
+                    yield Label("Enable current OpenCode keepalive watchdog")
+                with Horizontal(classes="row"):
+                    yield Label("Global stall seconds")
+                    yield Input(str(r["stallSeconds"]), type="integer", id="stall")
+                    yield Label("Web stall seconds")
+                    yield Input(str(r["webStallSeconds"]), type="integer", id="web-stall")
+                    yield Label("Max recoveries")
+                    yield Input(str(r["maxStallRecoveries"]), type="integer", id="recoveries")
+                with Horizontal(classes="row"):
+                    yield Label("Compaction reserved tokens")
+                    yield Input(str(r["compactionReserved"]), type="integer", id="reserved")
+                    yield Switch(value=r["checkUpdatesOnStart"], id="check-updates")
+                    yield Label("Check updates on TUI start")
 
-            yield Label("6. Planned policy", classes="section")
-            yield Static("", id="summary")
-            with Horizontal(id="actions"):
+                yield Label("6. Planned policy", classes="section")
+                yield Static("", id="summary")
+            with Horizontal(id="page-actions"):
                 yield Button("Apply", id="apply", variant="success")
                 yield Button("Cancel", id="cancel")
 
@@ -331,8 +372,7 @@ class ConfigScreen(ModalScreen[bool]):
         self._refresh_summary()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "cancel":
-            self.dismiss(False)
+        if self._abort_from_button(event):
             return
         if event.button.id != "apply":
             return
@@ -489,6 +529,8 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
         self.query_one("#log", RichLog).write(text)
 
     def action_configure(self) -> None:
+        if isinstance(self.screen, ConfigScreen):
+            return
         try:
             repo = self.validate_target()
         except Exception as exc:
@@ -502,6 +544,8 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
             self.write_ui_log("[green]Configuration applied.[/green]")
 
     def action_prompts(self) -> None:
+        if isinstance(self.screen, PromptScreen):
+            return
         try:
             repo = self.validate_target()
             profiles = load_settings(repo, detect_profiles(repo))["profiles"]
@@ -512,18 +556,27 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button = event.button.id
         if button == "configure":
+            event.stop()
             self.action_configure()
         elif button == "prompts":
+            event.stop()
             self.action_prompts()
         elif button == "smoke":
+            event.stop()
             self.run_runtime_action("smoke")
         elif button == "check-update":
+            event.stop()
             self.run_runtime_action("check")
         elif button == "update":
+            event.stop()
             self.run_runtime_action("update")
         elif button == "uninstall":
+            event.stop()
+            if isinstance(self.screen, UninstallScreen):
+                return
             self.push_screen(UninstallScreen(), self._uninstall_choice)
         elif button == "launch":
+            event.stop()
             try:
                 repo = self.validate_target()
                 launcher = repo / ".opencode" / "bin" / ("opencode-review.ps1" if os.name == "nt" else "opencode-review")

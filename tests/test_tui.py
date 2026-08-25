@@ -19,6 +19,7 @@ from codesleuth_tui import (  # noqa: E402
     CodeSleuthApp,
     CodeSleuthConfigScreen,
     CodeSleuthHelpScreen,
+    CodeSleuthPlaybookScreen,
 )
 from textual.widgets import Button, Label, Select, Switch  # noqa: E402
 
@@ -55,6 +56,7 @@ async def test_uninstall_modal_requires_explicit_choice(tmp_path: Path) -> None:
         assert app.screen.query_one("#preserve")
         assert app.screen.query_one("#purge")
         assert app.screen.query_one("#cancel")
+        assert app.screen.query_one("#abort")
         text = "\n".join(str(widget.render()) for widget in app.screen.query("Static"))
         assert "known CodeSleuth settings" in text
         assert "unrelated project files are not archived or deleted" in text
@@ -216,6 +218,7 @@ async def test_branded_configuration_is_operable_at_mobile_size(tmp_path: Path) 
     async with app.run_test(size=(48, 20)) as pilot:
         app.query_one("#body").scroll_to_widget(app.query_one("#configure"), animate=False)
         await pilot.pause()
+        await pilot.pause()
         await pilot.click("#configure")
         await pilot.pause()
         screen = app.screen
@@ -231,3 +234,90 @@ async def test_branded_configuration_is_operable_at_mobile_size(tmp_path: Path) 
         apply = screen.query_one("#apply", Button)
         assert apply.region.x >= 0
         assert apply.region.right <= 48
+        abort = screen.query_one("#abort", Button)
+        assert abort.region.x >= 0
+        assert abort.region.right <= 48
+        assert abort.region.y >= 0
+        assert abort.region.bottom <= 20
+
+
+def _assert_visible_within(widget: Button, width: int, height: int) -> None:
+    assert widget.region.x >= 0
+    assert widget.region.y >= 0
+    assert widget.region.right <= width
+    assert widget.region.bottom <= height
+
+
+@pytest.mark.asyncio
+async def test_config_back_and_escape_abort_without_applying(tmp_path: Path) -> None:
+    repo = tmp_path / "target"
+    init_repo(repo)
+    settings_path = repo / ".opencode" / "review-pack-user.json"
+    app = CodeSleuthApp(repo, None)
+    async with app.run_test(size=(120, 140)) as pilot:
+        await pilot.pause()
+        await pilot.click("#configure")
+        await pilot.pause()
+        assert isinstance(app.screen, CodeSleuthConfigScreen)
+        assert sum(isinstance(screen, ConfigScreen) for screen in app.screen_stack) == 1
+        abort = app.screen.query_one("#abort", Button)
+        _assert_visible_within(abort, 120, 140)
+        await pilot.click("#bind-dependency")
+        await pilot.click("#abort")
+        await pilot.pause()
+        assert not isinstance(app.screen, CodeSleuthConfigScreen)
+        assert not settings_path.exists()
+
+        await pilot.click("#configure")
+        await pilot.pause()
+        assert isinstance(app.screen, CodeSleuthConfigScreen)
+        await pilot.click("#bind-dependency")
+        await pilot.press("escape")
+        await pilot.pause()
+        assert not isinstance(app.screen, CodeSleuthConfigScreen)
+        assert not settings_path.exists()
+
+        await pilot.click("#configure")
+        await pilot.pause()
+        assert isinstance(app.screen, CodeSleuthConfigScreen)
+        await pilot.click("#cancel")
+        await pilot.pause()
+        assert not isinstance(app.screen, CodeSleuthConfigScreen)
+        assert not settings_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_help_playbooks_and_uninstall_abort_without_performing(tmp_path: Path) -> None:
+    repo = tmp_path / "target"
+    init_repo(repo)
+    app = CodeSleuthApp(repo, None)
+    async with app.run_test(size=(120, 140)) as pilot:
+        await pilot.pause()
+        await pilot.click("#help")
+        await pilot.pause()
+        assert isinstance(app.screen, CodeSleuthHelpScreen)
+        _assert_visible_within(app.screen.query_one("#abort", Button), 120, 140)
+        await pilot.click("#abort")
+        await pilot.pause()
+        assert not isinstance(app.screen, CodeSleuthHelpScreen)
+
+        await pilot.click("#playbooks")
+        await pilot.pause()
+        assert isinstance(app.screen, CodeSleuthPlaybookScreen)
+        _assert_visible_within(app.screen.query_one("#abort", Button), 120, 140)
+        await pilot.press("escape")
+        await pilot.pause()
+        assert not isinstance(app.screen, CodeSleuthPlaybookScreen)
+        assert not (repo / ".opencode" / "state" / "tui" / "suggested-prompts.md").exists()
+
+        await pilot.click("#nav-settings")
+        await pilot.pause()
+        app.query_one("#body").scroll_to_widget(app.query_one("#uninstall"), animate=False)
+        await pilot.pause()
+        await pilot.click("#uninstall")
+        await pilot.pause()
+        assert isinstance(app.screen, UninstallScreen)
+        _assert_visible_within(app.screen.query_one("#abort", Button), 120, 140)
+        await pilot.click("#abort")
+        await pilot.pause()
+        assert not isinstance(app.screen, UninstallScreen)
