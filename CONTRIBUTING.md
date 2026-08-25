@@ -2,6 +2,8 @@
 
 CodeSleuth uses a **Stable Integration Baseline (SIB)** discipline for release construction.
 
+The full concept, its distinction from MVP and release, architectural eligibility criteria, and post-refactor use are defined in [`docs/STABLE-INTEGRATION-BASELINE.md`](docs/STABLE-INTEGRATION-BASELINE.md).
+
 The SIB is not a release candidate, not a general development branch, and not a place where feature work accumulates. It is an exact repository state that has already passed the project's full acceptance gate and is therefore trusted as the starting point for building a new release.
 
 ## Stable Integration Baseline
