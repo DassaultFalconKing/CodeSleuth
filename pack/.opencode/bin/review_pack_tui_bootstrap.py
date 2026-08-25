@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import importlib.metadata
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -12,12 +13,17 @@ import venv
 from dataclasses import dataclass
 from pathlib import Path
 
-TEXTUAL_VERSION = "8.2.8"
+from codesleuth_version import VersionMetadataError, resolve_version
+
 HERE = Path(__file__).resolve().parent
 REQ = HERE / "requirements-tui.txt"
+TEXTUAL_REQUIREMENT = REQ.read_text(encoding="utf-8").strip()
 RESTART_MARKER = Path(".opencode") / "state" / "tui-restart-request.json"
 WATCH_POLL_SECONDS = 0.20
 SOURCE_PROBE_SECONDS = 1.0
+
+_REQUIREMENT_RE = re.compile(r"^textual>=(\d+)\.(\d+)\.(\d+),<(\d+)$")
+_VERSION_PREFIX_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)")
 
 
 @dataclass
@@ -30,9 +36,33 @@ class RuntimeWatch:
     last_source_probe: float = 0.0
 
 
+def _textual_bounds() -> tuple[tuple[int, int, int], tuple[int, int, int]]:
+    match = _REQUIREMENT_RE.fullmatch(TEXTUAL_REQUIREMENT)
+    if match is None:
+        raise RuntimeError(f"unsupported Textual requirement format: {TEXTUAL_REQUIREMENT!r}")
+    lower = tuple(int(match.group(index)) for index in (1, 2, 3))
+    upper = (int(match.group(4)), 0, 0)
+    return lower, upper
+
+
+def _version_tuple(value: str) -> tuple[int, int, int] | None:
+    match = _VERSION_PREFIX_RE.match(value.strip())
+    if match is None:
+        return None
+    return tuple(int(match.group(index)) for index in (1, 2, 3))
+
+
+def textual_compatible(value: str) -> bool:
+    parsed = _version_tuple(value)
+    if parsed is None:
+        return False
+    lower, upper = _textual_bounds()
+    return lower <= parsed < upper
+
+
 def usable_current_python() -> bool:
     try:
-        return importlib.metadata.version("textual") == TEXTUAL_VERSION
+        return textual_compatible(importlib.metadata.version("textual"))
     except importlib.metadata.PackageNotFoundError:
         return False
 
@@ -41,7 +71,7 @@ def runtime_root() -> Path:
     distribution = os.environ.get("REVIEW_PACK_DISTRIBUTION_ROOT")
     if distribution:
         return Path(distribution).resolve() / ".runtime" / "tui"
-    target = Path(os.environ.get("REVIEW_PACK_TARGET_ROOT", HERE.parents[2])).resolve()
+    target = Path(os.environ.get("REVIEW_PACK_TARGET_ROOT", HERE.parents[1])).resolve()
     return target / ".opencode" / "state" / "tui-runtime"
 
 
@@ -49,14 +79,39 @@ def venv_python(root: Path) -> Path:
     return root / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
-def ensure_runtime() -> Path:
+def installed_textual_version(python: Path) -> str:
+    completed = subprocess.run(
+        [
+            str(python),
+            "-c",
+            "import importlib.metadata; print(importlib.metadata.version('textual'))",
+        ],
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    actual = completed.stdout.strip()
+    if not textual_compatible(actual):
+        raise RuntimeError(f"installed Textual {actual!r} does not satisfy {TEXTUAL_REQUIREMENT}")
+    return actual
+
+
+def ensure_runtime(product_version: str) -> Path:
     root = runtime_root()
     python = venv_python(root)
     marker = root / ".textual-version"
-    if python.is_file() and marker.is_file() and marker.read_text(encoding="utf-8").strip() == TEXTUAL_VERSION:
-        return python
+    if python.is_file() and marker.is_file():
+        try:
+            actual = installed_textual_version(python)
+        except (OSError, subprocess.SubprocessError, RuntimeError):
+            actual = ""
+        if actual:
+            if marker.read_text(encoding="utf-8").strip() != actual:
+                marker.write_text(actual + "\n", encoding="utf-8")
+            return python
+
     root.mkdir(parents=True, exist_ok=True)
-    print(f"Preparing isolated CodeSleuth TUI runtime in {root}", file=sys.stderr)
+    print(f"Preparing isolated CodeSleuth {product_version} TUI runtime in {root}", file=sys.stderr)
     venv.EnvBuilder(with_pip=True, clear=python.exists()).create(root)
     python = venv_python(root)
     subprocess.run(
@@ -71,7 +126,8 @@ def ensure_runtime() -> Path:
         ],
         check=True,
     )
-    marker.write_text(TEXTUAL_VERSION + "\n", encoding="utf-8")
+    actual = installed_textual_version(python)
+    marker.write_text(actual + "\n", encoding="utf-8")
     return python
 
 
@@ -146,17 +202,17 @@ def parse_app_args(argv: list[str]) -> tuple[Path, Path | None]:
     return Path(target), Path(distribution) if distribution else None
 
 
-def ensure_textual_runtime(argv: list[str]) -> int | None:
-    if sys.version_info < (3, 9):
-        print("CodeSleuth TUI requires Python 3.9+", file=sys.stderr)
+def ensure_textual_runtime(argv: list[str], product_version: str) -> int | None:
+    if sys.version_info < (3, 10):
+        print("CodeSleuth requires Python 3.10+", file=sys.stderr)
         return 2
     if usable_current_python():
         return None
     try:
-        python = ensure_runtime()
+        python = ensure_runtime(product_version)
     except Exception as exc:
-        print(f"Unable to prepare the isolated CodeSleuth Textual runtime: {exc}", file=sys.stderr)
-        print("Install textual==8.2.8 in an isolated environment or retry with network access.", file=sys.stderr)
+        print(f"Unable to prepare the isolated CodeSleuth {product_version} Textual runtime: {exc}", file=sys.stderr)
+        print(f"Install {TEXTUAL_REQUIREMENT} in an isolated environment or retry with network access.", file=sys.stderr)
         return 2
     if python.resolve() != Path(sys.executable).resolve():
         sys.stdout.flush()
@@ -207,7 +263,17 @@ def supervise_app(target: Path, distribution_root: Path | None, argv: list[str])
 
 def main() -> int:
     argv = sys.argv[1:]
-    runtime_error = ensure_textual_runtime(argv)
+    try:
+        product_version = resolve_version()
+    except VersionMetadataError as exc:
+        print(f"Unable to resolve CodeSleuth version metadata: {exc}", file=sys.stderr)
+        return 2
+
+    if argv == ["--version"]:
+        print(product_version)
+        return 0
+
+    runtime_error = ensure_textual_runtime(argv, product_version)
     if runtime_error is not None:
         return runtime_error
     target, distribution_root = parse_app_args(argv)
