@@ -17,6 +17,7 @@ from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, Rich
 
 import codesleuth_project as project_lifecycle
 from review_pack_tui_core import (
+    AGENT_PROFILE_OPTIONS,
     apply_settings_to_target,
     config_preview,
     default_settings,
@@ -118,6 +119,7 @@ class ConfigScreen(ModalScreen[bool]):
     .row { height: auto; }
     Select { width: 38; }
     Input { width: 18; }
+    #agent-model { width: 36; }
     #summary { border: solid $panel; padding: 1; margin-top: 1; }
     #actions { height: auto; align-horizontal: right; margin-top: 1; }
     """
@@ -178,7 +180,23 @@ class ConfigScreen(ModalScreen[bool]):
                 for profile in ("generic", "rust", "python", "node", "typescript"):
                     yield Checkbox(profile, value=profile in self.settings["profiles"], id=f"profile-{profile}")
 
-            yield Label("3. Permission policy", classes="section")
+            yield Label("3. Agent profile", classes="section")
+            yield Static(
+                "Selects the OpenCode model family so the native build controller prompt is used. "
+                "CodeSleuth never sets agent.build.prompt; a custom prompt would replace OpenCode's controller.",
+                classes="hint",
+            )
+            yield Select(
+                AGENT_PROFILE_OPTIONS,
+                value=self.settings.get("agent", {}).get("profile") or "native",
+                allow_blank=False,
+                id="agent-profile",
+            )
+            with Horizontal(classes="row"):
+                yield Label("OpenCode model id (optional)")
+                yield Input(str(self.settings.get("agent", {}).get("model") or ""), id="agent-model")
+
+            yield Label("4. Permission policy", classes="section")
             yield Static("Profiles never widen project permissions. Permission changes come only from this explicit policy layer.", classes="hint")
             yield Select(PRESET_OPTIONS, value=p["preset"], allow_blank=False, id="preset")
             with Horizontal(classes="row"):
@@ -192,7 +210,7 @@ class ConfigScreen(ModalScreen[bool]):
                 yield Label("external dirs")
                 yield Select(PERMISSION_OPTIONS, value=p["externalDirectory"], allow_blank=False, id="external")
 
-            yield Label("4. Runtime", classes="section")
+            yield Label("5. Runtime", classes="section")
             with Horizontal(classes="row"):
                 yield Switch(value=r["exaEnabled"], id="exa")
                 yield Label("Enable Exa websearch runtime")
@@ -212,7 +230,7 @@ class ConfigScreen(ModalScreen[bool]):
                 yield Switch(value=r["checkUpdatesOnStart"], id="check-updates")
                 yield Label("Check updates on TUI start")
 
-            yield Label("5. Planned policy", classes="section")
+            yield Label("6. Planned policy", classes="section")
             yield Static("", id="summary")
             with Horizontal(id="actions"):
                 yield Button("Apply", id="apply", variant="success")
@@ -259,6 +277,10 @@ class ConfigScreen(ModalScreen[bool]):
                 "maxStallRecoveries": int(self.query_one("#recoveries", Input).value or 0),
                 "compactionReserved": int(self.query_one("#reserved", Input).value or 0),
                 "checkUpdatesOnStart": self.query_one("#check-updates", Switch).value,
+            },
+            "agent": {
+                "profile": self._select_value("#agent-profile"),
+                "model": (self.query_one("#agent-model", Input).value or "").strip(),
             },
         }
         return validate_settings(settings)

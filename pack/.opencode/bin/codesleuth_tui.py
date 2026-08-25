@@ -14,6 +14,7 @@ from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, Rich
 import codesleuth_project as project_lifecycle
 from review_pack_tui import ConfigScreen, PromptScreen, ReviewPackApp, launch_opencode
 from review_pack_tui_core import (
+    AGENT_PROFILE_OPTIONS,
     detect_profiles,
     installation_state,
     load_settings,
@@ -116,17 +117,25 @@ HELP_SECTIONS = [
         ".opencode/state/tui/suggested-prompts.md (compatibility path retained for now).",
     ),
     (
+        "Agent profile",
+        "Agent profile chooses an OpenCode model family so the native controller prompt is used: "
+        "Codex models -> codex.txt, Claude -> anthropic.txt, Kimi/open-weight -> kimi.txt, otherwise OpenCode's default. "
+        "It does not inject a CodeSleuth supervisor prompt. Setting agent.prompt on build would replace OpenCode's controller entirely.",
+    ),
+    (
         "OpenCode commands",
         "/repo-review          deep repository or PR review\n"
         "/repo-review-resume   continue from durable review state\n"
         "/repo-docs            evidence-first repository documentation\n"
         "/repo-profile         inspect/build repository profile\n"
-        "/repo-prompts         in-OpenCode task advisor",
+        "/repo-prompts         in-OpenCode task advisor\n"
+        "/repo-report          persist analysis under .codesleuth/reports/",
     ),
     (
         "Evidence and durable state",
         "Scout summaries are leads, not proof. Material findings are re-opened against exact current source and recorded with identity/provenance. "
-        "Durable review checkpoints live under .opencode/state/ so work can survive compaction or resume without pretending conversation history is project truth.",
+        "Durable review checkpoints live under .opencode/state/. Analytical reports for later CodeSleuth sessions and other coding assistants live under .codesleuth/reports/ (INDEX.md). "
+        "OpenCode build writes those reports; CodeSleuth does not add a second supervisor.",
     ),
     (
         "Permissions",
@@ -219,6 +228,7 @@ class CodeSleuthConfigScreen(ConfigScreen):
     .row { height: auto; }
     Select { width: 38; }
     Input { width: 18; }
+    #agent-model { width: 42; }
     #summary { border: solid #29404f; padding: 1; margin-top: 1; }
     #actions { height: auto; align-horizontal: right; margin-top: 1; }
     CodeSleuthConfigScreen.compact #config-dialog { width: 100%; height: 100%; padding: 1; }
@@ -279,7 +289,23 @@ class CodeSleuthConfigScreen(ConfigScreen):
                 for profile in ("generic", "rust", "python", "node", "typescript"):
                     yield Checkbox(profile, value=profile in self.settings["profiles"], id=f"profile-{profile}")
 
-            yield Label("3. Evidence permissions", classes="section")
+            yield Label("3. Agent profile", classes="section")
+            yield Static(
+                "Chooses an OpenCode model family so native build controller behavior is used. "
+                "CodeSleuth never writes agent.build.prompt; that would replace OpenCode's provider prompt.",
+                classes="hint",
+            )
+            yield Select(
+                AGENT_PROFILE_OPTIONS,
+                value=self.settings.get("agent", {}).get("profile") or "native",
+                allow_blank=False,
+                id="agent-profile",
+            )
+            with Horizontal(classes="row"):
+                yield Label("OpenCode model id (optional)")
+                yield Input(str(self.settings.get("agent", {}).get("model") or ""), id="agent-model")
+
+            yield Label("4. Evidence permissions", classes="section")
             yield Static(
                 "Review-safe is least-privilege. Web search/fetch can disclose queries and requested URLs to external services; "
                 "choose explicit consent behavior.",
@@ -297,7 +323,7 @@ class CodeSleuthConfigScreen(ConfigScreen):
                 yield Label("external dirs")
                 yield Select(PERMISSION_OPTIONS, value=p["externalDirectory"], allow_blank=False, id="external")
 
-            yield Label("4. Runtime", classes="section")
+            yield Label("5. Runtime", classes="section")
             yield Static(
                 "These controls write project-local OpenCode configuration. OpenCode remains the runtime and execution owner.",
                 classes="hint",
@@ -321,7 +347,7 @@ class CodeSleuthConfigScreen(ConfigScreen):
                 yield Switch(value=r["checkUpdatesOnStart"], id="check-updates")
                 yield Label("Check CodeSleuth upstream when console starts")
 
-            yield Label("5. Planned policy", classes="section")
+            yield Label("6. Planned policy", classes="section")
             yield Static("", id="summary")
             with Horizontal(id="actions"):
                 yield Button("Apply", id="apply", variant="primary")
@@ -584,6 +610,13 @@ class CodeSleuthApp(ReviewPackApp):
                 "SETUP": "[bold #63d5f4]SETUP[/bold #63d5f4]",
             }[readiness]
             complete_text = "yes" if complete is True else ("no" if complete is False else "n/a")
+            try:
+                settings = load_settings(self.target, profiles)
+                agent = settings.get("agent") or {}
+                agent_model = agent.get("model") or "OpenCode current model"
+                agent_line = f"Agent profile: {agent.get('profile', 'native')} ({agent_model})"
+            except Exception:
+                agent_line = "Agent profile: native (OpenCode current model)"
             self.query_one("#status", Static).update(
                 f"{readiness_markup}  CodeSleuth {version}\n"
                 f"Installation: {state}; lifecycle: {lifecycle}; complete: {complete_text}\n"
@@ -592,6 +625,8 @@ class CodeSleuthApp(ReviewPackApp):
                 f"keepalive={'on' if runtime['watchdogEnabled'] else 'off'}\n"
                 f"Dependency: {dependency['commit'] if dependency['bound'] else 'not pinned'}\n"
                 f"Update path: {update_mode}\n"
+                f"{agent_line}\n"
+                f"Reports: .codesleuth/reports/\n"
                 f"Next action: {operation}"
             )
             if self.is_mounted:

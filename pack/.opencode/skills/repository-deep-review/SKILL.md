@@ -9,6 +9,12 @@ Use this protocol for whole-repository documentation, architecture analysis,
 large PR reviews, and other tasks where correctness depends on understanding
 more than a handful of files.
 
+This skill is executed by OpenCode's primary `build` agent. `build` already has
+the native provider-specific controller prompt for the selected model
+(`codex.txt`, `anthropic.txt`, `kimi.txt`, and so on). Do not invent a second
+supervisor or replace that controller. Use OpenCode tools, native `explore` /
+`general` Task subagents, and CodeSleuth `repo-scout` as needed.
+
 ## Core invariants
 
 1. The selected model's context window is working memory, not the repository.
@@ -29,6 +35,7 @@ Before broad reading:
 - identify the requested ref/range/scope;
 - locate project instruction/authority files (`AGENTS.md`, `README*`, ADRs,
   architecture docs, manifests, CI, build/test scripts);
+- read `.codesleuth/reports/INDEX.md` and any matching prior report;
 - start or load `review_state_*`.
 
 If the worktree is dirty, distinguish committed evidence from worktree evidence.
@@ -54,8 +61,9 @@ Read the smallest authoritative entry points first: package/workspace manifests,
 startup code, routing/registration, schemas/contracts, migrations, test/CI
 entrypoints, and existing architecture docs.
 
-Delegate independent components to `repo-scout`. A scout should receive one
-bounded component or contract surface. The parent should retain only the
+Delegate independent file-search work to native `explore` and independent
+component/contract inspection to `repo-scout`. A scout should receive one
+bounded component or contract surface. `build` should retain only the
 component summary, exact candidate locations, and cross-component questions.
 
 Build a working map of:
@@ -164,3 +172,11 @@ Final review/documentation output must include:
 
 A review is complete when the requested scope is covered and the remaining
 unknowns are honestly bounded, not when the context window is full.
+
+## Phase 8: persist an analytical report
+
+Load `codesleuth-reports` and write a markdown report under
+`.codesleuth/reports/` following `.opencode/CODESLEUTH-REPORTS.md`. Update
+`INDEX.md`. This is for later CodeSleuth sessions and other coding assistants;
+it is not a second supervisor. The only required write during a read-only
+review is that reports folder.

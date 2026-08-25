@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -9,8 +10,9 @@ required = [
     "agents/repo-reviewer.md", "agents/repo-scout.md", "agents/repo-documenter.md",
     "agents/repo-profile-architect.md", "agents/repo-prompt-advisor.md",
     "commands/repo-review.md", "commands/repo-docs.md", "commands/repo-review-resume.md",
-    "commands/repo-profile.md", "commands/repo-prompts.md",
-    "skills/repository-deep-review/SKILL.md", "tools/repo_inventory.ts",
+    "commands/repo-profile.md", "commands/repo-prompts.md", "commands/repo-report.md",
+    "skills/repository-deep-review/SKILL.md", "skills/codesleuth-reports/SKILL.md",
+    "tools/repo_inventory.ts",
     "tools/review_state.ts", "tools/repo_profile.ts", "plugins/review-compaction.ts",
     "profiles/builtin/generic.json", "profiles/builtin/rust.json", "profiles/builtin/python.json",
     "profiles/builtin/node.json", "profiles/builtin/typescript.json",
@@ -20,7 +22,7 @@ required = [
     "bin/requirements-tui.txt",
     "bin/review-pack-update", "bin/review-pack-update.ps1", "bin/review-pack-update.py",
     "bin/review-pack-smoke.py", "themes/codesleuth.json", "tui.json",
-    "opencode.json", "review-pack.json", "review-pack-user.json"
+    "opencode.json", "review-pack.json", "review-pack-user.json", "CODESLEUTH-REPORTS.md"
 ]
 missing = [x for x in required if not (oc / x).is_file()]
 if missing:
@@ -44,6 +46,8 @@ if isinstance(skill, str):
 elif isinstance(skill, dict):
     if skill.get("repository-deep-review") == "deny":
         raise SystemExit("repository-deep-review skill is denied")
+    if skill.get("codesleuth-reports") == "deny":
+        print("warning: codesleuth-reports skill is denied; analytical reports may not be written")
 else:
     raise SystemExit("skill permission is missing or malformed")
 
@@ -101,6 +105,45 @@ for marker in ("CodeSleuth", "Evidence Console", "Evidence-first repository inte
 for launcher_name in ("opencode-review", "opencode-review.ps1"):
     if "OPENCODE_TUI_CONFIG" not in (oc / "bin" / launcher_name).read_text(encoding="utf-8"):
         raise SystemExit(f"{launcher_name} does not activate the project-local CodeSleuth TUI config")
+
+def _frontmatter_field(path: Path, key: str) -> str | None:
+    text = path.read_text(encoding="utf-8")
+    if text.startswith("\ufeff"):
+        text = text.lstrip("\ufeff")
+    if not text.lstrip().startswith("---"):
+        return None
+    match = re.search(r"^[ \t]*---[ \t]*\r?\n(.*?)\r?\n[ \t]*---[ \t]*\r?\n", text, re.S | re.M)
+    if match:
+        inner = match.group(1)
+    else:
+        parts = text.split("---", 2)
+        if len(parts) < 3:
+            return None
+        inner = parts[1]
+    pat = re.compile(rf"^\s*{re.escape(key)}\s*:\s*(.*?)\s*$")
+    for line in inner.splitlines():
+        m = pat.match(line)
+        if m:
+            return m.group(1).strip()
+    return None
+
+for name in ("repo-review.md", "repo-docs.md", "repo-review-resume.md", "repo-profile.md", "repo-prompts.md", "repo-report.md"):
+    agent = _frontmatter_field(oc / "commands" / name, "agent")
+    if agent != "build":
+        raise SystemExit(f"command {name} must run on OpenCode primary agent build, not {agent!r}")
+for name in ("repo-reviewer.md", "repo-documenter.md", "repo-profile-architect.md", "repo-prompt-advisor.md", "repo-scout.md"):
+    mode = _frontmatter_field(oc / "agents" / name, "mode")
+    if mode != "subagent":
+        raise SystemExit(f"agent {name} must be a Task subagent, not {mode!r}")
+agent_cfg = cfg.get("agent")
+if isinstance(agent_cfg, dict):
+    build = agent_cfg.get("build")
+    if isinstance(build, dict) and str(build.get("prompt") or "").strip():
+        print("warning: agent.build.prompt is set; this replaces OpenCode's native provider controller")
+if not (root / ".codesleuth" / "reports" / "README.md").is_file():
+    raise SystemExit("missing .codesleuth/reports/README.md; report workspace was not seeded")
+if "CodeSleuth reports" not in (root / "AGENTS.md").read_text(encoding="utf-8"):
+    raise SystemExit("AGENTS.md is missing the CodeSleuth reports discovery pointer")
 
 print("PACK SMOKE PASS")
 print("product: CodeSleuth")

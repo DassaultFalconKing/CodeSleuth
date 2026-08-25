@@ -4,6 +4,22 @@
 
 CodeSleuth is an evidence-oriented control panel, configuration layer, and lifecycle manager for OpenCode repository review. It keeps repositories directly usable by OpenCode, presents readiness and evidence state clearly, and installs project-specific policy and profiles without replacing OpenCode's models, agents, tools, commands, or durable review execution.
 
+## OpenCode `build` controller
+
+OpenCode's primary controller is `build`. CodeSleuth does not add a second supervisor. Agent profile (Open-weight / Codex / Claude) selects a model so OpenCode's native provider prompt is used; it does not inject a CodeSleuth system prompt.
+
+```text
+CodeSleuth TUI
+    ↓
+profile / skill / command / model / permissions
+    ↓
+OpenCode primary build
+    ↓
+native provider-specific controller prompt
+    ↓
+Task → explore / general / CodeSleuth skills
+```
+
 OpenCode is the current runtime/integration environment. Historical `review-pack*` commands remain compatibility aliases while the public surface moves to `codesleuth`.
 
 ## What CodeSleuth owns
@@ -12,12 +28,14 @@ A target repository can contain three deliberately separate layers:
 
 ```text
 project/
-├── tools/codesleuth/        # optional pinned Git submodule; reusable CodeSleuth source
-├── .opencode/               # project-owned CodeSleuth/OpenCode policy, agents, profiles and tools
-└── .codesleuth/             # local backups / preserved review artifacts; gitignored by default
+├── AGENTS.md            # reports pointer (managed block)
+├── tools/codesleuth/    # optional pinned CodeSleuth submodule
+├── .opencode/           # installed policy, agents, profiles, tools
+└── .codesleuth/         # local backups / reports / archives
+    └── reports/         # analytical reports for later sessions
 ```
 
-`tools/codesleuth/` is intentionally **not** gitignored when the user chooses dependency mode. The superproject records an exact CodeSleuth commit as a Git gitlink. `.opencode/` is the target project's installed contract. `.codesleuth/` is local safety state and is ignored by default.
+`tools/codesleuth/` is intentionally **not** gitignored when the user chooses dependency mode. The superproject records an exact CodeSleuth commit as a Git gitlink. `.opencode/` is the target project's installed contract. `.codesleuth/` backups and report bodies are ignored by default; `.codesleuth/reports/README.md` may be committed so other assistants can find the convention.
 
 ## Security and credential warning
 
@@ -27,7 +45,8 @@ CodeSleuth **does not blindly redact all evidence**. Blanket redaction would mak
 
 Safety defaults:
 
-- `.codesleuth/` is gitignored;
+- `.codesleuth/` backups, archives, and report bodies are gitignored;
+- `.codesleuth/reports/README.md` may be tracked as the report-folder convention;
 - `.opencode/state/`, logs, caches, sessions and snapshots are gitignored;
 - preserved uninstall archives remain gitignored;
 - CodeSleuth warns before destructive uninstall choices;
@@ -156,7 +175,10 @@ A detached CodeSleuth checkout records its exact source commit but **does not in
 /repo-review
 /repo-docs
 /repo-review-resume
+/repo-report
 ```
+
+Those commands run on OpenCode's native `build` agent. `/repo-review` and `/repo-report` persist markdown under `.codesleuth/reports/` for later CodeSleuth sessions and other coding assistants.
 
 Review state is durable under local `.opencode/state/reviews/` and is bound to tracked source blob hashes so changed files can invalidate stale coverage.
 
