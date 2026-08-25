@@ -196,6 +196,7 @@ unknowns are honestly bounded, not when the context window is full.
 
 Load `codesleuth-reports` and write a markdown report under
 `.codesleuth/reports/` following `.opencode/CODESLEUTH-REPORTS.md`. Update
-`INDEX.md`. This is for later CodeSleuth sessions and other coding assistants;
-it is not a second supervisor. The only required write during a read-only
+`INDEX.md`. This is for later sessions in this worktree; reports stay
+local-only by default and are not automatically shared with fresh clones.
+It is not a second supervisor. The only required write during a read-only
 review is that reports folder.

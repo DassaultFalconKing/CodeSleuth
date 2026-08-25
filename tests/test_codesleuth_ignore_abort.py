@@ -130,3 +130,22 @@ def test_remove_local_gitignore_block_cleans_local_and_legacy_blocks(tmp_path: P
     local = info_exclude(repo).read_text(encoding="utf-8") if info_exclude(repo).exists() else ""
     assert lifecycle.IGNORE_BEGIN not in local
     assert root_ignore.read_text(encoding="utf-8") == "node_modules/\n"
+
+
+def test_ignore_patterns_never_hide_codesleuth_dependency() -> None:
+    assert all("tools/codesleuth" not in line for line in lifecycle.IGNORE_LINES)
+
+
+def test_local_exclude_resolves_for_linked_worktree(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    init_repo(repo)
+    linked = tmp_path / "linked"
+    git(repo, "worktree", "add", str(linked), "HEAD")
+
+    written = lifecycle.ensure_local_gitignore(linked)
+    expected = info_exclude(linked)
+    assert written.resolve() == expected.resolve()
+    assert lifecycle.IGNORE_BEGIN in expected.read_text(encoding="utf-8")
+    assert is_ignored(linked, ".codesleuth/reports/secret.md")
+    assert not is_ignored(linked, ".codesleuth/reports/README.md")
+    assert not is_ignored(linked, "tools/codesleuth")

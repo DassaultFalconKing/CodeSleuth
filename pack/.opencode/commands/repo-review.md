@@ -11,8 +11,9 @@ supervisor agent.
 Load the `repository-deep-review` skill and follow it.
 
 Stay read-only for application source. The required exception is writing
-`.codesleuth/reports/` so later CodeSleuth sessions and other coding assistants
-can reuse the analysis. Load `codesleuth-reports` at completion and persist a
+`.codesleuth/reports/` so later sessions in this worktree can reuse the analysis.
+Reports stay local-only by default; fresh clones do not receive report bodies unless
+a maintainer sanitizes and commits them. Load `codesleuth-reports` at completion and persist a
 markdown report plus `INDEX.md`.
 
 Requested scope/ref/question:

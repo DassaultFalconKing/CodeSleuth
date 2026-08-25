@@ -44,6 +44,8 @@ For an ordinary checkout this is `.git/info/exclude`. The managed patterns are:
 .opencode/sessions/
 .opencode/snapshots/
 .opencode/node_modules/
+.opencode/**/__pycache__/
+.opencode/**/*.pyc
 ```
 
 The purpose is to keep CodeSleuth/OpenCode runtime noise local without silently dirtying or changing a tracked project `.gitignore`.

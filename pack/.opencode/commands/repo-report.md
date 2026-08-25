@@ -1,5 +1,5 @@
 ---
-description: Write or refresh a CodeSleuth analytical report for later sessions and other coding assistants
+description: Write or refresh a CodeSleuth analytical report for later sessions in this worktree
 agent: build
 ---
 
@@ -19,4 +19,5 @@ if one exists.
 
 Write markdown under `.codesleuth/reports/` and update `INDEX.md`. Do not
 modify application source. Read existing reports first so later assistants
-(and CodeSleuth) can reuse them instead of repeating discovery.
+in this worktree can reuse them. Report bodies stay local-only by default;
+do not assume a fresh clone will see them.
