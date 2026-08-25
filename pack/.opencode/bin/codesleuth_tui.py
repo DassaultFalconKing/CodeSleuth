@@ -4,8 +4,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 from pathlib import Path
 
+from textual import work
 from textual.app import ComposeResult
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, RichLog, Select, Static, Switch
@@ -143,9 +145,9 @@ HELP_SECTIONS = [
     ),
     (
         "Verify and update",
-        "Verify runs the installed smoke/integrity gate. Check Updates inspects the recorded source. Update uses the safe updater: "
-        "unchanged managed files may be replaced, locally modified managed files are preserved and incoming versions are written under "
-        ".opencode/state/update-conflicts/.",
+        "Verify runs the installed smoke/integrity gate. Check Updates inspects the recorded source. "
+        "For the CodeSleuth source checkout itself, Check Updates and Update explicitly fetch origin/main and never trust stale local branch tracking metadata. "
+        "Installed targets continue to use their recorded safe update source and preserve locally modified managed files as conflicts rather than overwriting them.",
     ),
     (
         "Extension management",
@@ -156,7 +158,7 @@ HELP_SECTIONS = [
         "Deinstallation",
         "Use the explicit Uninstall action or .opencode/bin/codesleuth-project --uninstall. "
         "Preserve archives known CodeSleuth settings/profile/review/TUI state; purge removes ordinary CodeSleuth traces/backups. "
-        "Neither mode guesses at unrelated project reports or configuration. If a pre-existing .opencode file changed after install, "
+        "Neither mode guesses at unrelated project reports or configuration. If a pre-existing file changed after installation, "
         "its current version stays in place and baseline/current recovery copies plus a conflict manifest remain under ignored "
         ".codesleuth/restore-conflicts/. Dependency binding is independent: --keep-dependency leaves dependency-only state, "
         "while codesleuth-project --unbind removes only the dependency. Compatibility filenames remain documented interfaces.",
@@ -250,7 +252,7 @@ class CodeSleuthConfigScreen(ConfigScreen):
         if self.state == "versioned":
             return [("Update CodeSleuth + apply settings", "update"), ("Apply settings only", "configure")], "update"
         if self.state == "legacy-pack":
-            return [("Adopt legacy review-pack with backup", "adopt"), ("Install without claiming legacy files", "install")], "adopt"
+            return [("Adopt legacy review-pack with backup", "adopt"), ("Install without claiming old files", "install")], "adopt"
         return [("Install CodeSleuth / safe overlay", "install")], "install"
 
     def on_mount(self) -> None:
@@ -379,7 +381,7 @@ class CodeSleuthApp(ReviewPackApp):
     #tagline { color: #8aa7b8; margin-bottom: 1; }
     #target { width: 100%; }
     #security { color: #f0c36a; margin: 1 0; }
-    #surface { border-left: thick #3e718a; padding-left: 1; margin: 1 0; color: #d8e3eb; }
+    #surface { border-left: thick #3e718a; padding-left: 1; margin: 0 0 1 0; color: #d8e3eb; }
     #status { border: round #29404f; padding: 1; margin: 1 0; background: #0e1822; }
     #actions { grid-size: 5 1; grid-gutter: 0 1; height: 3; }
     #actions Button { width: 100%; min-width: 0; }
@@ -388,8 +390,6 @@ class CodeSleuthApp(ReviewPackApp):
     #workspace.compact { layout: vertical; }
     #workspace.compact #wide-nav { display: none; }
     #workspace.compact #compact-nav { display: block; }
-    #workspace.compact #brand { display: none; }
-    #workspace.compact #compact-brand { display: block; }
     #workspace.compact #actions { grid-size: 2 3; height: 9; }
     """
     BINDINGS = [
@@ -400,11 +400,15 @@ class CodeSleuthApp(ReviewPackApp):
         ("v", "verify", "Verify"),
         ("k", "check_updates", "Check Updates"),
         ("u", "uninstall", "Uninstall"),
+        ("b", "toggle_brand", "Logo"),
+        ("f2", "toggle_keys", "Keys"),
     ]
 
     def __init__(self, target: Path, distribution_root: Path | None) -> None:
         super().__init__(target, distribution_root)
         self.current_surface = "home"
+        self.brand_visible = True
+        self.keys_visible = True
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -421,13 +425,15 @@ class CodeSleuthApp(ReviewPackApp):
                         allow_blank=False,
                         id="compact-nav",
                     )
+                    # The active navigation surface is intentionally first. Changing Review/Evidence/Tools/Settings
+                    # must put the relevant context where the operator can see it without hunting below branding/status.
+                    yield Static("", id="surface")
                     yield Static(CODESLEUTH_ART, id="brand")
                     yield Static("CODE:SLEUTH // EVIDENCE CONSOLE", id="compact-brand")
                     yield Static("Evidence-first repository intelligence", id="tagline")
                     yield Label("Repository")
                     yield Input(str(self.target), id="target")
                     yield Static("", id="status")
-                    yield Static("", id="surface")
                     with Grid(id="actions"):
                         yield Button("Configure", id="configure", variant="primary")
                         yield Button("Verify", id="smoke")
@@ -444,7 +450,7 @@ class CodeSleuthApp(ReviewPackApp):
                         "Local state is ignored by default; inspect reports before sharing or committing them.",
                         id="security",
                     )
-        yield Footer()
+        yield Footer(id="keys")
 
     def on_mount(self) -> None:
         super().on_mount()
@@ -459,6 +465,21 @@ class CodeSleuthApp(ReviewPackApp):
     def _apply_responsive_layout(self) -> None:
         compact = self.size.width < 100 or self.size.height < 30
         self.query_one("#workspace").set_class(compact, "compact")
+        self.query_one("#brand", Static).display = self.brand_visible and not compact
+        self.query_one("#compact-brand", Static).display = self.brand_visible and compact
+        self.query_one("#tagline", Static).display = self.brand_visible
+
+    def action_toggle_brand(self) -> None:
+        self.brand_visible = not self.brand_visible
+        self._apply_responsive_layout()
+        state = "shown" if self.brand_visible else "hidden"
+        self.notify(f"Logo {state}")
+
+    def action_toggle_keys(self) -> None:
+        self.keys_visible = not self.keys_visible
+        self.query_one("#keys", Footer).display = self.keys_visible
+        if not self.keys_visible:
+            self.notify("Keys hidden; press F2 to restore them")
 
     @staticmethod
     def _catalog_entries(root: Path, subdir: str) -> list[str]:
@@ -575,7 +596,8 @@ class CodeSleuthApp(ReviewPackApp):
         if route not in NAV_SURFACES:
             return
         self.current_surface = route
-        self.query_one("#surface", Static).update(self._surface_detail(route))
+        surface = self.query_one("#surface", Static)
+        surface.update(self._surface_detail(route))
         visible = set(SURFACE_ACTIONS[route])
         for button_id in {item for actions in SURFACE_ACTIONS.values() for item in actions}:
             self.query_one(f"#{button_id}", Button).display = button_id in visible
@@ -584,6 +606,33 @@ class CodeSleuthApp(ReviewPackApp):
         selector = self.query_one("#compact-nav", Select)
         if selector.value != route:
             selector.value = route
+        self.query_one("#body", VerticalScroll).scroll_to_widget(surface, animate=False)
+
+    def _source_checkout_root(self, repo: Path) -> Path | None:
+        if self.distribution_root is None:
+            return None
+        proc = subprocess.run(
+            ["git", "-C", str(self.distribution_root), "rev-parse", "--show-toplevel"],
+            text=True,
+            capture_output=True,
+        )
+        if proc.returncode != 0:
+            return None
+        root = Path(proc.stdout.strip()).resolve()
+        return root if root == repo.resolve() else None
+
+    @staticmethod
+    def _has_origin(repo: Path) -> bool:
+        proc = subprocess.run(
+            ["git", "-C", str(repo), "remote", "get-url", "origin"],
+            text=True,
+            capture_output=True,
+        )
+        return proc.returncode == 0 and bool(proc.stdout.strip())
+
+    def _source_checkout_update_mode(self, repo: Path) -> bool:
+        root = self._source_checkout_root(repo)
+        return root is not None and self._has_origin(root)
 
     def refresh_status(self) -> None:
         try:
@@ -605,11 +654,18 @@ class CodeSleuthApp(ReviewPackApp):
             dependency = project_lifecycle.dependency_status(self.target)
             lifecycle = project_lifecycle.lifecycle_state(self.target)
             source = meta.get("source", {})
-            update_mode = "pinned: advance/revert the gitlink, then materialize that checkout" if dependency["bound"] else (
-                "floating" if source.get("remote") and source.get("ref") else "unavailable: no explicit floating source ref"
-            )
-            self.query_one("#check-update", Button).disabled = dependency["bound"] or update_mode.startswith("unavailable")
-            self.query_one("#update", Button).disabled = dependency["bound"] or update_mode.startswith("unavailable")
+            source_checkout = self._source_checkout_update_mode(self.target)
+            if dependency["bound"]:
+                update_mode = "pinned: advance/revert the gitlink, then materialize that checkout"
+            elif source_checkout:
+                update_mode = "source checkout: origin/main"
+            elif source.get("remote") and source.get("ref"):
+                update_mode = f"floating: {source['remote']} {source['ref']}"
+            else:
+                update_mode = "unavailable: no explicit floating source ref"
+            unavailable = update_mode.startswith("unavailable")
+            self.query_one("#check-update", Button).disabled = dependency["bound"] or unavailable
+            self.query_one("#update", Button).disabled = dependency["bound"] or unavailable
             readiness = "READY" if state == "versioned" and complete else ("ATTENTION" if state == "versioned" else "SETUP")
             readiness_markup = {
                 "READY": "[bold #62d394]READY[/bold #62d394]",
@@ -670,11 +726,110 @@ class CodeSleuthApp(ReviewPackApp):
         self.run_runtime_action("smoke")
 
     def action_check_updates(self) -> None:
-        if not self.query_one("#check-update", Button).disabled:
+        if self.query_one("#check-update", Button).disabled:
+            return
+        try:
+            repo = self.validate_target()
+        except Exception as exc:
+            self.notify(str(exc), severity="error")
+            return
+        if self._source_checkout_update_mode(repo):
+            self.run_source_checkout_action("check")
+        else:
             self.run_runtime_action("check")
+
+    def action_update(self) -> None:
+        if self.query_one("#update", Button).disabled:
+            return
+        try:
+            repo = self.validate_target()
+        except Exception as exc:
+            self.notify(str(exc), severity="error")
+            return
+        if self._source_checkout_update_mode(repo):
+            self.run_source_checkout_action("update")
+        else:
+            self.run_runtime_action("update")
 
     def action_uninstall(self) -> None:
         self.query_one("#uninstall", Button).press()
+
+    @work(thread=True, exclusive=False)
+    def run_source_checkout_action(self, action: str) -> None:
+        try:
+            repo = self.validate_target()
+            source_root = self._source_checkout_root(repo)
+            if source_root is None or not self._has_origin(source_root):
+                raise RuntimeError("CodeSleuth source checkout is not bound to an origin remote")
+
+            fetch = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(source_root),
+                    "fetch",
+                    "--prune",
+                    "origin",
+                    "+refs/heads/main:refs/remotes/origin/main",
+                ],
+                text=True,
+                capture_output=True,
+            )
+            if fetch.returncode != 0:
+                raise RuntimeError((fetch.stderr or fetch.stdout or "git fetch origin main failed").strip())
+
+            local = subprocess.run(
+                ["git", "-C", str(source_root), "rev-parse", "HEAD"],
+                text=True,
+                capture_output=True,
+                check=True,
+            ).stdout.strip()
+            upstream = subprocess.run(
+                ["git", "-C", str(source_root), "rev-parse", "refs/remotes/origin/main"],
+                text=True,
+                capture_output=True,
+                check=True,
+            ).stdout.strip()
+            lines = [f"source checkout: {source_root}", f"local HEAD: {local}", f"origin/main: {upstream}"]
+            if local == upstream:
+                lines.append("CODESLEUTH SOURCE CURRENT")
+            else:
+                lines.append("CODESLEUTH SOURCE UPDATE AVAILABLE")
+
+            if action == "update" and local != upstream:
+                branch = subprocess.run(
+                    ["git", "-C", str(source_root), "branch", "--show-current"],
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                ).stdout.strip()
+                if branch != "main":
+                    raise RuntimeError(
+                        f"source checkout update requires branch 'main'; current branch is {branch or 'detached HEAD'}"
+                    )
+                dirty = subprocess.run(
+                    ["git", "-C", str(source_root), "status", "--porcelain", "--untracked-files=no"],
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                ).stdout.strip()
+                if dirty:
+                    raise RuntimeError("source checkout has tracked local changes; refusing to update origin/main")
+                merge = subprocess.run(
+                    ["git", "-C", str(source_root), "merge", "--ff-only", "refs/remotes/origin/main"],
+                    text=True,
+                    capture_output=True,
+                )
+                if merge.returncode != 0:
+                    raise RuntimeError((merge.stderr or merge.stdout or "fast-forward update failed").strip())
+                lines.append((merge.stdout or "fast-forwarded to origin/main").strip())
+                lines.append("Restart CodeSleuth to load the updated source checkout.")
+
+            self.app.call_from_thread(self.write_ui_log, f"[green]{action}[/]:\n" + "\n".join(lines))
+            self.app.call_from_thread(self.refresh_status)
+        except Exception as exc:
+            self.app.call_from_thread(self.write_ui_log, f"[red]{action} failed: {exc}[/red]")
+            self.app.call_from_thread(self.notify, f"{action} failed", severity="error")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id and event.button.id.startswith("nav-"):
@@ -686,6 +841,12 @@ class CodeSleuthApp(ReviewPackApp):
         elif event.button.id == "help":
             event.stop()
             self.action_help()
+        elif event.button.id == "check-update":
+            event.stop()
+            self.action_check_updates()
+        elif event.button.id == "update":
+            event.stop()
+            self.action_update()
         else:
             super().on_button_pressed(event)
 
