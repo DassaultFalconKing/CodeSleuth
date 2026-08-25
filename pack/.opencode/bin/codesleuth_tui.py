@@ -8,12 +8,11 @@ from pathlib import Path
 
 from textual.app import ComposeResult
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, RichLog, Select, Static, Switch
 
 import codesleuth_project as project_lifecycle
 from constants import AGENT_PROFILE_OPTIONS
-from review_pack_tui import ConfigScreen, PromptScreen, ReviewPackApp, launch_opencode
+from review_pack_tui import AbortableModalScreen, ConfigScreen, PromptScreen, ReviewPackApp, launch_opencode
 from review_pack_tui_core import (
     detect_profiles,
     installation_state,
@@ -169,15 +168,17 @@ class CodeSleuthPlaybookScreen(PromptScreen):
     CSS = """
     CodeSleuthPlaybookScreen { align: center middle; background: rgba(0,0,0,0.58); }
     #prompt-dialog { width: 92%; height: 88%; border: round #3e718a; background: #0e1822; padding: 1 2; }
-    #prompt-title { color: #63d5f4; text-style: bold; }
+    #page-chrome { height: 3; align: left middle; }
+    #page-chrome Label { width: 1fr; height: auto; color: #63d5f4; text-style: bold; }
+    #page-chrome Button { min-width: 8; width: auto; }
     #prompt-log { height: 1fr; border: solid #29404f; }
-    #prompt-actions { height: auto; align-horizontal: right; }
+    #prompt-actions { height: auto; align-horizontal: right; margin-top: 1; }
     .hint { color: #71879a; }
     """
 
     def compose(self) -> ComposeResult:
-        with VerticalScroll(id="prompt-dialog"):
-            yield Label("CodeSleuth Playbooks", id="prompt-title")
+        with Vertical(id="prompt-dialog"):
+            yield from self.compose_chrome("CodeSleuth Playbooks", title_id="prompt-title", abort_label="Close")
             yield Static(
                 "Ready-to-run review task recipes generated from active repository profiles. "
                 "Playbooks are prompts, not OpenCode Skills; OpenCode executes the selected recipe.",
@@ -189,19 +190,21 @@ class CodeSleuthPlaybookScreen(PromptScreen):
                 yield Button("Close", id="close-prompts")
 
 
-class CodeSleuthHelpScreen(ModalScreen[None]):
+class CodeSleuthHelpScreen(AbortableModalScreen[None]):
     CSS = """
     CodeSleuthHelpScreen { align: center middle; background: rgba(0,0,0,0.62); }
     #help-dialog { width: 94%; height: 94%; border: round #3e718a; background: #0e1822; padding: 1 2; }
-    #help-title { color: #63d5f4; text-style: bold; }
+    #page-chrome { height: 3; align: left middle; }
+    #page-chrome Label { width: 1fr; height: auto; color: #63d5f4; text-style: bold; }
+    #page-chrome Button { min-width: 8; width: auto; }
     #help-subtitle { color: #71879a; margin-bottom: 1; }
     #help-log { height: 1fr; border: solid #29404f; background: #081018; }
     #help-actions { height: auto; align-horizontal: right; margin-top: 1; }
     """
 
     def compose(self) -> ComposeResult:
-        with VerticalScroll(id="help-dialog"):
-            yield Label("CodeSleuth Help", id="help-title")
+        with Vertical(id="help-dialog"):
+            yield from self.compose_chrome("CodeSleuth Help", title_id="help-title", abort_label="Close")
             yield Static("Product model, OpenCode ownership, extensions, evidence, lifecycle, and safe operations.", id="help-subtitle")
             yield RichLog(id="help-log", wrap=True, markup=True)
             with Horizontal(id="help-actions"):
@@ -213,15 +216,17 @@ class CodeSleuthHelpScreen(ModalScreen[None]):
             log.write(f"[bold #63d5f4]{title}[/bold #63d5f4]\n{body}\n")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "close-help":
-            self.dismiss(None)
+        self._abort_from_button(event)
 
 
 class CodeSleuthConfigScreen(ConfigScreen):
     CSS = """
     CodeSleuthConfigScreen { align: center middle; background: rgba(0,0,0,0.58); }
     #config-dialog { width: 94%; height: 94%; border: round #3e718a; background: #0e1822; padding: 1 2; }
-    #config-title { color: #63d5f4; text-style: bold; }
+    #page-chrome { height: 3; align: left middle; }
+    #page-chrome Label { width: 1fr; height: auto; color: #63d5f4; text-style: bold; }
+    #page-chrome Button { min-width: 8; width: auto; }
+    #page-body { height: 1fr; }
     #evidence-mark { color: #71879a; height: 3; margin-bottom: 1; }
     .section { margin-top: 1; color: #63d5f4; text-style: bold; }
     .hint { color: #71879a; }
@@ -230,8 +235,9 @@ class CodeSleuthConfigScreen(ConfigScreen):
     Input { width: 18; }
     #agent-model { width: 42; }
     #summary { border: solid #29404f; padding: 1; margin-top: 1; }
-    #actions { height: auto; align-horizontal: right; margin-top: 1; }
+    #page-actions { height: auto; align-horizontal: right; margin-top: 1; }
     CodeSleuthConfigScreen.compact #config-dialog { width: 100%; height: 100%; padding: 1; }
+    CodeSleuthConfigScreen.compact #page-chrome { height: auto; }
     CodeSleuthConfigScreen.compact .row { layout: vertical; height: auto; }
     CodeSleuthConfigScreen.compact Select { width: 100%; }
     CodeSleuthConfigScreen.compact Input { width: 100%; }
@@ -262,94 +268,95 @@ class CodeSleuthConfigScreen(ConfigScreen):
         p = self.settings["permissions"]
         r = self.settings["runtime"]
         ops, selected_op = self.operation_options()
-        with VerticalScroll(id="config-dialog"):
-            yield Label("CodeSleuth Configuration", id="config-title")
-            yield Static(EVIDENCE_MARK, id="evidence-mark")
-            yield Static(f"Repository: {self.repo}\nInstallation state: {self.state}", classes="hint")
+        with Vertical(id="config-dialog"):
+            yield from self.compose_chrome("CodeSleuth Configuration", title_id="config-title")
+            with VerticalScroll(id="page-body"):
+                yield Static(EVIDENCE_MARK, id="evidence-mark")
+                yield Static(f"Repository: {self.repo}\nInstallation state: {self.state}", classes="hint")
 
-            yield Label("1. Installation", classes="section")
-            yield Static(
-                "CodeSleuth currently targets OpenCode V1 stable. OpenCode V2 is beta and uses a different plugin API; "
-                "this control center will not silently migrate V1 plugins/configuration.",
-                classes="hint",
-            )
-            yield Select(ops, value=selected_op, allow_blank=False, id="operation")
-            with Horizontal(classes="row"):
-                yield Switch(value=bool(self.dependency["bound"]), id="bind-dependency")
-                yield Label("Bind/unbind tools/codesleuth independently of the installed runtime")
+                yield Label("1. Installation", classes="section")
+                yield Static(
+                    "CodeSleuth currently targets OpenCode V1 stable. OpenCode V2 is beta and uses a different plugin API; "
+                    "this control center will not silently migrate V1 plugins/configuration.",
+                    classes="hint",
+                )
+                yield Select(ops, value=selected_op, allow_blank=False, id="operation")
+                with Horizontal(classes="row"):
+                    yield Switch(value=bool(self.dependency["bound"]), id="bind-dependency")
+                    yield Label("Bind/unbind tools/codesleuth independently of the installed runtime")
 
-            yield Label("2. Repository profile", classes="section")
-            yield Static(
-                "Auto-detection uses tracked manifests/source. Switch to manual selection for mixed or unusual repositories.",
-                classes="hint",
-            )
-            yield Switch(value=self.settings.get("profilesMode") == "auto", id="profiles-auto")
-            yield Label("Auto-detect profiles", classes="hint")
-            with Horizontal(classes="row"):
-                for profile in ("generic", "rust", "python", "node", "typescript"):
-                    yield Checkbox(profile, value=profile in self.settings["profiles"], id=f"profile-{profile}")
+                yield Label("2. Repository profile", classes="section")
+                yield Static(
+                    "Auto-detection uses tracked manifests/source. Switch to manual selection for mixed or unusual repositories.",
+                    classes="hint",
+                )
+                yield Switch(value=self.settings.get("profilesMode") == "auto", id="profiles-auto")
+                yield Label("Auto-detect profiles", classes="hint")
+                with Horizontal(classes="row"):
+                    for profile in ("generic", "rust", "python", "node", "typescript"):
+                        yield Checkbox(profile, value=profile in self.settings["profiles"], id=f"profile-{profile}")
 
-            yield Label("3. Agent profile", classes="section")
-            yield Static(
-                "Chooses an OpenCode model family so native build controller behavior is used. "
-                "CodeSleuth never writes agent.build.prompt; that would replace OpenCode's provider prompt.",
-                classes="hint",
-            )
-            yield Select(
-                AGENT_PROFILE_OPTIONS,
-                value=self.settings.get("agent", {}).get("profile") or "native",
-                allow_blank=False,
-                id="agent-profile",
-            )
-            with Horizontal(classes="row"):
-                yield Label("OpenCode model id (optional)")
-                yield Input(str(self.settings.get("agent", {}).get("model") or ""), id="agent-model")
+                yield Label("3. Agent profile", classes="section")
+                yield Static(
+                    "Chooses an OpenCode model family so native build controller behavior is used. "
+                    "CodeSleuth never writes agent.build.prompt; that would replace OpenCode's provider prompt.",
+                    classes="hint",
+                )
+                yield Select(
+                    AGENT_PROFILE_OPTIONS,
+                    value=self.settings.get("agent", {}).get("profile") or "native",
+                    allow_blank=False,
+                    id="agent-profile",
+                )
+                with Horizontal(classes="row"):
+                    yield Label("OpenCode model id (optional)")
+                    yield Input(str(self.settings.get("agent", {}).get("model") or ""), id="agent-model")
 
-            yield Label("4. Evidence permissions", classes="section")
-            yield Static(
-                "Review-safe is least-privilege. Web search/fetch can disclose queries and requested URLs to external services; "
-                "choose explicit consent behavior.",
-                classes="hint",
-            )
-            yield Select(PRESET_OPTIONS, value=p["preset"], allow_blank=False, id="preset")
-            with Horizontal(classes="row"):
-                yield Label("websearch")
-                yield Select(PERMISSION_OPTIONS, value=p["websearch"], allow_blank=False, id="websearch")
-                yield Label("webfetch")
-                yield Select(PERMISSION_OPTIONS, value=p["webfetch"], allow_blank=False, id="webfetch")
-            with Horizontal(classes="row"):
-                yield Label("edit/write")
-                yield Select(PERMISSION_OPTIONS, value=p["edit"], allow_blank=False, id="edit")
-                yield Label("external dirs")
-                yield Select(PERMISSION_OPTIONS, value=p["externalDirectory"], allow_blank=False, id="external")
+                yield Label("4. Evidence permissions", classes="section")
+                yield Static(
+                    "Review-safe is least-privilege. Web search/fetch can disclose queries and requested URLs to external services; "
+                    "choose explicit consent behavior.",
+                    classes="hint",
+                )
+                yield Select(PRESET_OPTIONS, value=p["preset"], allow_blank=False, id="preset")
+                with Horizontal(classes="row"):
+                    yield Label("websearch")
+                    yield Select(PERMISSION_OPTIONS, value=p["websearch"], allow_blank=False, id="websearch")
+                    yield Label("webfetch")
+                    yield Select(PERMISSION_OPTIONS, value=p["webfetch"], allow_blank=False, id="webfetch")
+                with Horizontal(classes="row"):
+                    yield Label("edit/write")
+                    yield Select(PERMISSION_OPTIONS, value=p["edit"], allow_blank=False, id="edit")
+                    yield Label("external dirs")
+                    yield Select(PERMISSION_OPTIONS, value=p["externalDirectory"], allow_blank=False, id="external")
 
-            yield Label("5. Runtime", classes="section")
-            yield Static(
-                "These controls write project-local OpenCode configuration. OpenCode remains the runtime and execution owner.",
-                classes="hint",
-            )
-            with Horizontal(classes="row"):
-                yield Switch(value=r["exaEnabled"], id="exa")
-                yield Label("Enable OpenCode Exa websearch runtime (OPENCODE_ENABLE_EXA=1)")
-            with Horizontal(classes="row"):
-                yield Switch(value=r["watchdogEnabled"], id="watchdog")
-                yield Label("Enable OpenCode keepalive plugin managed by CodeSleuth")
-            with Horizontal(classes="row"):
-                yield Label("Global stall seconds")
-                yield Input(str(r["stallSeconds"]), type="integer", id="stall")
-                yield Label("Web stall seconds")
-                yield Input(str(r["webStallSeconds"]), type="integer", id="web-stall")
-                yield Label("Max recoveries")
-                yield Input(str(r["maxStallRecoveries"]), type="integer", id="recoveries")
-            with Horizontal(classes="row"):
-                yield Label("OpenCode compaction reserved tokens")
-                yield Input(str(r["compactionReserved"]), type="integer", id="reserved")
-                yield Switch(value=r["checkUpdatesOnStart"], id="check-updates")
-                yield Label("Check CodeSleuth upstream when console starts")
+                yield Label("5. Runtime", classes="section")
+                yield Static(
+                    "These controls write project-local OpenCode configuration. OpenCode remains the runtime and execution owner.",
+                    classes="hint",
+                )
+                with Horizontal(classes="row"):
+                    yield Switch(value=r["exaEnabled"], id="exa")
+                    yield Label("Enable OpenCode Exa websearch runtime (OPENCODE_ENABLE_EXA=1)")
+                with Horizontal(classes="row"):
+                    yield Switch(value=r["watchdogEnabled"], id="watchdog")
+                    yield Label("Enable OpenCode keepalive plugin managed by CodeSleuth")
+                with Horizontal(classes="row"):
+                    yield Label("Global stall seconds")
+                    yield Input(str(r["stallSeconds"]), type="integer", id="stall")
+                    yield Label("Web stall seconds")
+                    yield Input(str(r["webStallSeconds"]), type="integer", id="web-stall")
+                    yield Label("Max recoveries")
+                    yield Input(str(r["maxStallRecoveries"]), type="integer", id="recoveries")
+                with Horizontal(classes="row"):
+                    yield Label("OpenCode compaction reserved tokens")
+                    yield Input(str(r["compactionReserved"]), type="integer", id="reserved")
+                    yield Switch(value=r["checkUpdatesOnStart"], id="check-updates")
+                    yield Label("Check CodeSleuth upstream when console starts")
 
-            yield Label("6. Planned policy", classes="section")
-            yield Static("", id="summary")
-            with Horizontal(id="actions"):
+                yield Label("6. Planned policy", classes="section")
+                yield Static("", id="summary")
+            with Horizontal(id="page-actions"):
                 yield Button("Apply", id="apply", variant="primary")
                 yield Button("Cancel", id="cancel")
 
@@ -635,6 +642,8 @@ class CodeSleuthApp(ReviewPackApp):
             self.query_one("#status", Static).update(f"[bold #f07178]ATTENTION[/bold #f07178]\n{exc}")
 
     def action_configure(self) -> None:
+        if isinstance(self.screen, ConfigScreen):
+            return
         try:
             repo = self.validate_target()
         except Exception as exc:
@@ -643,6 +652,8 @@ class CodeSleuthApp(ReviewPackApp):
         self.push_screen(CodeSleuthConfigScreen(repo, self.distribution_root), self._configured)
 
     def action_playbooks(self) -> None:
+        if isinstance(self.screen, PromptScreen):
+            return
         try:
             repo = self.validate_target()
             profiles = load_settings(repo, detect_profiles(repo))["profiles"]
@@ -651,6 +662,8 @@ class CodeSleuthApp(ReviewPackApp):
             self.notify(str(exc), severity="error")
 
     def action_help(self) -> None:
+        if isinstance(self.screen, CodeSleuthHelpScreen):
+            return
         self.push_screen(CodeSleuthHelpScreen())
 
     def action_verify(self) -> None:
@@ -665,10 +678,13 @@ class CodeSleuthApp(ReviewPackApp):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id and event.button.id.startswith("nav-"):
+            event.stop()
             self.show_surface(event.button.id.removeprefix("nav-"))
         elif event.button.id == "playbooks":
+            event.stop()
             self.action_playbooks()
         elif event.button.id == "help":
+            event.stop()
             self.action_help()
         else:
             super().on_button_pressed(event)
