@@ -4,6 +4,8 @@
 
 CodeSleuth is an evidence-oriented control panel, configuration layer, and lifecycle manager for OpenCode repository review. It keeps repositories directly usable by OpenCode, presents readiness and evidence state clearly, and installs project-specific policy and profiles without replacing OpenCode's models, agents, tools, commands, or durable review execution.
 
+## OpenCode `build` controller
+
 OpenCode's primary controller is `build`. CodeSleuth does not add a second supervisor. Agent profile (Open-weight / Codex / Claude) selects a model so OpenCode's native provider prompt is used; it does not inject a CodeSleuth system prompt.
 
 ```text

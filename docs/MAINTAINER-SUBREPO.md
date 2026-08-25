@@ -103,7 +103,7 @@ The TUI/project policy layer is the only owner of those explicit permission choi
 
 ## Native OpenCode controller
 
-Do not set `prompt` on OpenCode's primary `build` agent. Custom agent markdown becomes `agent.prompt` and **replaces** the native provider-specific controller. `/repo-*` commands must keep `agent: build`. Agent profile in project settings may set `opencode.json` `model` only.
+See [OpenCode `build` controller](../README.md#opencode-build-controller). `/repo-*` commands stay `agent: build`. Agent profile in project settings may set `opencode.json` `model` only.
 
 ## Compatibility surface
 

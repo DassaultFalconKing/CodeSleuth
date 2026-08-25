@@ -27,7 +27,7 @@ CodeSleuth owns only the surrounding operator experience:
 - clear repository/readiness/status presentation;
 - project-local configuration and permission UX;
 - repository profile selection/detection;
-- **Agent profile** as model-family selection (Open-weight / Codex / Claude / native), never as a custom supervisor prompt;
+- **Agent profile** as model-family selection (Open-weight / Codex / Claude / native);
 - safe install/adopt/update/remove lifecycle;
 - Verify/smoke presentation;
 - Playbook discovery;
@@ -36,23 +36,7 @@ CodeSleuth owns only the surrounding operator experience:
 - extension discovery/catalog/install/update/remove UX;
 - theme/branding defaults that do not overwrite user-owned configuration.
 
-Native execution boundary:
-
-```text
-CodeSleuth TUI
-    ↓
-profile / skill / command / model / permissions
-    ↓
-OpenCode primary build
-    ↓
-native provider-specific controller prompt
-    ↓
-Task → explore / general / CodeSleuth skills and subagents
-    ↓
-OpenCode tools / MCP / shell / read / edit
-```
-
-`build` has no own `prompt` in OpenCode. The controller text is chosen by model (`codex.txt`, `gpt.txt`, `anthropic.txt`, `gemini.txt`, `kimi.txt`, else `default.txt`). A custom `agent.prompt` **replaces** that controller entirely; it does not append. CodeSleuth `/repo-*` commands must keep `agent: build` and must not set `agent.build.prompt`.
+Controller boundary, prompt-replacement rule, and execution diagram: [OpenCode `build` controller](../README.md#opencode-build-controller). Commands stay `agent: build`; do not set `agent.build.prompt`.
 
 ## 3. Non-duplication rule
 

@@ -19,16 +19,40 @@ def test_completed_production_handoff_is_archived() -> None:
     assert not (ROOT / "docs" / "CURSOR-PRODUCTION-HANDOFF.md").exists()
 
 
+def _strip_html_comments(text: str) -> str:
+    return re.sub(r"<!--.*?-->", "", text, flags=re.S)
+
+
 def test_public_introduction_preserves_opencode_execution_ownership() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     guide = (ROOT / "docs" / "USER-GUIDE.md").read_text(encoding="utf-8")
+    blurb = _strip_html_comments(
+        (ROOT / "docs" / "_includes" / "build-controller-blurb.md").read_text(encoding="utf-8")
+    ).strip()
 
     assert "control panel" in readme
     assert "without replacing OpenCode's models, agents, tools, commands" in readme
     assert "OpenCode remains responsible for models, agents, tools, commands, Skills, and review execution" in guide
+    assert "## OpenCode `build` controller" in readme
     assert "OpenCode's primary controller is `build`" in readme
+    assert blurb in readme
     assert ".codesleuth/reports/" in readme
     assert ".codesleuth/reports/" in guide
+
+
+def test_build_controller_docs_link_instead_of_repeating_the_blurb() -> None:
+    anchor = "../README.md#opencode-build-controller"
+    diagram = "native provider-specific controller prompt"
+    docs = [
+        ROOT / "docs" / "USER-GUIDE.md",
+        ROOT / "docs" / "CODESLEUTH-PRODUCT-CONTRACT.md",
+        ROOT / "docs" / "CODESLEUTH-BRANDING.md",
+        ROOT / "docs" / "MAINTAINER-SUBREPO.md",
+    ]
+    for path in docs:
+        text = path.read_text(encoding="utf-8")
+        assert anchor in text, f"{path.name} must link to the README controller section"
+        assert diagram not in text, f"{path.name} must not copy the controller diagram"
 
 
 def test_commands_stay_on_opencode_build_and_agents_are_subagents() -> None:
