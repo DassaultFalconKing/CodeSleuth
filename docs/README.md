@@ -13,9 +13,9 @@
 
 These are reference layouts, not claims that every pixel is already implemented.
 
-## Implementation handoff
+## Completed implementation packets
 
-- [`CURSOR-PRODUCTION-HANDOFF.md`](CURSOR-PRODUCTION-HANDOFF.md) — frozen-scope implementation/testing prompt for the production-hardening pass.
+- [`archive/CURSOR-PRODUCTION-HANDOFF.md`](archive/CURSOR-PRODUCTION-HANDOFF.md) — completed PR #2 production-hardening packet, retained for historical evidence only. It is not an active task or branch instruction.
 
 ## User and operations
 

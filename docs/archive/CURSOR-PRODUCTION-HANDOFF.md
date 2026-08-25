@@ -1,6 +1,11 @@
 # Cursor Handoff — CodeSleuth production hardening
 
-Use this as the implementation prompt after the current PR contract update.
+> **Completed historical packet.** PR #2 was merged into `main` at
+> `de9990c3152e468b8b87d7fbb384a8fa1dbd25c9` on 2026-08-25. The referenced
+> branch was deleted after merge. Do not execute this file as a current task;
+> use the canonical product and branding contracts for ongoing maintenance.
+
+This was the implementation prompt for the completed production-hardening pass.
 
 ---
 

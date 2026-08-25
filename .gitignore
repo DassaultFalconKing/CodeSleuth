@@ -1,5 +1,6 @@
 .runtime/
 .venv/
+node_modules/
 .codesleuth/
 .opencode/state/
 __pycache__/

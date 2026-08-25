@@ -47,6 +47,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ruff check .
 python3 tests/test_lifecycle.py
+bun install --frozen-lockfile
 bun tests/review_state_smoke.ts
 ```
 

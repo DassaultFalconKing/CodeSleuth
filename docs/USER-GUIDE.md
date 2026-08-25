@@ -1,6 +1,6 @@
 # CodeSleuth User Guide
 
-CodeSleuth is an evidence-first OpenCode repository auditor. The normal workflow is: install it into a Git repository, choose repository/profile policy, run deep reviews, keep durable local review state, and optionally pin the exact CodeSleuth source commit as a project dependency.
+CodeSleuth is an evidence-oriented control panel and lifecycle layer for OpenCode repository review. The normal workflow is: install it into a Git repository, choose repository/profile policy, and launch OpenCode for deep reviews and durable evidence state. CodeSleuth configures and explains that environment; OpenCode remains responsible for models, agents, tools, commands, Skills, and review execution. A project may optionally pin the exact CodeSleuth source commit as a dependency.
 
 ## Start from a CodeSleuth checkout
 
@@ -197,6 +197,7 @@ The TUI tests use Textual's headless `App.run_test()` / `Pilot` facilities. The 
 The TypeScript durable-state smoke remains:
 
 ```bash
+bun install --frozen-lockfile
 bun tests/review_state_smoke.ts
 ```
 
