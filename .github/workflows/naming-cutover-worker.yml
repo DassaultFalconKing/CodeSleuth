@@ -12,6 +12,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Adapt worker to current integration tree
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/naming_cutover_apply.py')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace(
+              'files = [ROOT / "README.md", ROOT / "README.ru.md", ROOT / "README.uk.md"]',
+              'files = [p for p in (ROOT / "README.md", ROOT / "README.ru.md", ROOT / "README.uk.md") if p.exists()]',
+          )
+          s = s.replace(
+              '        path = ROOT / name\n        text = path.read_text(encoding="utf-8")',
+              '        path = ROOT / name\n        if not path.exists():\n            continue\n        text = path.read_text(encoding="utf-8")',
+          )
+          p.write_text(s, encoding='utf-8')
+          PY
       - run: python .github/naming_cutover_apply.py
       - run: python -m pip install -r requirements-dev.txt
       - run: python -m pytest -q
