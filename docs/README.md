@@ -8,6 +8,16 @@
 - [`CONTEXT-GRAPH-DISCIPLINE.md`](CONTEXT-GRAPH-DISCIPLINE.md) — Git source -> review state -> bounded RepositoryContextProjection -> compact context/Mermaid authority chain.
 - [`NOVACLAW-MCP.md`](NOVACLAW-MCP.md) — first external-host MCP integration and its read-only repository-evidence boundary.
 
+## README language maintenance
+
+The public README is maintained in three complete language versions:
+
+- [`../README.md`](../README.md) — canonical English source;
+- [`../README.ru.md`](../README.ru.md) — Russian translation;
+- [`../README.uk.md`](../README.uk.md) — Ukrainian translation.
+
+Every semantic change to `README.md` must update both translations in the same change. Each translated README records the Git blob identity of the English source in a `README-SOURCE-BLOB` comment, and `tests/test_docs_contract.py` fails when either translation is stale. The language selector at the top of every README must continue to link the other two versions.
+
 ## Documentation media policy
 
 CodeSleuth documentation is text-first and terminal-native.
@@ -24,6 +34,7 @@ CodeSleuth documentation is text-first and terminal-native.
 ## User and operations
 
 - [`USER-GUIDE.md`](USER-GUIDE.md) — install, configure, validate, update, and operate CodeSleuth.
+- [`SELF-UPDATE.md`](SELF-UPDATE.md) — floating update, post-update Verify, controlled CodeSleuth process restart, source-checkout reload, and pinned-update boundaries.
 - [`_includes/build-controller-blurb.md`](_includes/build-controller-blurb.md) — canonical OpenCode `build` controller blurb. Public copy: [root README](../README.md#opencode-build-controller).
 
 ## Maintainers

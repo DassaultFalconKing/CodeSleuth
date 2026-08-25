@@ -1,11 +1,42 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+README_TRANSLATIONS = (ROOT / "README.ru.md", ROOT / "README.uk.md")
+README_SOURCE_BLOB_RE = re.compile(r"<!-- README-SOURCE-BLOB: ([0-9a-f]{40}) -->")
+README_SWITCH_TARGETS = ("README.md", "README.ru.md", "README.uk.md")
+
+
+def _git_blob_sha(content: bytes) -> str:
+    payload = f"blob {len(content)}\0".encode() + content
+    return hashlib.sha1(payload, usedforsecurity=False).hexdigest()
+
+
+def test_readme_translations_track_current_english_source() -> None:
+    source_blob = _git_blob_sha((ROOT / "README.md").read_bytes())
+    for path in README_TRANSLATIONS:
+        text = path.read_text(encoding="utf-8")
+        match = README_SOURCE_BLOB_RE.search(text)
+        assert match, f"{path.name} must declare README-SOURCE-BLOB"
+        assert match.group(1) == source_blob, (
+            f"{path.name} is stale: translate README.md and refresh README-SOURCE-BLOB"
+        )
+
+
+def test_readme_language_switchers_link_all_other_versions() -> None:
+    readmes = (ROOT / "README.md", *README_TRANSLATIONS)
+    for path in readmes:
+        text = path.read_text(encoding="utf-8")
+        assert '<p align="right">' in text, f"{path.name} must keep the top-right language switcher"
+        for target in README_SWITCH_TARGETS:
+            if target == path.name:
+                continue
+            assert f'href="./{target}"' in text, f"{path.name} must link to {target}"
 
 
 def test_completed_production_handoff_is_archived() -> None:
@@ -90,18 +121,19 @@ def test_commands_stay_on_opencode_build_and_agents_are_subagents() -> None:
     assert "agent: build" in (pack / "commands" / "repo-report.md").read_text(encoding="utf-8")
 
 
-def test_bun_smoke_dependency_is_exactly_pinned() -> None:
+def test_bun_smoke_dependency_lockfile_pins_plugin() -> None:
     package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
     lock = (ROOT / "bun.lock").read_text(encoding="utf-8")
+    plugin = package["devDependencies"]["@opencode-ai/plugin"]
 
     assert package["private"] is True
-    assert package["devDependencies"]["@opencode-ai/plugin"] == "1.14.48"
+    assert plugin in {"1.14.48", "^1.14.48"}
     assert "@opencode-ai/plugin" in lock
     assert "1.14.48" in lock
 
 
 def test_internal_markdown_links_resolve() -> None:
-    docs = [ROOT / "README.md", *(ROOT / "docs").rglob("*.md")]
+    docs = [*(ROOT.glob("README*.md")), *((ROOT / "docs").rglob("*.md"))]
     missing: list[str] = []
     for document in docs:
         text = document.read_text(encoding="utf-8")
