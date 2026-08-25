@@ -27,6 +27,12 @@ def init_repo(path: Path) -> None:
     git(path, "commit", "-m", "init")
 
 
+def info_exclude(repo: Path) -> Path:
+    raw = git(repo, "rev-parse", "--git-path", "info/exclude")
+    path = Path(raw)
+    return path if path.is_absolute() else repo / path
+
+
 def test_preinstall_backup_and_restore(tmp_path: Path) -> None:
     repo = tmp_path / "target"
     init_repo(repo)
@@ -36,13 +42,15 @@ def test_preinstall_backup_and_restore(tmp_path: Path) -> None:
     (oc / "opencode.json").write_text('{"original":true}\n', encoding="utf-8")
     (oc / "agents" / "custom.md").write_text("custom\n", encoding="utf-8")
 
+    original_ignore = (repo / ".gitignore").read_bytes()
     pointer = lifecycle.create_preinstall_snapshot(repo)
     assert (repo / pointer["manifest"]).is_file()
-    ignore = (repo / ".gitignore").read_text(encoding="utf-8")
-    assert ".codesleuth/*" in ignore
-    assert "!.codesleuth/reports/README.md" in ignore
-    assert ".opencode/state/" in ignore
-    assert "tools/codesleuth" not in ignore
+    assert (repo / ".gitignore").read_bytes() == original_ignore
+    exclude = info_exclude(repo).read_text(encoding="utf-8")
+    assert ".codesleuth/*" in exclude
+    assert "!.codesleuth/reports/README.md" in exclude
+    assert ".opencode/state/" in exclude
+    assert "tools/codesleuth" not in exclude
     assert subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", "tools/codesleuth"]).returncode != 0
 
     (oc / "opencode.json").write_text('{"codesleuth":true}\n', encoding="utf-8")
@@ -164,6 +172,20 @@ def test_ignored_dependency_path_is_rejected(tmp_path: Path) -> None:
         lifecycle.bind_dependency(target, source_metadata={"remote": str(source), "commit": sha})
 
 
+def test_self_bind_dependency_is_rejected(tmp_path: Path) -> None:
+    repo = tmp_path / "source"
+    init_repo(repo)
+    sha = git(repo, "rev-parse", "HEAD")
+    with pytest.raises(RuntimeError, match="self-submodule binding is not"):
+        lifecycle.bind_dependency(
+            repo,
+            source_root=repo,
+            source_metadata={"remote": str(repo), "commit": sha, "subdir": ""},
+        )
+    assert not (repo / ".gitmodules").exists()
+    assert not (repo / "tools" / "codesleuth").exists()
+
+
 def test_uninstall_preserves_sensitive_traces_in_ignored_archive(tmp_path: Path) -> None:
     repo = tmp_path / "target"
     init_repo(repo)
@@ -183,7 +205,8 @@ def test_uninstall_preserves_sensitive_traces_in_ignored_archive(tmp_path: Path)
     assert archive.is_dir()
     archived_finding = archive / "files" / ".opencode" / "state" / "reviews" / "r1" / "findings.ndjson"
     assert "TOKEN=secret" in archived_finding.read_text(encoding="utf-8")
-    assert ".codesleuth/" in (repo / ".gitignore").read_text(encoding="utf-8")
+    assert not (repo / ".gitignore").exists()
+    assert ".codesleuth/" in info_exclude(repo).read_text(encoding="utf-8")
     assert subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", ".codesleuth/archive"]).returncode == 0
     assert json.loads((oc / "opencode.json").read_text(encoding="utf-8"))["before"] == "codesleuth"
 
@@ -217,7 +240,8 @@ def test_uninstall_never_loses_postinstall_change_to_preexisting_file(
     conflict = json.loads(manifest.read_text(encoding="utf-8"))["conflicts"][0]
     assert (repo / conflict["baseline"]).read_text(encoding="utf-8") == "baseline\n"
     assert (repo / conflict["current"]).read_text(encoding="utf-8") == "user change after install\n"
-    assert ".codesleuth/" in (repo / ".gitignore").read_text(encoding="utf-8")
+    assert not (repo / ".gitignore").exists()
+    assert ".codesleuth/" in info_exclude(repo).read_text(encoding="utf-8")
     if not preserve_traces:
         assert not (repo / ".codesleuth" / "backups").exists()
         assert (repo / ".codesleuth" / "restore-conflicts").is_dir()
@@ -277,8 +301,8 @@ def test_uninstall_purge_restores_config_and_removes_local_root(tmp_path: Path) 
     assert result["archive"] is None
     assert not (repo / ".codesleuth").exists()
     assert json.loads((oc / "opencode.json").read_text(encoding="utf-8"))["before"] == 1
-    if (repo / ".gitignore").exists():
-        assert lifecycle.IGNORE_BEGIN not in (repo / ".gitignore").read_text(encoding="utf-8")
+    if info_exclude(repo).exists():
+        assert lifecycle.IGNORE_BEGIN not in info_exclude(repo).read_text(encoding="utf-8")
 
 
 def test_invalid_dependency_path_fails_closed(tmp_path: Path) -> None:
@@ -300,8 +324,10 @@ def test_installer_normalizes_nested_target_to_git_root(tmp_path: Path) -> None:
     assert (reports / "README.md").is_file()
     assert (reports / "INDEX.md").is_file()
     assert "CodeSleuth reports" in (repo / "AGENTS.md").read_text(encoding="utf-8")
-    ignore = (repo / ".gitignore").read_text(encoding="utf-8")
-    assert "!.codesleuth/reports/README.md" in ignore
+    assert not (repo / ".gitignore").exists()
+    exclude = info_exclude(repo).read_text(encoding="utf-8")
+    assert "!.codesleuth/reports/README.md" in exclude
+    assert "tools/codesleuth" not in exclude
     assert subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", ".codesleuth/reports/secret.md"]).returncode == 0
     assert subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", ".codesleuth/reports/README.md"]).returncode != 0
 

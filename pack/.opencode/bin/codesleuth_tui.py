@@ -133,7 +133,7 @@ HELP_SECTIONS = [
     (
         "Evidence and durable state",
         "Scout summaries are leads, not proof. Material findings are re-opened against exact current source and recorded with identity/provenance. "
-        "Durable review checkpoints live under .opencode/state/. Analytical reports for later CodeSleuth sessions and other coding assistants live under .codesleuth/reports/ (INDEX.md). "
+        "Durable review checkpoints live under .opencode/state/. Analytical reports live under .codesleuth/reports/ (INDEX.md) for later sessions in this worktree; they stay local-only by default and are not automatically shared with fresh clones. "
         "OpenCode build writes those reports; CodeSleuth does not add a second supervisor.",
     ),
     (

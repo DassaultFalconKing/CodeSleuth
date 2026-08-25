@@ -35,7 +35,7 @@ The setup screen controls:
 
 The dependency control is reversible: binding/unbinding the source dependency is independent of installing/uninstalling the `.opencode` runtime.
 
-Before first install CodeSleuth writes a pre-install backup under `.codesleuth/backups/pre-install/` and adds a managed root `.gitignore` block for local CodeSleuth/OpenCode state.
+Before first install CodeSleuth writes a pre-install backup under `.codesleuth/backups/pre-install/`. Local CodeSleuth/OpenCode runtime patterns are written to Git's repository-local exclude file (`git rev-parse --git-path info/exclude`, normally `.git/info/exclude`) so installation does not silently modify the project's tracked `.gitignore`.
 
 `tools/codesleuth` is never ignored by CodeSleuth. If the target project's own ignore rules hide that path, dependency binding refuses to proceed until the project owner resolves the policy intentionally.
 
@@ -43,7 +43,7 @@ Before first install CodeSleuth writes a pre-install backup under `.codesleuth/b
 
 OpenCode may have access to development credentials because the application under review may genuinely need them to run tests or access development services. CodeSleuth does not blanket-redact evidence. Findings, snippets, logs, reports, generated prompts and preserved review state may therefore contain secrets visible to the authorized runtime.
 
-Local CodeSleuth state and preserved uninstall archives are gitignored by default. Inspect/sanitize audit output before sharing or force-adding ignored artifacts to Git.
+Local CodeSleuth state and preserved uninstall archives are excluded from Git by default via repository-local Git excludes. Inspect/sanitize audit output before intentionally adding or sharing local artifacts.
 
 ## Project layout
 
@@ -55,12 +55,12 @@ project/
 ├── tools/
 │   └── codesleuth/       # exact CodeSleuth gitlink/submodule
 ├── .opencode/            # project-owned installed auditor/runtime policy
-├── AGENTS.md             # includes a CodeSleuth reports discovery block
+├── AGENTS.md             # worktree pointer; commit intentionally if shared guidance is desired
 └── .codesleuth/          # local backups/archives/reports
-    └── reports/          # OpenCode-written analysis for later sessions and other assistants
+    └── reports/          # OpenCode-written analysis for later sessions in this worktree
 ```
 
-`.opencode/state/` is local runtime/review state and remains ignored.
+`.opencode/state/` is local runtime/review state and remains excluded from Git by default.
 
 ## Non-interactive installation
 
@@ -77,6 +77,8 @@ Install and pin CodeSleuth in the target repository:
 ```
 
 The bind operation stages `.gitmodules` and `tools/codesleuth`. It does not commit or push the target repository.
+
+If the target repository is the CodeSleuth source checkout itself, `--bind-dependency` is invalid. Self-install is supported; recursive self-submodule binding is rejected before any `tools/codesleuth` gitlink is created.
 
 Passing a nested project directory is safe: CLI entrypoints normalize it to the containing Git repository root before writing `.opencode` or `.codesleuth`.
 
@@ -127,7 +129,7 @@ Launch the configured OpenCode runtime:
 
 Those commands run on OpenCode's primary `build` agent. Custom CodeSleuth agents (`repo-scout` and related specialists) are Task subagents. The deep-review workflow uses the `repository-deep-review` skill, deterministic inventory, bounded scouts, parent re-verification of exact source, durable finding/checkpoint state, compaction-safe recovery and selective evidence rehydration. See [OpenCode `build` controller](../README.md#opencode-build-controller).
 
-Analytical reports are written by OpenCode `build` to `.codesleuth/reports/` (`INDEX.md` plus dated markdown). Other coding assistants discover the folder via `AGENTS.md` and `.opencode/CODESLEUTH-REPORTS.md`. Report bodies are gitignored by default because they may contain secrets; `README.md` in that folder may be committed.
+Analytical reports are written by OpenCode `build` to `.codesleuth/reports/` (`INDEX.md` plus dated markdown). Other coding assistants in the same worktree discover the folder via `AGENTS.md` and `.opencode/CODESLEUTH-REPORTS.md`. Report bodies and `INDEX.md` are locally excluded by default because they may contain secrets; `README.md` in that folder may be intentionally committed. Fresh clones receive only report material or guidance that a maintainer deliberately sanitizes and commits.
 
 ## Durable state
 
@@ -139,7 +141,7 @@ Review state lives under:
 
 Reviewed source paths are bound to current Git blob hashes. If a tracked file changes after review, resume can detect stale coverage rather than claiming the old evidence is still current.
 
-This local state is intentionally ignored by Git because it may be large and may contain sensitive evidence.
+This local state is intentionally excluded by Git because it may be large and may contain sensitive evidence.
 
 ## Updating a pinned project
 
@@ -165,9 +167,9 @@ Detached CodeSleuth checkouts are normal. CodeSleuth records the exact source co
 
 This archives only known CodeSleuth settings, profiles, review state and TUI state under `.codesleuth/archive/`, performs a conflict-safe pre-install restore, removes CodeSleuth-owned runtime files, and removes a safe bound CodeSleuth submodule. Arbitrary reports or project files outside managed namespaces are neither archived nor deleted.
 
-If a pre-existing `.opencode` file changed after installation, its current version stays in place. Baseline/current copies and a conflict manifest are retained under ignored `.codesleuth/restore-conflicts/` for manual resolution.
+If a pre-existing `.opencode` file changed after installation, its current version stays in place. Baseline/current copies and a conflict manifest are retained under locally excluded `.codesleuth/restore-conflicts/` for manual resolution.
 
-The archive stays gitignored.
+The archive stays locally excluded from Git.
 
 ## Uninstall and purge CodeSleuth traces
 
@@ -201,11 +203,12 @@ ruff check .
 
 The TUI tests use Textual's headless `App.run_test()` / `Pilot` facilities. The Git lifecycle tests build disposable repositories and exercise actual submodule add/remove behavior rather than mocking Git's most important semantics.
 
-The TypeScript durable-state smoke remains:
+The TypeScript durable-state smokes remain:
 
 ```bash
 bun install --frozen-lockfile
 bun tests/review_state_smoke.ts
+bun tests/context_graph_smoke.ts
 ```
 
 ## Permission ownership

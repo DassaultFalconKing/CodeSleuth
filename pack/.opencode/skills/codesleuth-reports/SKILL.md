@@ -1,6 +1,6 @@
 ---
 name: codesleuth-reports
-description: Persist and update CodeSleuth analytical reports for later sessions and other coding assistants
+description: Persist and update CodeSleuth analytical reports for later sessions in this worktree
 ---
 
 # CodeSleuth reports
