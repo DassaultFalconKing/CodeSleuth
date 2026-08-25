@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+set -eu
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+ROOT=$(CDPATH= cd -- "$HERE/../.." && pwd)
+export REVIEW_PACK_TARGET_ROOT="$ROOT"
+exec python3 "$HERE/review_pack_tui_bootstrap.py" --target "$ROOT" "$@"
