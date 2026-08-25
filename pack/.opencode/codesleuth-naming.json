@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "product": {
+    "displayName": "CodeSleuth",
+    "slug": "codesleuth"
+  },
+  "canonical": {
+    "state": {
+      "metadata": "codesleuth.json",
+      "settings": "codesleuth-user.json"
+    },
+    "entrypoints": {
+      "console": "bin/codesleuth",
+      "consolePowerShell": "bin/codesleuth.ps1",
+      "project": "bin/codesleuth-project",
+      "projectPowerShell": "bin/codesleuth-project.ps1",
+      "update": "bin/codesleuth-update",
+      "updatePowerShell": "bin/codesleuth-update.ps1",
+      "verify": "bin/codesleuth-verify.py"
+    },
+    "python": {
+      "project": "bin/codesleuth_project.py",
+      "update": "bin/codesleuth_update.py",
+      "tui": "bin/codesleuth_tui.py",
+      "tuiBase": "bin/codesleuth_tui_base.py",
+      "tuiCore": "bin/codesleuth_tui_core.py",
+      "tuiBootstrap": "bin/codesleuth_tui_bootstrap.py"
+    },
+    "environment": {
+      "distributionRoot": "CODESLEUTH_DISTRIBUTION_ROOT",
+      "targetRoot": "CODESLEUTH_TARGET_ROOT"
+    },
+    "cliOptions": {
+      "adoptExisting": "--adopt-existing-codesleuth",
+      "forceManagedFiles": "--force-codesleuth-files"
+    },
+    "statusMessages": {
+      "current": "CODESLEUTH CURRENT",
+      "updateAvailable": "CODESLEUTH UPDATE AVAILABLE",
+      "updateApplied": "CODESLEUTH UPDATE APPLIED",
+      "verifyPass": "CODESLEUTH VERIFY PASS"
+    },
+    "temporaryPrefix": "codesleuth-update-"
+  },
+  "legacy": {
+    "state": {
+      "metadata": "review-pack.json",
+      "settings": "review-pack-user.json"
+    },
+    "entrypoints": {
+      "rootConsole": "review-pack",
+      "rootConsolePowerShell": "review-pack.ps1",
+      "console": "bin/review-pack",
+      "consolePowerShell": "bin/review-pack.ps1",
+      "update": "bin/review-pack-update",
+      "updatePowerShell": "bin/review-pack-update.ps1",
+      "verify": "bin/review-pack-smoke.py"
+    },
+    "python": {
+      "update": "bin/review-pack-update.py",
+      "tuiBase": "bin/review_pack_tui.py",
+      "tuiCore": "bin/review_pack_tui_core.py",
+      "tuiBootstrap": "bin/review_pack_tui_bootstrap.py"
+    },
+    "environment": {
+      "distributionRoot": "REVIEW_PACK_DISTRIBUTION_ROOT",
+      "targetRoot": "REVIEW_PACK_TARGET_ROOT"
+    },
+    "cliOptions": {
+      "adoptExisting": "--adopt-existing-pack",
+      "forceManagedFiles": "--force-pack-files"
+    },
+    "temporaryPrefix": "opencode-review-pack-update-"
+  },
+  "migration": {
+    "freshInstallMaterializesLegacy": false,
+    "legacyArgumentsAreHidden": true,
+    "failOnConflictingPersistentState": true,
+    "bridgeEntrypoints": [
+      "bin/review-pack-smoke.py",
+      "bin/review_pack_tui_bootstrap.py"
+    ],
+    "bridgeManaged": false,
+    "removeBridgeAfterCanonicalBootstrap": true
+  }
+}
