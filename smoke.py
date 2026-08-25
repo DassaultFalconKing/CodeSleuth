@@ -74,18 +74,25 @@ profiles = settings.get("profiles")
 if not isinstance(profiles, list) or "generic" not in profiles:
     raise SystemExit("review-pack-user profiles must include generic")
 
-tui = json.loads((oc / "tui.json").read_text(encoding="utf-8"))
-if tui.get("$schema") != "https://opencode.ai/tui.json":
-    raise SystemExit("CodeSleuth tui.json has an unexpected schema")
-if tui.get("theme") != "codesleuth":
-    raise SystemExit("CodeSleuth tui.json must select the codesleuth theme")
+managed_files = meta["managedFiles"]
+if "tui.json" in managed_files:
+    tui = json.loads((oc / "tui.json").read_text(encoding="utf-8"))
+    if tui.get("$schema") != "https://opencode.ai/tui.json":
+        raise SystemExit("CodeSleuth tui.json has an unexpected schema")
+    if tui.get("theme") != "codesleuth":
+        raise SystemExit("pack-managed tui.json must select the codesleuth theme")
+else:
+    print("warning: preserving user-owned .opencode/tui.json; CodeSleuth theme is not forced")
 
-theme = json.loads((oc / "themes" / "codesleuth.json").read_text(encoding="utf-8"))
-if theme.get("$schema") != "https://opencode.ai/theme.json" or not isinstance(theme.get("theme"), dict):
-    raise SystemExit("CodeSleuth theme is missing or malformed")
-for required_color in ("primary", "background", "text", "success", "warning", "error", "diffAdded", "diffRemoved"):
-    if required_color not in theme["theme"]:
-        raise SystemExit(f"CodeSleuth theme is missing {required_color}")
+if "themes/codesleuth.json" in managed_files:
+    theme = json.loads((oc / "themes" / "codesleuth.json").read_text(encoding="utf-8"))
+    if theme.get("$schema") != "https://opencode.ai/theme.json" or not isinstance(theme.get("theme"), dict):
+        raise SystemExit("CodeSleuth theme is missing or malformed")
+    for required_color in ("primary", "background", "text", "success", "warning", "error", "diffAdded", "diffRemoved"):
+        if required_color not in theme["theme"]:
+            raise SystemExit(f"CodeSleuth theme is missing {required_color}")
+else:
+    print("warning: preserving user-owned codesleuth theme file; pack palette is not forced")
 
 branding = (oc / "bin" / "codesleuth_tui.py").read_text(encoding="utf-8")
 for marker in ("CodeSleuth", "Evidence Console", "Evidence-first repository intelligence", "CODESLEUTH_ART"):
