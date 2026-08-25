@@ -10,6 +10,7 @@ from codesleuth_naming import load_naming
 
 NAMING = load_naming()
 CANONICAL = NAMING["canonical"]
+LEGACY = NAMING["legacy"]
 META_NAME = CANONICAL["state"]["metadata"]
 STATUS = CANONICAL["statusMessages"]
 
@@ -27,57 +28,104 @@ def load_meta(repo: Path):
 
 def resolve_source(meta, args):
     src = dict(meta.get("source") or {})
-    if args.source_remote: src["remote"] = args.source_remote
-    if args.source_ref: src["ref"] = args.source_ref
-    if args.source_subdir is not None: src["subdir"] = args.source_subdir
+    if args.source_remote:
+        src["remote"] = args.source_remote
+    if args.source_ref:
+        src["ref"] = args.source_ref
+    if args.source_subdir is not None:
+        src["subdir"] = args.source_subdir
     remote, ref = src.get("remote"), src.get("ref")
     if not remote or not ref:
-        raise SystemExit("installation has no updateable source remote/ref; rerun the pack installer with --source-remote and --source-ref, or update from a local pack checkout using install.sh <repo> --update")
+        raise SystemExit(
+            "installation has no updateable source remote/ref; rerun the CodeSleuth installer with "
+            "--source-remote and --source-ref, or update from a local CodeSleuth checkout using "
+            "install.sh <repo> --update"
+        )
     src.setdefault("subdir", "")
     return src
 
 
 def remote_head(remote: str, ref: str):
     for full_ref in (f"refs/heads/{ref}", f"refs/tags/{ref}"):
-        p = run(["git", "ls-remote", remote, full_ref])
-        if p.returncode == 0 and p.stdout.strip(): return p.stdout.split()[0]
+        result = run(["git", "ls-remote", remote, full_ref])
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.split()[0]
     raise SystemExit(f"cannot resolve {ref!r} at {remote!r}")
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Check for and apply floating CodeSleuth updates from an explicit Git source ref.")
-    ap.add_argument("repo", nargs="?", default=".")
-    ap.add_argument("--check", action="store_true", help="only compare installed source commit with the remote source")
-    ap.add_argument("--source-remote", help="override recorded Git remote for this run")
-    ap.add_argument("--source-ref", help="override recorded branch/tag for this run")
-    ap.add_argument("--source-subdir", help="override pack subdirectory inside the source repository")
-    ap.add_argument("--force-codesleuth-files", action="store_true", help="replace locally modified managed files")
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser(
+        description="Check for and apply floating CodeSleuth updates from an explicit Git source ref."
+    )
+    parser.add_argument("repo", nargs="?", default=".")
+    parser.add_argument("--check", action="store_true", help="only compare installed source commit with the remote source")
+    parser.add_argument("--source-remote", help="override recorded Git remote for this run")
+    parser.add_argument("--source-ref", help="override recorded branch/tag for this run")
+    parser.add_argument("--source-subdir", help="override CodeSleuth subdirectory inside the source repository")
+    parser.add_argument(
+        CANONICAL["cliOptions"]["forceManagedFiles"],
+        dest="force_managed_files",
+        action="store_true",
+        help="replace locally modified CodeSleuth-managed files",
+    )
+    parser.add_argument(
+        LEGACY["cliOptions"]["forceManagedFiles"],
+        dest="force_managed_files",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    args = parser.parse_args()
 
     repo = Path(args.repo).resolve()
-    meta = load_meta(repo); source = resolve_source(meta, args)
+    meta = load_meta(repo)
+    source = resolve_source(meta, args)
     head = remote_head(source["remote"], source["ref"])
     installed_commit = source.get("commit")
     print("installed version:", meta.get("version", "unknown"))
     print("installed source:", installed_commit or "unknown")
     print("remote source:", head)
     if installed_commit == head:
-        print(STATUS["current"]); return
+        print(STATUS["current"])
+        return
     print(STATUS["updateAvailable"])
-    if args.check: return
+    if args.check:
+        return
 
-    with tempfile.TemporaryDirectory(prefix="opencode-codesleuth-update-") as td:
+    with tempfile.TemporaryDirectory(prefix=CANONICAL["temporaryPrefix"]) as td:
         clone = Path(td) / "source"
-        p = subprocess.run(["git", "clone", "--depth", "1", "--branch", source["ref"], source["remote"], str(clone)])
-        if p.returncode != 0: raise SystemExit(p.returncode)
-        pack_root = clone / source.get("subdir", "")
-        installer = pack_root / "install.py"
+        clone_result = subprocess.run(
+            ["git", "clone", "--depth", "1", "--branch", source["ref"], source["remote"], str(clone)]
+        )
+        if clone_result.returncode != 0:
+            raise SystemExit(clone_result.returncode)
+        source_root = clone / source.get("subdir", "")
+        installer = source_root / "install.py"
         if not installer.is_file():
-            raise SystemExit(f"latest source does not contain {installer.relative_to(clone)}; recorded source metadata is stale or points at the wrong repository")
-        cmd = [sys.executable, str(installer), str(repo), "--update", "--source-remote", source["remote"], "--source-ref", source["ref"], "--source-subdir", source.get("subdir", ""), "--source-commit", head]
-        if args.force_pack_files: cmd.append("--force-codesleuth-files")
+            raise SystemExit(
+                f"latest source does not contain {installer.relative_to(clone)}; recorded source metadata is stale "
+                "or points at the wrong repository"
+            )
+        cmd = [
+            sys.executable,
+            str(installer),
+            str(repo),
+            "--update",
+            "--source-remote",
+            source["remote"],
+            "--source-ref",
+            source["ref"],
+            "--source-subdir",
+            source.get("subdir", ""),
+            "--source-commit",
+            head,
+        ]
+        if args.force_managed_files:
+            cmd.append(CANONICAL["cliOptions"]["forceManagedFiles"])
         code = subprocess.run(cmd).returncode
-        if code: raise SystemExit(code)
+        if code:
+            raise SystemExit(code)
+        print(STATUS["updateApplied"])
 
 
-if __name__ == "__main__": main()
+if __name__ == "__main__":
+    main()
