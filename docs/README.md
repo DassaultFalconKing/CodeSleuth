@@ -18,13 +18,15 @@ The public README is maintained in three complete language versions:
 
 Every semantic change to `README.md` must update both translations in the same change. Each translated README records the Git blob identity of the English source in a `README-SOURCE-BLOB` comment, and `tests/test_docs_contract.py` fails when either translation is stale. The language selector at the top of every README must continue to link the other two versions.
 
-## Cross-agent operator guide
+## Cross-agent documentation
 
-Root [`../AGENTS.md`](../AGENTS.md) is the maintained LLM/coding-agent operator surface. It is not a second product specification. It tells coding agents how to install, configure, verify, use, bind, unbind, and remove CodeSleuth without violating the product/lifecycle contracts.
+Root [`../AGENTS.md`](../AGENTS.md) is the compact cross-agent discovery and repository-instruction entry point. Keep it short and broadly applicable so agents do not spend permanent context on task-specific operating detail.
 
-`AGENTS.md` records the same canonical English `README.md` Git blob identity with `README-SOURCE-BLOB`. A README change therefore requires an explicit agent-guide parity review before that marker can be advanced. The guide only needs textual changes when agent-operational behavior changed, but its marker must not be refreshed without reviewing the current README and relevant implementation contracts.
+[`LLM-OPERATOR.md`](LLM-OPERATOR.md) is the maintained task-specific LLM/coding-agent operator README. It explains how another agent should install, configure unattended, verify, use, bind, unbind, and remove CodeSleuth without violating the product/lifecycle contracts.
 
-The executable docs contract also checks that `AGENTS.md` retains the critical unattended-install and lifecycle surfaces and that its internal relative links resolve.
+`LLM-OPERATOR.md` records the canonical English `README.md` Git blob identity with `README-SOURCE-BLOB`. A README change therefore requires an explicit operator-guide parity review before that marker can be advanced. The guide only needs textual changes when agent-operational behavior changed, but its marker must not be refreshed without reviewing the current README and relevant implementation contracts.
+
+The executable docs contract checks that `AGENTS.md` continues to route operator tasks to `LLM-OPERATOR.md`, that the operator guide retains the critical unattended-install and lifecycle surfaces, and that internal relative links resolve.
 
 ## Documentation media policy
 
@@ -42,8 +44,8 @@ CodeSleuth documentation is text-first and terminal-native.
 ## User and operations
 
 - [`USER-GUIDE.md`](USER-GUIDE.md) — install, configure, validate, update, and operate CodeSleuth.
+- [`LLM-OPERATOR.md`](LLM-OPERATOR.md) — task-specific cross-agent operator manual for safe installation, unattended configuration, verification, use, and removal.
 - [`_includes/build-controller-blurb.md`](_includes/build-controller-blurb.md) — canonical OpenCode `build` controller blurb. Public copy: [root README](../README.md#opencode-build-controller).
-- [`../AGENTS.md`](../AGENTS.md) — cross-agent operator instructions for safe installation, unattended configuration, verification, use, and removal.
 
 ## Maintainers
 
@@ -60,7 +62,8 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         |
         +--> CONTEXT-GRAPH-DISCIPLINE.md                  (Mermaid when useful)
         +--> NOVACLAW-MCP.md                              (external host seam)
-        +--> ../AGENTS.md                                 (cross-agent operator surface)
+        +--> ../AGENTS.md                                 (compact cross-agent entry point)
+        +--> LLM-OPERATOR.md                              (task-specific operator surface)
         |
         +--> pack/.opencode/themes/codesleuth.json
         +--> pack/.opencode/CODESLEUTH-REPORTS.md
