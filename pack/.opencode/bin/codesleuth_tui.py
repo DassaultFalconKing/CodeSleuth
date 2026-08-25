@@ -35,11 +35,11 @@ PRESET_OPTIONS = [
     ("Autonomous local work", "autonomous"),
 ]
 
-CODESLEUTH_ART = r"""
+CODESLEUTH_ART = r'''
 +-------------------------------------------------+
 |  CODE:SLEUTH // EVIDENCE OPERATIONS CONSOLE    |
 +----------------------+--------------------------+
-                       .-\"\"\"\"-.
+                       .-""""-.
                      .'  ____  '.
                     /   /_  _\   \
                    |   |o || o|   |
@@ -51,7 +51,7 @@ CODESLEUTH_ART = r"""
               /__/    | /  \ |    \__\
                    [ TARGET : SOURCE ]
                    [ EVIDENCE : LIVE ]
-""".strip("\n")
+'''.strip("\n")
 
 EVIDENCE_MARK = r"""+-- source --+     +-- evidence --+
 | repository | --> | verified    |
