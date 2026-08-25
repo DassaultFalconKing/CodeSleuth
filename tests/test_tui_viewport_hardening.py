@@ -10,7 +10,7 @@ pytest.importorskip("textual")
 
 BIN = Path(__file__).resolve().parents[1] / "pack" / ".opencode" / "bin"
 sys.path.insert(0, str(BIN))
-from codesleuth_tui import CodeSleuthApp, NAV_SURFACES  # noqa: E402
+from codesleuth_tui import CodeSleuthApp, CodeSleuthHelpPanel, NAV_SURFACES  # noqa: E402
 from textual.widgets import Footer, Static  # noqa: E402
 
 
@@ -64,6 +64,64 @@ async def test_logo_and_keys_can_be_collapsed_and_restored(tmp_path: Path) -> No
         await pilot.press("f2")
         await pilot.pause()
         assert keys.display
+
+
+@pytest.mark.asyncio
+async def test_left_navigation_can_collapse_and_restore(tmp_path: Path) -> None:
+    repo = tmp_path / "target"
+    init_committed_repo(repo)
+    app = CodeSleuthApp(repo, None)
+
+    async with app.run_test(size=(120, 35)) as pilot:
+        await pilot.pause()
+        nav = app.query_one("#wide-nav")
+        collapse = app.query_one("#nav-collapse")
+        assert not nav.has_class("collapsed")
+
+        await pilot.click("#nav-collapse")
+        await pilot.pause()
+        assert nav.has_class("collapsed")
+        assert str(collapse.label) == ">"
+        assert all(not button.display for button in app.query("#wide-nav .nav-button"))
+
+        await pilot.click("#nav-collapse")
+        await pilot.pause()
+        assert not nav.has_class("collapsed")
+        assert str(collapse.label) == "<"
+        assert all(button.display for button in app.query("#wide-nav .nav-button"))
+
+
+@pytest.mark.asyncio
+async def test_right_key_panel_can_collapse_restore_and_close_for_session(tmp_path: Path) -> None:
+    repo = tmp_path / "target"
+    init_committed_repo(repo)
+    app = CodeSleuthApp(repo, None)
+
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+        app.action_show_help_panel()
+        await pilot.pause()
+        panel = app.query_one(CodeSleuthHelpPanel)
+        assert not panel.has_class("collapsed")
+
+        await pilot.click("#right-collapse")
+        await pilot.pause()
+        assert panel.has_class("collapsed")
+        assert str(panel.query_one("#right-collapse").label) == ">"
+
+        await pilot.click("#right-collapse")
+        await pilot.pause()
+        assert not panel.has_class("collapsed")
+        assert str(panel.query_one("#right-collapse").label) == "<"
+
+        await pilot.click("#right-close")
+        await pilot.pause()
+        assert not app.query(CodeSleuthHelpPanel)
+        assert app.right_panel_closed
+
+        app.action_show_help_panel()
+        await pilot.pause()
+        assert not app.query(CodeSleuthHelpPanel)
 
 
 @pytest.mark.asyncio
