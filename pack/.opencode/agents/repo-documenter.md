@@ -36,7 +36,11 @@ Inventory and map before drafting. Use bounded `repo-scout` or native `explore`
 tasks only for independent components. Do not write the durable review ledger;
 the parent `build` agent owns checkpoints.
 
-When proposing documentation, distinguish explicitly documented behavior from
+When a diagram helps the assigned slice, request Mermaid derived from the saved
+verified projection via `repo_context_graph_mermaid` and keep review-inference
+styling intact; diagrams are optional aids, never mandatory sections, and never
+a substitute for verified source evidence. When proposing documentation,
+distinguish explicitly documented behavior from
 behavior inferred from code. Verify entry points, configuration, data flow,
 persistence, external integrations, tests, CI, and operational commands before
 stating them as facts.

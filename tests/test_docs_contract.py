@@ -64,6 +64,7 @@ def test_commands_stay_on_opencode_build_and_agents_are_subagents() -> None:
         "repo-profile.md",
         "repo-prompts.md",
         "repo-report.md",
+        "repo-map.md",
     ):
         text = (pack / "commands" / name).read_text(encoding="utf-8")
         assert "agent: build" in text

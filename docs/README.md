@@ -5,6 +5,7 @@
 - [`CODESLEUTH-PRODUCT-CONTRACT.md`](CODESLEUTH-PRODUCT-CONTRACT.md) — architecture boundary, OpenCode ownership, extension model, and core feature freeze.
 - [`CODESLEUTH-BRANDING.md`](CODESLEUTH-BRANDING.md) — accepted UI/interaction runbook, responsive navigation, screen semantics, ASCII identity, and production visual gate.
 - [`CODESLEUTH-COLORMAP.json`](CODESLEUTH-COLORMAP.json) — machine-readable semantic colormap.
+- [`CONTEXT-GRAPH-DISCIPLINE.md`](CONTEXT-GRAPH-DISCIPLINE.md) — Git source -> review state -> bounded RepositoryContextProjection -> compact context/Mermaid authority chain.
 
 ## Approved visual references
 
@@ -34,6 +35,8 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         +--> CODESLEUTH-BRANDING.md
         |       +--> CODESLEUTH-COLORMAP.json
         |       +--> assets/branding/*-reference-board.svg
+        |
+        +--> CONTEXT-GRAPH-DISCIPLINE.md
         |
         +--> pack/.opencode/themes/codesleuth.json
         +--> pack/.opencode/bin/codesleuth_tui.py
