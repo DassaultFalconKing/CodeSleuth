@@ -8,12 +8,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 README_TRANSLATIONS = (ROOT / "README.ru.md", ROOT / "README.uk.md")
+AGENT_INSTRUCTIONS = ROOT / "AGENTS.md"
+LLM_OPERATOR_GUIDE = ROOT / "docs" / "LLM-OPERATOR.md"
 README_SOURCE_BLOB_RE = re.compile(r"<!-- README-SOURCE-BLOB: ([0-9a-f]{40}) -->")
 README_SWITCH_TARGETS = ("README.md", "README.ru.md", "README.uk.md")
 
 
 def _git_blob_sha(content: bytes) -> str:
-    payload = f"blob {len(content)}\0".encode() + content
+    normalized = content.replace(b"\r\n", b"\n")
+    payload = f"blob {len(normalized)}\0".encode() + normalized
     return hashlib.sha1(payload, usedforsecurity=False).hexdigest()
 
 
@@ -37,6 +40,46 @@ def test_readme_language_switchers_link_all_other_versions() -> None:
             if target == path.name:
                 continue
             assert f'href="./{target}"' in text, f"{path.name} must link to {target}"
+
+
+def test_llm_operator_guide_tracks_current_english_source() -> None:
+    source_blob = _git_blob_sha((ROOT / "README.md").read_bytes())
+    text = LLM_OPERATOR_GUIDE.read_text(encoding="utf-8")
+    match = README_SOURCE_BLOB_RE.search(text)
+    assert match, "LLM-OPERATOR.md must declare README-SOURCE-BLOB"
+    assert match.group(1) == source_blob, (
+        "LLM-OPERATOR.md parity is stale: review agent-operational behavior against README.md "
+        "and refresh README-SOURCE-BLOB"
+    )
+
+
+def test_agents_entry_point_routes_operator_tasks_to_detailed_guide() -> None:
+    text = AGENT_INSTRUCTIONS.read_text(encoding="utf-8")
+    assert "docs/LLM-OPERATOR.md" in text
+    assert "install, configure unattended, use, update, bind, unbind, remove" in text
+    assert "second CodeSleuth runtime" in text
+
+
+def test_llm_operator_guide_keeps_install_config_and_removal_contracts() -> None:
+    text = LLM_OPERATOR_GUIDE.read_text(encoding="utf-8")
+    required = (
+        "--settings-file",
+        "--bind-dependency",
+        "--update",
+        "--uninstall",
+        "--purge-traces",
+        "--keep-dependency",
+        "permissions.managePolicy",
+        "review-safe",
+        "balanced",
+        "autonomous",
+        ".opencode/bin/review-pack-smoke.py",
+        ".opencode/bin/codesleuth-project . --unbind",
+        "second primary controller",
+        "release-clean",
+    )
+    for token in required:
+        assert token in text, f"LLM-OPERATOR.md lost required operator contract: {token}"
 
 
 def test_completed_production_handoff_is_archived() -> None:
@@ -133,7 +176,7 @@ def test_bun_smoke_dependency_lockfile_pins_plugin() -> None:
 
 
 def test_internal_markdown_links_resolve() -> None:
-    docs = [*(ROOT.glob("README*.md")), *((ROOT / "docs").rglob("*.md"))]
+    docs = [AGENT_INSTRUCTIONS, *(ROOT.glob("README*.md")), *((ROOT / "docs").rglob("*.md"))]
     missing: list[str] = []
     for document in docs:
         text = document.read_text(encoding="utf-8")

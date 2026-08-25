@@ -15,6 +15,10 @@ First release prepared under the release-only `main` contract.
 - reversible install/update/bind/unbind/uninstall lifecycle with conflict-safe restoration;
 - read-only repository evidence over MCP, with NovaClaw as the first tested external host;
 - comprehensive operator/CLI/TUI/extension README and text-only documentation policy;
+- compact root `AGENTS.md` plus `docs/LLM-OPERATOR.md` for cross-agent install/configure/remove workflows;
+- machine-readable `pack/.opencode/codesleuth-naming.json` inventory for the remaining `review-pack` to CodeSleuth namespace cutover;
+- maintained Russian and Ukrainian README translations with blob-parity checks;
+- verified self-update path: post-update Verify, restart request, and TUI bootstrap supervision;
 - cross-platform Python acceptance gate plus frozen Bun durable-state/context-graph smokes.
 
 ### Hardened
@@ -24,7 +28,9 @@ First release prepared under the release-only `main` contract.
 - active TUI surfaces stay visible across narrow viewports;
 - logo, Footer and side panels can be collapsed independently; the right Keys/Help panel can be dismissed for the current session;
 - project-local ignore policy avoids silently rewriting a tracked root `.gitignore`;
-- dependency binding remains independent from installed runtime state and refuses unsafe/recursive submodule operations.
+- TUI collapse/restore toggles remain immediately clickable; Tools actions stay on the operational surface at 120x35;
+- dependency binding remains independent from installed runtime state and refuses unsafe/recursive submodule operations;
+- installed version metadata may be read from `codesleuth.json` or `review-pack.json`, and fails closed if both exist and differ.
 
 ### Release-process changes
 

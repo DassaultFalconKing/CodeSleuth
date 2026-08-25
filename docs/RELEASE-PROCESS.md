@@ -37,6 +37,8 @@ Installed CodeSleuth materializes that value into:
 .opencode/review-pack.json -> version
 ```
 
+If `.opencode/codesleuth.json` is also present and differs, version resolution fails closed. Canonical `codesleuth.json` is preferred when both files exist and are identical. 0.4.0 still materializes the live compatibility filename `review-pack.json`.
+
 The installed metadata is the authority for the version actually present in a target repository. A source checkout and an installed target can therefore honestly report different versions during an upgrade.
 
 Runtime code must not contain a numeric fallback version. Missing or malformed version metadata is an error.

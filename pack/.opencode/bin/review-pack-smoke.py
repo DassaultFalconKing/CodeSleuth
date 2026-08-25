@@ -19,10 +19,11 @@ required = [
     "bin/opencode-review", "bin/opencode-review.ps1",
     "bin/review-pack", "bin/review-pack.ps1",
     "bin/review_pack_tui.py", "bin/codesleuth_tui.py", "bin/review_pack_tui_core.py", "bin/review_pack_tui_bootstrap.py",
-    "bin/codesleuth_version.py", "bin/requirements-tui.txt",
+    "bin/codesleuth_version.py", "bin/codesleuth_naming.py", "bin/requirements-tui.txt",
     "bin/review-pack-update", "bin/review-pack-update.ps1", "bin/review-pack-update.py",
     "bin/review-pack-smoke.py", "themes/codesleuth.json", "tui.json",
-    "opencode.json", "review-pack.json", "review-pack-user.json", "CODESLEUTH-REPORTS.md"
+    "opencode.json", "review-pack.json", "review-pack-user.json", "codesleuth-naming.json",
+    "CODESLEUTH-REPORTS.md"
 ]
 missing = [x for x in required if not (oc / x).is_file()]
 if missing:

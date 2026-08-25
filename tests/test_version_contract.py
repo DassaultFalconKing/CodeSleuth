@@ -38,6 +38,13 @@ def test_installed_version_comes_from_review_pack_metadata(tmp_path: Path) -> No
     assert installed_version(tmp_path) == "9.8.7"
 
 
+def test_installed_version_accepts_canonical_codesleuth_metadata(tmp_path: Path) -> None:
+    metadata = tmp_path / ".opencode" / "codesleuth.json"
+    metadata.parent.mkdir(parents=True)
+    metadata.write_text(json.dumps({"version": "4.0.1"}), encoding="utf-8")
+    assert installed_version(tmp_path) == "4.0.1"
+
+
 def test_source_cli_version_matches_root_metadata() -> None:
     env = dict(os.environ)
     env["REVIEW_PACK_DISTRIBUTION_ROOT"] = str(ROOT)

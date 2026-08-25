@@ -13,6 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from codesleuth_naming import resolve_state_file, runtime_metadata_present, state_filenames
+
 LOCAL_ROOT = ".codesleuth"
 REPORTS_DIR = ".codesleuth/reports"
 DEFAULT_DEPENDENCY_PATH = "tools/codesleuth"
@@ -679,7 +681,7 @@ def create_preinstall_snapshot(repo: Path) -> dict[str, Any]:
         "opencodeExisted": (repo / ".opencode").exists(),
         "gitignoreExisted": (repo / ".gitignore").exists(),
         "gitmodulesExisted": (repo / ".gitmodules").exists(),
-        "baselineKind": "pre-0.3-upgrade" if (repo / ".opencode" / "review-pack.json").is_file() else "pre-install",
+        "baselineKind": "pre-0.3-upgrade" if runtime_metadata_present(repo) else "pre-install",
         "files": entries,
     }
     manifest_path = snapshot / "manifest.json"
@@ -756,7 +758,7 @@ def dependency_status(repo: Path, dependency_path: str = DEFAULT_DEPENDENCY_PATH
 def lifecycle_state(repo: Path, dependency_path: str = DEFAULT_DEPENDENCY_PATH) -> str:
     """Classify the repository lifecycle state for install/update/uninstall."""
     repo = git_root(repo)
-    runtime = (repo / ".opencode" / "review-pack.json").is_file()
+    runtime = runtime_metadata_present(repo)
     bound = dependency_status(repo, dependency_path)["bound"]
     if runtime and bound:
         return "bound-active"
@@ -913,9 +915,13 @@ def archive_traces(repo: Path) -> Path:
     """Archive managed CodeSleuth traces under ``.codesleuth/archive``."""
     stamp = utc_stamp()
     archive = repo / LOCAL_ROOT / "archive" / stamp
+    meta_name, legacy_meta_name = state_filenames("metadata")
+    settings_name, legacy_settings_name = state_filenames("settings")
     candidates = [
-        repo / ".opencode" / "review-pack.json",
-        repo / ".opencode" / "review-pack-user.json",
+        repo / ".opencode" / meta_name,
+        repo / ".opencode" / settings_name,
+        repo / ".opencode" / legacy_meta_name,
+        repo / ".opencode" / legacy_settings_name,
         repo / ".opencode" / "opencode.json",
         repo / ".opencode" / "profiles",
         repo / ".opencode" / "state" / "reviews",
@@ -955,7 +961,9 @@ def _remove_codesleuth_files(
     target = repo / ".opencode"
     managed = (metadata or {}).get("managedFiles", {})
     remove_rel = set(managed)
-    remove_rel.update({"review-pack.json", "review-pack-user.json", "profiles/detected.json"})
+    meta_name, legacy_meta_name = state_filenames("metadata")
+    settings_name, legacy_settings_name = state_filenames("settings")
+    remove_rel.update({meta_name, settings_name, legacy_meta_name, legacy_settings_name, "profiles/detected.json"})
     if ".opencode/opencode.json" not in snapshot_paths:
         remove_rel.add("opencode.json")
     for rel in sorted(remove_rel, reverse=True):
@@ -978,8 +986,8 @@ def _remove_codesleuth_files(
 def restore_preinstall_snapshot(repo: Path) -> dict[str, Any]:
     """Restore pre-install OpenCode files using the three-way comparison."""
     repo = git_root(repo)
-    meta_path = repo / ".opencode" / "review-pack.json"
-    metadata = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.is_file() else None
+    meta_path = resolve_state_file(repo / ".opencode", "metadata", fail_on_conflict=False)
+    metadata = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path is not None else None
     manifest, snapshot_dir = _load_snapshot(repo)
     snapshot_paths = {entry["path"] for entry in (manifest or {}).get("files", [])}
 
@@ -1131,8 +1139,8 @@ def uninstall_project(
 
 
 def _metadata_source(repo: Path) -> dict[str, Any] | None:
-    meta = repo / ".opencode" / "review-pack.json"
-    if not meta.is_file():
+    meta = resolve_state_file(repo / ".opencode", "metadata", fail_on_conflict=False)
+    if meta is None:
         return None
     return json.loads(meta.read_text(encoding="utf-8")).get("source")
 
