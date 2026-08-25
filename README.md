@@ -1,8 +1,59 @@
 # CodeSleuth
 
+```text
++-------------------------------------------------+
+|  CODE:SLEUTH // EVIDENCE OPERATIONS CONSOLE    |
++----------------------+--------------------------+
+                       .-""""-.
+                     .'  ____  '.
+                    /   /_  _\   \
+                   |   |o || o|   |
+                   |   |__||__|   |
+                   |      /\      |
+                    \   .____.   /
+                 ____'.\____/.'____
+               .' ___/|  /\  |\___ '.
+              /__/    | /  \ |    \__\
+                   [ TARGET : SOURCE ]
+                   [ EVIDENCE : LIVE ]
+```
+
 **Evidence-first repository intelligence**
 
 CodeSleuth is an evidence-oriented control panel, configuration layer, and lifecycle manager for OpenCode repository review. It keeps repositories directly usable by OpenCode, presents readiness and evidence state clearly, and installs project-specific policy and profiles without replacing OpenCode's models, agents, tools, commands, or durable review execution.
+
+## Overview
+
+### What is CodeSleuth?
+
+CodeSleuth is the evidence console around OpenCode for serious repository work. OpenCode remains the execution runtime and owns the model session, native `build` controller, agents, tool calls, Skills, and commands; CodeSleuth supplies the project-local review discipline, configuration, evidence/state surfaces, profiles, Playbooks, and safe lifecycle around that runtime.
+
+It exists because a repository is larger than a model's working context and a scout summary is not proof. The built-in `repository-deep-review` workflow inventories the real Git target first, maps bounded components, delegates focused inspection, re-opens exact current source before material findings, persists checkpoints/findings across compaction, and detects stale reviewed paths through Git blob identity instead of pretending old evidence is still current.
+
+```text
+repository -> inventory -> inspect -> evidence -> verify -> finding
+```
+
+### The TUI
+
+These are the project's committed canonical desktop and narrow-terminal TUI reference layouts. They use the same Home / Review / Evidence / Tools / Settings information architecture implemented by the Textual console.
+
+![CodeSleuth desktop TUI reference](docs/assets/branding/desktop-reference-board.svg)
+
+![CodeSleuth narrow-terminal TUI reference](docs/assets/branding/mobile-reference-board.svg)
+
+### What it can do
+
+- **Deep repository and PR review:** `/repo-review` runs the evidence-first review protocol on OpenCode's native `build` controller, with native `explore` / `general` Task subagents and CodeSleuth specialists such as `repo-scout` for bounded component work.
+- **Deterministic evidence discipline:** inventory before broad reading, exact tracked source before material claims, Git/blob-bound reviewed paths, explicit separation of verified source from model/scout inference, and honest coverage/unknowns.
+- **Durable long-running work:** review checkpoints under `.opencode/state/` survive conversation compaction; `/repo-review-resume` reloads durable state and selectively rehydrates only the evidence needed to continue.
+- **Architecture mapping without making diagrams the truth:** bounded repository context projections can be queried and rendered as deterministic Mermaid source while canonical Git source remains authoritative.
+- **Repository documentation and reusable analysis:** `/repo-docs` documents from verified code/config/tests; `/repo-report` persists analytical reports under `.codesleuth/reports/` for later sessions in the same worktree.
+- **Profiles, Playbooks, Skills, and tools:** CodeSleuth detects repository profiles, generates ready-to-run Playbooks, catalogs OpenCode-native commands/Skills/tools/plugins, and keeps execution inside OpenCode rather than cloning those capabilities into a second engine.
+- **Operator controls that explain what will happen:** the TUI exposes repository readiness, active profiles/runtime policy, evidence state, explicit web/edit/external-directory permissions, Agent profile/model selection, Verify, update, dependency binding, and safe uninstall/restore behavior.
+- **Reproducible project integration:** CodeSleuth can be installed project-locally or pinned as `tools/codesleuth`; updates and removal preserve user-owned configuration and keep local review/report state out of Git by default.
+
+The practical contract is deliberately narrow: **CodeSleuth makes OpenCode repository analysis more inspectable, repeatable, resumable, and evidence-grounded without becoming another model runtime or supervisor.**
 
 ## OpenCode `build` controller
 
@@ -20,7 +71,7 @@ native provider-specific controller prompt
 Task → explore / general / CodeSleuth skills and subagents
 ```
 
-OpenCode is the current installed runtime/integration environment. CodeSleuth also provides a narrow, read-only [MCP adapter](docs/NOVACLAW-MCP.md) so NovaClaw can consume the same evidence discipline without CodeSleuth replacing NovaClaw's controller or model runtime. Historical `review-pack*` commands remain compatibility aliases while the public surface moves to `codesleuth`.
+OpenCode is the current runtime/integration environment. Historical `review-pack*` commands remain compatibility aliases while the public surface moves to `codesleuth`.
 
 ## What CodeSleuth owns
 
@@ -208,13 +259,6 @@ The Bun durable-state smokes remain part of acceptance:
 bun install --frozen-lockfile
 bun tests/review_state_smoke.ts
 bun tests/context_graph_smoke.ts
-```
-
-The NovaClaw MCP adapter has a separate runtime pin and focused gate:
-
-```bash
-python -m pip install -r requirements-mcp.txt
-python -m pytest -q tests/test_mcp_server.py
 ```
 
 ## Current compatibility names
