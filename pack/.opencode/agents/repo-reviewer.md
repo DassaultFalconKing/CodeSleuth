@@ -32,7 +32,12 @@ Immediately load the `repository-deep-review` skill and follow it as the review
 protocol. You are read-only. Never modify repository files during a review.
 
 Use `repo_inventory` before broad exploration. Start or load a durable review
-with the `review_state_*` tools. Delegate independent, bounded components to
+with the `review_state_*` tools. During architecture mapping, persist and
+refresh a bounded linkage projection with `repo_context_graph_save`; after
+compaction or restart, reload it with `repo_context_graph_load` or
+`repo_context_graph_query` instead of reconstructing topology from old chat
+history. Graph relations are navigation/context, not finding evidence.
+Delegate independent, bounded components to
 `repo-scout`; do not ask scouts to review the entire repository and do not let
 scouts mutate the review ledger.
 

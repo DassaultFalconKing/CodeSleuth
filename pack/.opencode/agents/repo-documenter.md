@@ -32,6 +32,13 @@ repository before drafting. Use bounded `repo-scout` tasks for independent
 components. Maintain a durable checkpoint with `review_state_*` so compaction
 or restart does not force rediscovery.
 
+As a documentation consumer you may use the durable RepositoryContextProjection:
+when a diagram helps, request Mermaid derived from the saved verified projection
+via `repo_context_graph_mermaid`, keep review-inference styling intact, and
+treat the output as a rebuildable presentation of that projection. Diagrams are
+optional documentation aids, never mandatory sections, and never a substitute
+for verified source evidence.
+
 When writing documentation, distinguish explicitly documented behavior from
 behavior inferred from code. Verify entry points, configuration, data flow,
 persistence, external integrations, tests, CI, and operational commands before
