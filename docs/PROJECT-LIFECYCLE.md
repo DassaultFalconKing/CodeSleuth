@@ -28,7 +28,10 @@ Automatic uninstall compares each pre-existing file's pre-install, post-install,
 During installation CodeSleuth adds a marked root `.gitignore` block for local-only data:
 
 ```text
-.codesleuth/
+.codesleuth/*
+!.codesleuth/reports/
+.codesleuth/reports/*
+!.codesleuth/reports/README.md
 .opencode/state/
 .opencode/cache/
 .opencode/logs/
@@ -36,6 +39,8 @@ During installation CodeSleuth adds a marked root `.gitignore` block for local-o
 .opencode/snapshots/
 .opencode/node_modules/
 ```
+
+`.codesleuth/reports/` is the OpenCode-written analytical report store. Report bodies and `INDEX.md` stay gitignored (they may contain secrets). `README.md` in that folder may be tracked so other assistants can find the convention. Format: `.opencode/CODESLEUTH-REPORTS.md`. Discovery pointer: a managed block in root `AGENTS.md`.
 
 The dependency path `tools/codesleuth` is never added to that block. If an existing project rule ignores the proposed submodule path, binding fails closed rather than silently rewriting project ignore policy.
 

@@ -16,8 +16,10 @@ CodeSleuth is a **control surface over OpenCode**, not a replacement runtime.
 
 ```text
 CodeSleuth = UX / control panel / configuration / catalog / safe lifecycle
-OpenCode   = execution runtime / models / agents / tool calls / Skills
+OpenCode   = execution runtime / native build controller / models / agents / tool calls / Skills
 ```
+
+Do not present CodeSleuth as a second supervisor. Agent profile is model-family selection for OpenCode's native `build` prompt, not a custom system prompt.
 
 The interface must make this relationship obvious enough that users understand what they are about to do, while remaining thin enough that existing OpenCode commands, tools, Skills, and long-context review behavior continue to work directly.
 
@@ -128,9 +130,10 @@ Sections:
 
 1. Installation
 2. Repository profile
-3. Evidence permissions
-4. Runtime
-5. Planned policy
+3. Agent profile (OpenCode model family; native `build` controller)
+4. Evidence permissions
+5. Runtime
+6. Planned policy
 
 Configuration must preserve explicit consent for web search/fetch, edits, and external directories.
 
@@ -163,7 +166,8 @@ Help explains the product model, not only button mechanics:
 
 - CodeSleuth vs OpenCode
 - quick start
-- Skills vs Playbooks vs Tools vs Profiles
+- Skills vs Playbooks vs Tools vs Profiles vs Agent profile
+- OpenCode `build` as the native controller; CodeSleuth does not replace its prompt
 - evidence/durable state
 - permissions
 - Verify/update lifecycle
@@ -201,6 +205,7 @@ After this branding/production track, do **not** add new CodeSleuth core workflo
 Out of scope without a new architecture decision:
 
 - a CodeSleuth-specific agent loop;
+- a CodeSleuth supervisor prompt on OpenCode `build`;
 - a second tool router/tool-calling protocol;
 - a second model/session runtime;
 - replacement repository-review engine that bypasses OpenCode;

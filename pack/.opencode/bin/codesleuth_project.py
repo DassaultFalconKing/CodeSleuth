@@ -11,11 +11,15 @@ from pathlib import Path
 from typing import Any
 
 LOCAL_ROOT = ".codesleuth"
+REPORTS_DIR = ".codesleuth/reports"
 DEFAULT_DEPENDENCY_PATH = "tools/codesleuth"
 IGNORE_BEGIN = "# BEGIN CodeSleuth local-only data"
 IGNORE_END = "# END CodeSleuth local-only data"
 IGNORE_LINES = (
-    ".codesleuth/",
+    ".codesleuth/*",
+    "!.codesleuth/reports/",
+    ".codesleuth/reports/*",
+    "!.codesleuth/reports/README.md",
     ".opencode/state/",
     ".opencode/cache/",
     ".opencode/logs/",
@@ -25,6 +29,53 @@ IGNORE_LINES = (
     ".opencode/**/__pycache__/",
     ".opencode/**/*.pyc",
 )
+AGENTS_BEGIN = "<!-- BEGIN CodeSleuth reports -->"
+AGENTS_END = "<!-- END CodeSleuth reports -->"
+AGENTS_POINTER = (
+    "<!-- BEGIN CodeSleuth reports -->\n"
+    "Analytical reports for this repository live in `.codesleuth/reports/` "
+    "(see `INDEX.md`). Format: `.opencode/CODESLEUTH-REPORTS.md`. "
+    "OpenCode `build` writes them; later CodeSleuth sessions and other coding "
+    "assistants should read them before repeating analysis.\n"
+    "<!-- END CodeSleuth reports -->"
+)
+REPORTS_README = """# CodeSleuth analytical reports
+
+This folder is the durable, assistant-readable report store for this repository.
+
+- **Writer:** OpenCode's primary `build` agent (via `/repo-review`, `/repo-docs`, `/repo-report`).
+- **Readers:** later CodeSleuth/OpenCode sessions, Cursor, Claude, Codex, Copilot, and humans.
+- **Do not** invent a second CodeSleuth supervisor prompt. Reports are ordinary markdown files.
+
+## Files
+
+| Path | Git | Purpose |
+|---|---|---|
+| `README.md` | tracked (this file) | convention for every assistant |
+| `INDEX.md` | gitignored | catalog of reports in this worktree |
+| `YYYY-MM-DDTHHMMZ-<slug>.md` | gitignored | one analysis report |
+
+Report bodies are gitignored because they may contain secrets, source excerpts, or credentials. Sanitize before force-adding them to Git.
+
+## Required report sections
+
+1. Title, UTC date, target (`HEAD`, dirty, scope)
+2. Summary
+3. Findings (severity, `path:line-line`, evidence, recommendation)
+4. Paths inspected
+5. Checks/tests actually run
+6. Recommendations
+7. Limitations / not reviewed
+8. Link to `.opencode/state/reviews/<id>/` when a durable review exists
+
+See `.opencode/CODESLEUTH-REPORTS.md` for the full template.
+"""
+REPORTS_INDEX = """# CodeSleuth report index
+
+Newest first. Each bullet: `file` — UTC date — title — scope — HEAD.
+
+- _(no reports yet)_
+"""
 SKIP_SNAPSHOT_DIRS = {
     ".cache",
     "cache",
@@ -132,6 +183,51 @@ def ensure_local_gitignore(repo: Path, *, preserve_archive_only: bool = False) -
     new_content = f"{body}\n\n{block}\n" if body else f"{block}\n"
     path.write_text(new_content, encoding="utf-8")
     return path
+
+
+def ensure_reports_workspace(repo: Path) -> Path:
+    reports = repo / LOCAL_ROOT / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    readme = reports / "README.md"
+    if not readme.is_file():
+        readme.write_text(REPORTS_README, encoding="utf-8")
+    index = reports / "INDEX.md"
+    if not index.is_file():
+        index.write_text(REPORTS_INDEX, encoding="utf-8")
+    return reports
+
+
+def ensure_agents_reports_pointer(repo: Path) -> Path:
+    path = repo / "AGENTS.md"
+    original = path.read_text(encoding="utf-8") if path.is_file() else ""
+    before, marker, tail = original.partition(AGENTS_BEGIN)
+    if marker:
+        _, end_marker, after = tail.partition(AGENTS_END)
+        if not end_marker:
+            raise RuntimeError("malformed CodeSleuth reports block in AGENTS.md")
+        original = before.rstrip("\n") + ("\n" if before else "") + after.lstrip("\n")
+    body = original.rstrip("\n")
+    new_content = f"{body}\n\n{AGENTS_POINTER}\n" if body else f"{AGENTS_POINTER}\n"
+    path.write_text(new_content, encoding="utf-8")
+    return path
+
+
+def remove_agents_reports_pointer(repo: Path) -> None:
+    path = repo / "AGENTS.md"
+    if not path.exists():
+        return
+    original = path.read_text(encoding="utf-8")
+    before, marker, tail = original.partition(AGENTS_BEGIN)
+    if not marker:
+        return
+    _, end_marker, after = tail.partition(AGENTS_END)
+    if not end_marker:
+        raise RuntimeError("malformed CodeSleuth reports block in AGENTS.md")
+    body = (before.rstrip("\n") + "\n" + after.lstrip("\n")).strip("\n")
+    if body:
+        path.write_text(body + "\n", encoding="utf-8")
+    else:
+        path.unlink()
 
 
 def remove_local_gitignore_block(repo: Path) -> None:
@@ -369,6 +465,7 @@ def archive_traces(repo: Path) -> Path:
         repo / ".opencode" / "profiles",
         repo / ".opencode" / "state" / "reviews",
         repo / ".opencode" / "state" / "tui",
+        repo / LOCAL_ROOT / "reports",
     ]
     copied: list[str] = []
     for source in candidates:
@@ -542,6 +639,7 @@ def uninstall_project(
 ) -> dict[str, Any]:
     repo = git_root(repo)
     archive = archive_traces(repo) if preserve_traces else None
+    remove_agents_reports_pointer(repo)
     restored = restore_preinstall_snapshot(repo)
     dependency = (
         remove_dependency(repo, dependency_path)

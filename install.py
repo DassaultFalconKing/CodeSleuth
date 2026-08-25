@@ -358,6 +358,8 @@ def main():
         meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
 
     project_lifecycle.record_postinstall_snapshot(repo)
+    project_lifecycle.ensure_reports_workspace(repo)
+    project_lifecycle.ensure_agents_reports_pointer(repo)
 
     print("profiles:", ", ".join(profiles))
     print(("updated" if args.update else "installed"), f"CodeSleuth {VERSION} into", repo)
@@ -368,6 +370,7 @@ def main():
     if dependency and dependency.get("bound"):
         print(f"dependency: {dependency['path']} @ {dependency.get('commit') or dependency.get('requestedCommit')}")
     print("pre-install backup: .codesleuth/backups/pre-install/")
+    print("analytical reports: .codesleuth/reports/ (INDEX.md + markdown; OpenCode build writes them)")
     print("control TUI: .opencode/bin/codesleuth")
     print("smoke: python3 .opencode/bin/review-pack-smoke.py . (compatibility filename)")
     print("uninstall preserving traces: .opencode/bin/codesleuth-project --uninstall .")

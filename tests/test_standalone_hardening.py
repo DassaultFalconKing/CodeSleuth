@@ -61,3 +61,25 @@ def test_builtin_profiles_are_permission_neutral() -> None:
         config = data.get("config")
         if isinstance(config, dict):
             assert "permission" not in config
+
+
+def test_apply_settings_never_sets_build_prompt(tmp_path: Path) -> None:
+    import sys
+
+    bin_dir = ROOT / "pack" / ".opencode" / "bin"
+    sys.path.insert(0, str(bin_dir))
+    from review_pack_tui_core import apply_settings_to_config_dict, default_settings
+
+    cfg = {"permission": {}, "compaction": {}}
+    settings = default_settings(["generic"])
+    settings["agent"] = {"profile": "claude", "model": "anthropic/claude-sonnet-4-5"}
+    updated = apply_settings_to_config_dict(cfg, settings)
+    assert updated.get("model") == "anthropic/claude-sonnet-4-5"
+    agent = updated.get("agent")
+    if isinstance(agent, dict):
+        build = agent.get("build")
+        if isinstance(build, dict):
+            assert "prompt" not in build
+    policy = updated["permission"]["edit"]
+    assert policy[".codesleuth/reports/**"] == "allow"
+    assert policy["*"] == "ask"

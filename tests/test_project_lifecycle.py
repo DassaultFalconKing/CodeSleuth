@@ -39,7 +39,8 @@ def test_preinstall_backup_and_restore(tmp_path: Path) -> None:
     pointer = lifecycle.create_preinstall_snapshot(repo)
     assert (repo / pointer["manifest"]).is_file()
     ignore = (repo / ".gitignore").read_text(encoding="utf-8")
-    assert ".codesleuth/" in ignore
+    assert ".codesleuth/*" in ignore
+    assert "!.codesleuth/reports/README.md" in ignore
     assert ".opencode/state/" in ignore
     assert "tools/codesleuth" not in ignore
     assert subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", "tools/codesleuth"]).returncode != 0
@@ -295,3 +296,36 @@ def test_installer_normalizes_nested_target_to_git_root(tmp_path: Path) -> None:
     subprocess.run([sys.executable, str(BIN.parents[2] / "install.py"), str(nested)], check=True)
     assert (repo / ".opencode" / "review-pack.json").is_file()
     assert not (nested / ".opencode").exists()
+    reports = repo / ".codesleuth" / "reports"
+    assert (reports / "README.md").is_file()
+    assert (reports / "INDEX.md").is_file()
+    assert "CodeSleuth reports" in (repo / "AGENTS.md").read_text(encoding="utf-8")
+    ignore = (repo / ".gitignore").read_text(encoding="utf-8")
+    assert "!.codesleuth/reports/README.md" in ignore
+    assert subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", ".codesleuth/reports/secret.md"]).returncode == 0
+    assert subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", ".codesleuth/reports/README.md"]).returncode != 0
+
+
+def test_reports_workspace_is_seeded_and_uninstalled_pointer_removed(tmp_path: Path) -> None:
+    repo = tmp_path / "target"
+    init_repo(repo)
+    (repo / "AGENTS.md").write_text("# Project agents\n\nKeep this.\n", encoding="utf-8")
+    git(repo, "add", "AGENTS.md")
+    git(repo, "commit", "-m", "agents")
+    lifecycle.ensure_reports_workspace(repo)
+    lifecycle.ensure_agents_reports_pointer(repo)
+    lifecycle.ensure_local_gitignore(repo)
+    assert (repo / ".codesleuth" / "reports" / "README.md").is_file()
+    text = (repo / "AGENTS.md").read_text(encoding="utf-8")
+    assert "Keep this." in text
+    assert lifecycle.AGENTS_BEGIN in text
+    (repo / ".codesleuth" / "reports" / "20260825T010000Z-demo.md").write_text("# demo\n", encoding="utf-8")
+    oc = repo / ".opencode"
+    oc.mkdir()
+    (oc / "review-pack.json").write_text(json.dumps({"managedFiles": {}}), encoding="utf-8")
+    result = lifecycle.uninstall_project(repo, preserve_traces=True, remove_bound_dependency=False)
+    archive = repo / result["archive"]
+    assert (archive / "files" / ".codesleuth" / "reports" / "20260825T010000Z-demo.md").is_file()
+    leftover = (repo / "AGENTS.md").read_text(encoding="utf-8")
+    assert "Keep this." in leftover
+    assert lifecycle.AGENTS_BEGIN not in leftover

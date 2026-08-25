@@ -36,7 +36,9 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         |
         +--> pack/.opencode/themes/codesleuth.json
         +--> pack/.opencode/bin/codesleuth_tui.py
+        +--> pack/.opencode/CODESLEUTH-REPORTS.md
         +--> OpenCode runtime / commands / Skills / tools
+        +--> .codesleuth/reports/ (OpenCode-written analysis)
 ```
 
 Core CodeSleuth is feature-frozen. Growth continues through profiles, Skills, Playbooks, OpenCode-native tools/plugins, and extension-management UX.

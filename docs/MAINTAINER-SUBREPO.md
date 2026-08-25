@@ -101,6 +101,10 @@ Built-in profiles are permission-neutral. They may describe stack detection, ver
 
 The TUI/project policy layer is the only owner of those explicit permission choices.
 
+## Native OpenCode controller
+
+Do not set `prompt` on OpenCode's primary `build` agent. Custom agent markdown becomes `agent.prompt` and **replaces** the native provider-specific controller. `/repo-*` commands must keep `agent: build`. Agent profile in project settings may set `opencode.json` `model` only.
+
 ## Compatibility surface
 
 The following historical names remain during migration:

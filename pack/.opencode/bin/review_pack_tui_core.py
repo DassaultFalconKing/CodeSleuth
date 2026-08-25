@@ -11,6 +11,13 @@ SETTINGS_SCHEMA = 1
 TEXTUAL_VERSION = "8.2.8"
 PROFILES = ("generic", "rust", "python", "node", "typescript")
 PERMISSION_VALUES = ("allow", "ask", "deny")
+AGENT_PROFILES = ("native", "open-weight", "codex", "claude")
+AGENT_PROFILE_OPTIONS = [
+    ("OpenCode native (current model)", "native"),
+    ("Open-weight (native kimi.txt when model is Kimi)", "open-weight"),
+    ("Codex (native codex.txt)", "codex"),
+    ("Claude (native anthropic.txt)", "claude"),
+]
 
 SAFE_GIT_RULES = {
     "*": "ask",
@@ -79,6 +86,10 @@ def default_settings(profiles: list[str] | None = None) -> dict[str, Any]:
             "webStallSeconds": 180,
             "compactionReserved": 20000,
             "checkUpdatesOnStart": True,
+        },
+        "agent": {
+            "profile": "native",
+            "model": "",
         },
     }
 
@@ -169,6 +180,18 @@ def validate_settings(settings: dict[str, Any]) -> dict[str, Any]:
         if not lo <= value <= hi:
             raise ValueError(f"{key} must be between {lo} and {hi}")
         runtime[key] = value
+    agent = merged.get("agent")
+    if not isinstance(agent, dict):
+        agent = {}
+        merged["agent"] = agent
+    profile = agent.get("profile") or "native"
+    if profile not in AGENT_PROFILES:
+        raise ValueError("agent profile must be native, open-weight, codex, or claude")
+    agent["profile"] = profile
+    model = agent.get("model") or ""
+    if not isinstance(model, str):
+        raise ValueError("agent.model must be a string")
+    agent["model"] = model.strip()
     return merged
 
 
@@ -189,15 +212,26 @@ def build_permission_policy(settings: dict[str, Any]) -> dict[str, Any]:
         "*.env.*": "deny",
         "*.env.example": "allow",
     }
+    perm_edit = perms["edit"]
+    if perm_edit == "deny":
+        edit_policy: str | dict[str, str] = "deny"
+    elif perm_edit == "allow":
+        edit_policy = "allow"
+    else:
+        edit_policy = {"*": perm_edit, ".codesleuth/reports/**": "allow"}
     return {
         "read": read_policy,
-        "edit": perms["edit"],
+        "edit": edit_policy,
         "bash": bash,
         "external_directory": perms["externalDirectory"],
         "websearch": perms["websearch"],
         "webfetch": perms["webfetch"],
         "lsp": "allow",
-        "skill": {"*": "ask", "repository-deep-review": "allow"},
+        "skill": {
+            "*": "ask",
+            "repository-deep-review": "allow",
+            "codesleuth-reports": "allow",
+        },
         "question": perms["question"],
         "doom_loop": perms["doomLoop"],
     }
@@ -250,6 +284,19 @@ def _set_keepalive(cfg: dict[str, Any], settings: dict[str, Any]) -> None:
     cfg["plugin"] = kept
 
 
+def apply_agent_profile_to_config(cfg: dict[str, Any], settings: dict[str, Any]) -> None:
+    """Bind an optional OpenCode model. Never write agent.prompt.
+
+    OpenCode's primary `build` agent has no own prompt; the controller text is
+    chosen by model via SystemPrompt.provider(). A custom `prompt` on `build`
+    replaces that native controller entirely rather than appending to it.
+    """
+    agent = settings.get("agent") or {}
+    model = str(agent.get("model") or "").strip()
+    if model:
+        cfg["model"] = model
+
+
 def apply_settings_to_config_dict(cfg: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any]:
     settings = validate_settings(settings)
     out = copy.deepcopy(cfg)
@@ -261,6 +308,7 @@ def apply_settings_to_config_dict(cfg: dict[str, Any], settings: dict[str, Any])
         out["permission"] = existing
     out.setdefault("compaction", {})["reserved"] = settings["runtime"]["compactionReserved"]
     _set_keepalive(out, settings)
+    apply_agent_profile_to_config(out, settings)
     return out
 
 
@@ -278,6 +326,11 @@ def settings_from_config(cfg: dict[str, Any], profiles: list[str]) -> dict[str, 
         }
         for source, target in mapping.items():
             value = permission.get(source)
+            if source == "edit" and isinstance(value, dict):
+                nested = value.get("*")
+                if isinstance(nested, str) and nested in PERMISSION_VALUES:
+                    settings["permissions"][target] = nested
+                continue
             if isinstance(value, str) and value in PERMISSION_VALUES:
                 settings["permissions"][target] = value
         settings["permissions"]["managePolicy"] = False
@@ -292,6 +345,9 @@ def settings_from_config(cfg: dict[str, Any], profiles: list[str]) -> dict[str, 
             if isinstance(options.get("maxStallRecoveries"), int):
                 settings["runtime"]["maxStallRecoveries"] = options["maxStallRecoveries"]
             break
+    model = cfg.get("model")
+    if isinstance(model, str) and model.strip():
+        settings["agent"]["model"] = model.strip()
     return settings
 
 
@@ -337,6 +393,9 @@ def apply_settings_to_target(repo: Path, settings: dict[str, Any]) -> Path:
         "detectedFromTrackedFiles": settings.get("profilesMode") == "auto",
         "exaLaunchDefault": "OPENCODE_ENABLE_EXA=1" if settings["runtime"]["exaEnabled"] else "disabled by review-pack-user.json",
     }, indent=2) + "\n", encoding="utf-8")
+    import codesleuth_project as project_lifecycle
+    project_lifecycle.ensure_reports_workspace(repo)
+    project_lifecycle.ensure_agents_reports_pointer(repo)
     return cfg_path
 
 
@@ -344,8 +403,12 @@ def settings_summary(settings: dict[str, Any]) -> str:
     settings = validate_settings(settings)
     p = settings["permissions"]
     r = settings["runtime"]
+    agent = settings["agent"]
+    model = agent["model"] or "OpenCode current model"
     return "\n".join([
         f"Profiles: {', '.join(settings['profiles'])} ({settings['profilesMode']})",
+        f"Agent profile: {agent['profile']} ({model}); controller: OpenCode native build prompt",
+        "Reports: .codesleuth/reports/ (OpenCode build writes; other assistants read INDEX.md)",
         f"Permission preset: {p['preset']}",
         f"Web: search={p['websearch']}, fetch={p['webfetch']}; external dirs={p['externalDirectory']}; edit={p['edit']}",
         f"Exa: {'enabled' if r['exaEnabled'] else 'disabled'}; watchdog: {'enabled' if r['watchdogEnabled'] else 'disabled'}",
@@ -362,6 +425,11 @@ def config_preview(settings: dict[str, Any]) -> str:
         "compaction": {"reserved": settings["runtime"]["compactionReserved"]},
         "exa": {"OPENCODE_ENABLE_EXA": "1" if settings["runtime"]["exaEnabled"] else "unset"},
         "watchdogEnabled": settings["runtime"]["watchdogEnabled"],
+        "agent": {
+            "profile": settings["agent"]["profile"],
+            "model": settings["agent"]["model"] or None,
+            "controller": "OpenCode primary build; prompt left unset",
+        },
     }
     return json.dumps(preview, indent=2)
 
@@ -379,6 +447,10 @@ def generate_prompts(repo: Path, profiles: list[str]) -> list[tuple[str, str]]:
         (
             "Documentation truth pass",
             "/repo-docs build an evidence-first repository guide from current source, manifests, CI and tests. Separate documented guarantees from behavior inferred from code and call out stale or contradictory documentation.",
+        ),
+        (
+            "Persist an assistant-readable report",
+            "/repo-report write a CodeSleuth analytical report for the current HEAD and active review into .codesleuth/reports/, update INDEX.md, and keep application source unchanged.",
         ),
         (
             "External assumptions verification",

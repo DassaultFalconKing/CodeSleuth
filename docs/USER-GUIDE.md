@@ -1,6 +1,6 @@
 # CodeSleuth User Guide
 
-CodeSleuth is an evidence-oriented control panel and lifecycle layer for OpenCode repository review. The normal workflow is: install it into a Git repository, choose repository/profile policy, and launch OpenCode for deep reviews and durable evidence state. CodeSleuth configures and explains that environment; OpenCode remains responsible for models, agents, tools, commands, Skills, and review execution. A project may optionally pin the exact CodeSleuth source commit as a dependency.
+CodeSleuth is an evidence-oriented control panel and lifecycle layer for OpenCode repository review. The normal workflow is: install it into a Git repository, choose repository/profile policy and an OpenCode model (Agent profile), and launch OpenCode for deep reviews and durable evidence state. CodeSleuth configures and explains that environment; OpenCode remains responsible for models, agents, tools, commands, Skills, and review execution. OpenCode's primary `build` agent is the controller. A project may optionally pin the exact CodeSleuth source commit as a dependency.
 
 ## Start from a CodeSleuth checkout
 
@@ -24,6 +24,8 @@ The setup screen controls:
 
 - install / update / legacy adoption;
 - automatic or manual repository profiles;
+- Agent profile: Open-weight / Codex / Claude / OpenCode native, which selects a model family so OpenCode's native `build` controller prompt is used (never a CodeSleuth supervisor prompt);
+- optional OpenCode model id written to `opencode.json` as `model` only;
 - explicit OpenCode permission policy;
 - Exa web runtime;
 - keepalive/watchdog settings;
@@ -53,7 +55,9 @@ project/
 ├── tools/
 │   └── codesleuth/       # exact CodeSleuth gitlink/submodule
 ├── .opencode/            # project-owned installed auditor/runtime policy
-└── .codesleuth/          # local backups/archives, ignored
+├── AGENTS.md             # includes a CodeSleuth reports discovery block
+└── .codesleuth/          # local backups/archives/reports
+    └── reports/          # OpenCode-written analysis for later sessions and other assistants
 ```
 
 `.opencode/state/` is local runtime/review state and remains ignored.
@@ -118,9 +122,14 @@ Launch the configured OpenCode runtime:
 /repo-review
 /repo-docs
 /repo-review-resume
+/repo-report
 ```
 
-The deep-review workflow uses deterministic repository inventory, bounded scouts, parent re-verification of exact source, durable finding/checkpoint state, compaction-safe recovery and selective evidence rehydration.
+Those commands run on OpenCode's primary `build` agent. Custom CodeSleuth agents (`repo-scout` and related specialists) are Task subagents, not a second session controller. The deep-review workflow uses the `repository-deep-review` skill, deterministic inventory, bounded scouts, parent re-verification of exact source, durable finding/checkpoint state, compaction-safe recovery and selective evidence rehydration.
+
+Analytical reports are written by OpenCode `build` to `.codesleuth/reports/` (`INDEX.md` plus dated markdown). Other coding assistants discover the folder via `AGENTS.md` and `.opencode/CODESLEUTH-REPORTS.md`. Report bodies are gitignored by default because they may contain secrets; `README.md` in that folder may be committed.
+
+Setting `prompt` on `build` would replace OpenCode's native controller (`codex.txt` / `anthropic.txt` / `kimi.txt` / …) rather than adding to it. Leave it unset.
 
 ## Durable state
 

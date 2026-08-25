@@ -88,6 +88,9 @@ async def test_pilot_can_unbind_dependency_without_uninstalling_runtime(tmp_path
         dependency_switch = app.screen.query_one("#bind-dependency", Switch)
         assert dependency_switch.value is True
         await pilot.click("#bind-dependency")
+        dialog = app.screen.query_one("#config-dialog")
+        dialog.scroll_end(animate=False)
+        await pilot.pause()
         await pilot.click("#apply")
         for _ in range(20):
             await pilot.pause(0.1)
@@ -139,6 +142,7 @@ async def test_navigation_routes_explain_existing_opencode_owned_surfaces(tmp_pa
         assert "OpenCode execution" in NAV_SURFACES["review"][0]
         assert "does not run a second review engine" in NAV_SURFACES["review"][1]
         assert "OpenCode-native" in NAV_SURFACES["tools"][0]
+        assert ".codesleuth/reports/" in NAV_SURFACES["evidence"][1]
 
 
 @pytest.mark.asyncio
@@ -166,7 +170,7 @@ async def test_branded_configuration_is_operable_at_mobile_size(tmp_path: Path) 
         screen = app.screen
         assert isinstance(screen, CodeSleuthConfigScreen)
         assert screen.has_class("compact")
-        for control_id in ("operation", "preset", "websearch", "webfetch", "edit", "external"):
+        for control_id in ("operation", "preset", "websearch", "webfetch", "edit", "external", "agent-profile"):
             control = screen.query_one(f"#{control_id}")
             assert control.region.x >= 0
             assert control.region.right <= 48

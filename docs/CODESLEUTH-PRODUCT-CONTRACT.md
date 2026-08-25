@@ -13,7 +13,8 @@
 OpenCode owns:
 
 - model sessions and context;
-- agent execution;
+- the primary controller agent (`build`) and its native provider-specific prompt;
+- agent execution, including native `explore` / `general` Task subagents;
 - tool calling/routing;
 - Skills execution;
 - OpenCode commands;
@@ -25,13 +26,33 @@ CodeSleuth owns only the surrounding operator experience:
 
 - clear repository/readiness/status presentation;
 - project-local configuration and permission UX;
-- profile selection/detection;
+- repository profile selection/detection;
+- **Agent profile** as model-family selection (Open-weight / Codex / Claude / native), never as a custom supervisor prompt;
 - safe install/adopt/update/remove lifecycle;
 - Verify/smoke presentation;
 - Playbook discovery;
+- analytical report folder convention (`.codesleuth/reports/`), written by OpenCode `build`;
 - Help/documentation;
 - extension discovery/catalog/install/update/remove UX;
 - theme/branding defaults that do not overwrite user-owned configuration.
+
+Native execution boundary:
+
+```text
+CodeSleuth TUI
+    ↓
+profile / skill / command / model / permissions
+    ↓
+OpenCode primary build
+    ↓
+native provider-specific controller prompt
+    ↓
+Task → explore / general / CodeSleuth skills and subagents
+    ↓
+OpenCode tools / MCP / shell / read / edit
+```
+
+`build` has no own `prompt` in OpenCode. The controller text is chosen by model (`codex.txt`, `gpt.txt`, `anthropic.txt`, `gemini.txt`, `kimi.txt`, else `default.txt`). A custom `agent.prompt` **replaces** that controller entirely; it does not append. CodeSleuth `/repo-*` commands must keep `agent: build` and must not set `agent.build.prompt`.
 
 ## 3. Non-duplication rule
 
@@ -89,6 +110,8 @@ Specifically prohibited without a new ADR/product decision:
 
 - independent CodeSleuth model runtime;
 - independent CodeSleuth agent loop;
+- a CodeSleuth supervisor / orchestrator / "main AI" that replaces OpenCode `build`;
+- injecting `prompt` onto `build` or another primary agent (this clobbers OpenCode's provider prompt);
 - independent tool-call protocol/router;
 - replacement review engine;
 - duplicate copies of OpenCode capabilities hidden behind CodeSleuth-specific implementations;
@@ -108,6 +131,7 @@ CodeSleuth must not block direct use of:
 /repo-review
 /repo-docs
 /repo-review-resume
+/repo-report
 ```
 
 or other OpenCode-native tools/Skills added later.

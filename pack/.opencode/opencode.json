@@ -7,7 +7,10 @@
       "*.env.*": "deny",
       "*.env.example": "allow"
     },
-    "edit": "ask",
+    "edit": {
+      "*": "ask",
+      ".codesleuth/reports/**": "allow"
+    },
     "bash": {
       "*": "ask",
       "git status*": "allow",
@@ -32,7 +35,8 @@
     "lsp": "allow",
     "skill": {
       "*": "ask",
-      "repository-deep-review": "allow"
+      "repository-deep-review": "allow",
+      "codesleuth-reports": "allow"
     },
     "question": "allow",
     "doom_loop": "ask"
@@ -48,6 +52,7 @@
       ".opencode/cache/**",
       ".opencode/logs/**",
       ".opencode/state/**",
+      ".codesleuth/reports/**",
       "node_modules/**",
       "target/**",
       "dist/**",

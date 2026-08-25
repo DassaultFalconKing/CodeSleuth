@@ -26,6 +26,43 @@ def test_public_introduction_preserves_opencode_execution_ownership() -> None:
     assert "control panel" in readme
     assert "without replacing OpenCode's models, agents, tools, commands" in readme
     assert "OpenCode remains responsible for models, agents, tools, commands, Skills, and review execution" in guide
+    assert "OpenCode's primary controller is `build`" in readme
+    assert ".codesleuth/reports/" in readme
+    assert ".codesleuth/reports/" in guide
+
+
+def test_commands_stay_on_opencode_build_and_agents_are_subagents() -> None:
+    pack = ROOT / "pack" / ".opencode"
+    for name in (
+        "repo-review.md",
+        "repo-docs.md",
+        "repo-review-resume.md",
+        "repo-profile.md",
+        "repo-prompts.md",
+        "repo-report.md",
+    ):
+        text = (pack / "commands" / name).read_text(encoding="utf-8")
+        assert "agent: build" in text
+        assert "agent: repo-reviewer" not in text
+    for name in (
+        "repo-reviewer.md",
+        "repo-documenter.md",
+        "repo-profile-architect.md",
+        "repo-prompt-advisor.md",
+        "repo-scout.md",
+    ):
+        text = (pack / "agents" / name).read_text(encoding="utf-8")
+        assert "mode: subagent" in text
+        assert "mode: primary" not in text
+    cfg = json.loads((pack / "opencode.json").read_text(encoding="utf-8"))
+    agent = cfg.get("agent")
+    if isinstance(agent, dict):
+        build = agent.get("build")
+        if isinstance(build, dict):
+            assert not str(build.get("prompt") or "").strip()
+    reports = (pack / "CODESLEUTH-REPORTS.md").read_text(encoding="utf-8")
+    assert ".codesleuth/reports/" in reports
+    assert "agent: build" in (pack / "commands" / "repo-report.md").read_text(encoding="utf-8")
 
 
 def test_bun_smoke_dependency_is_exactly_pinned() -> None:
