@@ -1,0 +1,159 @@
+name: naming-cutover-worker
+on: push
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Adapt worker to current integration tree
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/naming_cutover_apply.py')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace(
+              'files = [ROOT / "README.md", ROOT / "README.ru.md", ROOT / "README.uk.md"]',
+              'files = [p for p in (ROOT / "README.md", ROOT / "README.ru.md", ROOT / "README.uk.md") if p.exists()]',
+          )
+          s = s.replace(
+              '        path = ROOT / name\n        text = path.read_text(encoding="utf-8")',
+              '        path = ROOT / name\n        if not path.exists():\n            continue\n        text = path.read_text(encoding="utf-8")',
+          )
+          p.write_text(s, encoding='utf-8')
+          PY
+      - run: python .github/naming_cutover_apply.py
+      - name: Repair cutover seams for current release layout
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # Installer: make the naming manifest authoritative on the current
+          # release line, whose version import sits inside the old anchor.
+          p = Path('install.py')
+          s = p.read_text(encoding='utf-8')
+          old = '''META_NAME = "codesleuth.json"\nSETTINGS_NAME = "codesleuth-user.json"\nsys.path.insert(0, str(PACK / "bin"))\nfrom codesleuth_version import source_version  # noqa: E402\nimport codesleuth_project as project_lifecycle  # noqa: E402\nimport codesleuth_tui_core as tui_core  # noqa: E402\n'''
+          new = '''sys.path.insert(0, str(PACK / "bin"))\nfrom codesleuth_naming import load_naming  # noqa: E402\nfrom codesleuth_version import source_version  # noqa: E402\nimport codesleuth_project as project_lifecycle  # noqa: E402\nimport codesleuth_tui_core as tui_core  # noqa: E402\n\nNAMING = load_naming(PACK / "codesleuth-naming.json")\nCANONICAL = NAMING["canonical"]\nLEGACY = NAMING["legacy"]\nMETA_NAME = CANONICAL["state"]["metadata"]\nSETTINGS_NAME = CANONICAL["state"]["settings"]\nLEGACY_META_NAME = LEGACY["state"]["metadata"]\nLEGACY_SETTINGS_NAME = LEGACY["state"]["settings"]\n'''
+          if old not in s:
+              raise SystemExit('installer authority block not found')
+          s = s.replace(old, new, 1)
+          s = s.replace('args.adopt_existing_pack', 'args.adopt_existing')
+          s = s.replace('args.force_pack_files', 'args.force_managed_files')
+          if 'legacy_runtime =' not in s:
+              raise SystemExit('legacy persistent-state migration block not found')
+          managed = '    managed, conflicts = install_files(target, old_meta, args.update, args.force_managed_files, args.adopt_existing)\n'
+          bridge = managed + '    if args.update and legacy_runtime:\n        _materialize_legacy_update_bridges(target)\n'
+          if '_materialize_legacy_update_bridges(target)' not in s:
+              if managed not in s:
+                  raise SystemExit('managed-files install seam not found')
+              s = s.replace(managed, bridge, 1)
+          p.write_text(s, encoding='utf-8')
+
+          # Bootstrap: the release line imports codesleuth_version between
+          # pathlib and TEXTUAL_VERSION, so the generic worker anchor misses.
+          p = Path('pack/.opencode/bin/codesleuth_tui_bootstrap.py')
+          s = p.read_text(encoding='utf-8')
+          if 'from codesleuth_naming import load_naming' not in s:
+              anchor = 'from codesleuth_version import VersionMetadataError, resolve_version\n\n'
+              authority = '''from codesleuth_version import VersionMetadataError, resolve_version\nfrom codesleuth_naming import load_naming\n\nNAMING = load_naming()\nENV_DISTRIBUTION_ROOT = NAMING["canonical"]["environment"]["distributionRoot"]\nENV_TARGET_ROOT = NAMING["canonical"]["environment"]["targetRoot"]\n\n'''
+              if anchor not in s:
+                  raise SystemExit('bootstrap import seam not found')
+              s = s.replace(anchor, authority, 1)
+          if 'def target_root() -> Path:' not in s:
+              marker = '\ndef runtime_root() -> Path:\n'
+              helper = '''\ndef target_root() -> Path:\n    return Path(os.environ.get(ENV_TARGET_ROOT, HERE.parents[1])).resolve()\n\n\ndef runtime_root() -> Path:\n'''
+              if marker not in s:
+                  raise SystemExit('bootstrap runtime_root seam not found')
+              s = s.replace(marker, helper, 1)
+          s = s.replace(
+              '    target = Path(os.environ.get(ENV_TARGET_ROOT, HERE.parents[1])).resolve()\n',
+              '    target = target_root()\n',
+          )
+          launch = '    return subprocess.call([str(python), str(APP), *sys.argv[1:]])\n'
+          if 'cleanup_transition_bridges(target_root())' not in s:
+              if launch not in s:
+                  raise SystemExit('bootstrap launch seam not found')
+              s = s.replace(launch, '    cleanup_transition_bridges(target_root())\n' + launch, 1)
+          for required in ('NAMING = load_naming()', 'ENV_DISTRIBUTION_ROOT =', 'ENV_TARGET_ROOT =', 'cleanup_transition_bridges(target_root())'):
+              if required not in s:
+                  raise SystemExit(f'bootstrap cutover requirement missing: {required}')
+          p.write_text(s, encoding='utf-8')
+
+          # Updater: keep CLI/status/temp naming manifest-driven even on the
+          # older release updater implementation. The legacy force spelling is
+          # hidden and exists only as migration plumbing.
+          p = Path('pack/.opencode/bin/codesleuth_update.py')
+          s = p.read_text(encoding='utf-8')
+          if 'from codesleuth_naming import load_naming' not in s:
+              anchor = 'from pathlib import Path\n\n'
+              authority = '''from pathlib import Path\n\nfrom codesleuth_naming import load_naming\n\nNAMING = load_naming()\nCANONICAL = NAMING["canonical"]\nLEGACY = NAMING["legacy"]\nMETA_NAME = CANONICAL["state"]["metadata"]\nSTATUS = CANONICAL["statusMessages"]\n\n'''
+              if anchor not in s:
+                  raise SystemExit('updater import seam not found')
+              s = s.replace(anchor, authority, 1)
+              s = s.replace('META_NAME = "codesleuth.json"\n\n', '', 1)
+          force_line = '    ap.add_argument("--force-codesleuth-files", action="store_true", help="replace locally modified managed files")\n'
+          force_replacement = (
+              '    ap.add_argument(CANONICAL["cliOptions"]["forceManagedFiles"], dest="force_managed_files", action="store_true", help="replace locally modified managed files")\n'
+              '    ap.add_argument(LEGACY["cliOptions"]["forceManagedFiles"], dest="force_managed_files", action="store_true", help=argparse.SUPPRESS)\n'
+          )
+          if 'dest="force_managed_files"' not in s:
+              if force_line not in s:
+                  raise SystemExit('updater force-flag seam not found')
+              s = s.replace(force_line, force_replacement, 1)
+          s = s.replace('args.force_pack_files', 'args.force_managed_files')
+          s = s.replace('args.force_codesleuth_files', 'args.force_managed_files')
+          s = s.replace('cmd.append("--force-codesleuth-files")', 'cmd.append(CANONICAL["cliOptions"]["forceManagedFiles"])')
+          s = s.replace('prefix="codesleuth-update-"', 'prefix=CANONICAL["temporaryPrefix"]')
+          if 'STATUS["updateApplied"]' not in s:
+              success = '        if code: raise SystemExit(code)\n'
+              if success not in s:
+                  raise SystemExit('updater success seam not found')
+              s = s.replace(success, success + '        print(STATUS["updateApplied"])\n', 1)
+          for required in ('STATUS = CANONICAL["statusMessages"]', 'dest="force_managed_files"', 'args.force_managed_files'):
+              if required not in s:
+                  raise SystemExit(f'updater cutover requirement missing: {required}')
+          p.write_text(s, encoding='utf-8')
+
+          # Harden the generated naming tests around the two seams that were
+          # previously invisible to the broad legacy-token scan.
+          p = Path('tests/test_naming_cutover.py')
+          s = p.read_text(encoding='utf-8')
+          if 'import subprocess\n' not in s:
+              s = s.replace('import json\n', 'import json\nimport subprocess\nimport sys\n', 1)
+          extra = r'''
+
+
+def test_updater_help_exposes_canonical_force_flag_only():
+    updater = ROOT / "pack/.opencode/bin/codesleuth_update.py"
+    result = subprocess.run([sys.executable, str(updater), "--help"], text=True, capture_output=True, check=True)
+    assert "--force-codesleuth-files" in result.stdout
+    assert "--force-pack-files" not in result.stdout
+    text = updater.read_text(encoding="utf-8")
+    assert "args.force_pack_files" not in text
+    assert 'dest="force_managed_files"' in text
+
+
+def test_canonical_bootstrap_removes_transition_bridges_on_handoff():
+    text = (ROOT / "pack/.opencode/bin/codesleuth_tui_bootstrap.py").read_text(encoding="utf-8")
+    assert "cleanup_transition_bridges(target_root())" in text
+'''
+          if 'test_updater_help_exposes_canonical_force_flag_only' not in s:
+              s += extra
+          p.write_text(s, encoding='utf-8')
+          PY
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+      - run: python -m ruff check .
+      - name: Commit verified cutover
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'chore: complete CodeSleuth naming cutover'
+          git push origin HEAD:chore/codesleuth-naming-cutover
