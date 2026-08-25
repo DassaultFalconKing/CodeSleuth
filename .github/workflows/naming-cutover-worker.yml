@@ -39,7 +39,18 @@ jobs:
           new = '''sys.path.insert(0, str(PACK / "bin"))\nfrom codesleuth_naming import load_naming  # noqa: E402\nfrom codesleuth_version import source_version  # noqa: E402\nimport codesleuth_project as project_lifecycle  # noqa: E402\nimport codesleuth_tui_core as tui_core  # noqa: E402\n\nNAMING = load_naming(PACK / "codesleuth-naming.json")\nCANONICAL = NAMING["canonical"]\nLEGACY = NAMING["legacy"]\nMETA_NAME = CANONICAL["state"]["metadata"]\nSETTINGS_NAME = CANONICAL["state"]["settings"]\nLEGACY_META_NAME = LEGACY["state"]["metadata"]\nLEGACY_SETTINGS_NAME = LEGACY["state"]["settings"]\n'''
           if old not in s:
               raise SystemExit('installer authority block not found')
-          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          s = s.replace(old, new, 1)
+          s = s.replace('args.adopt_existing_pack', 'args.adopt_existing')
+          s = s.replace('args.force_pack_files', 'args.force_managed_files')
+          if 'legacy_runtime =' not in s:
+              raise SystemExit('legacy persistent-state migration block not found')
+          managed = '    managed, conflicts = install_files(target, old_meta, args.update, args.force_managed_files, args.adopt_existing)\n'
+          bridge = managed + '    if args.update and legacy_runtime:\n        _materialize_legacy_update_bridges(target)\n'
+          if '_materialize_legacy_update_bridges(target)' not in s:
+              if managed not in s:
+                  raise SystemExit('managed-files install seam not found')
+              s = s.replace(managed, bridge, 1)
+          p.write_text(s, encoding='utf-8')
           PY
       - run: python -m pip install -r requirements-dev.txt
       - run: python -m pytest -q
