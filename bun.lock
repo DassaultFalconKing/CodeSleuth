@@ -5,7 +5,7 @@
     "": {
       "name": "codesleuth-development-gates",
       "devDependencies": {
-        "@opencode-ai/plugin": "1.14.48",
+        "@opencode-ai/plugin": "^1.14.48",
       },
     },
   },
