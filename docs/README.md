@@ -51,6 +51,7 @@ CodeSleuth documentation is text-first and terminal-native.
 
 ## Maintainers
 
+- [`STABLE-INTEGRATION-BASELINE.md`](STABLE-INTEGRATION-BASELINE.md) — canonical definition of Stable Integration Baseline (SIB), its distinction from MVP and release, eligibility criteria, refactor boundary, and release-construction model.
 - [`MAINTAINER-SUBREPO.md`](MAINTAINER-SUBREPO.md) — standalone/subrepo maintenance and integration guidance.
 - [`RELEASE-PROCESS.md`](RELEASE-PROCESS.md) — numbered release branch policy and acceptance gates.
 - [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — product-namespace inventory; runtime rename remains post-0.4.0 work.
