@@ -4,6 +4,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import re
 import shutil
 import subprocess
 import textwrap
@@ -70,12 +72,20 @@ Report bodies are gitignored because they may contain secrets, source excerpts, 
 
 See `.opencode/CODESLEUTH-REPORTS.md` for the full template.
 """
-REPORTS_INDEX = """# CodeSleuth report index
+REPORTS_INDEX_HEADER = """# CodeSleuth report index
 
 Newest first. Each bullet: `file` — UTC date — title — scope — HEAD.
-
-- _(no reports yet)_
 """
+REPORTS_INDEX_PLACEHOLDER = "- _(no reports yet)_"
+REPORTS_INDEX = f"{REPORTS_INDEX_HEADER.rstrip()}\n\n{REPORTS_INDEX_PLACEHOLDER}\n"
+_REPORT_INDEX_LINE_RE = re.compile(r"^- `([^`]+)`(?:\s*—\s*(.*))?$")
+_REPORT_TS_RE = re.compile(
+    r"^(?:"
+    r"(?P<y1>\d{4})(?P<m1>\d{2})(?P<d1>\d{2})T(?P<h1>\d{2})(?P<n1>\d{2})(?P<s1>\d{2})?Z"
+    r"|"
+    r"(?P<y2>\d{4})-(?P<m2>\d{2})-(?P<d2>\d{2})T(?P<h2>\d{2})(?P<n2>\d{2})Z"
+    r")-(?P<slug>.+)$"
+)
 SKIP_SNAPSHOT_DIRS = {
     ".cache",
     "cache",
@@ -91,6 +101,7 @@ SKIP_SNAPSHOT_DIRS = {
 
 
 def run_git(repo: Path, args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
+    """Run ``git`` in *repo* with *args* and return the completed process."""
     return subprocess.run(
         ["git", "-C", str(repo), *args],
         text=True,
@@ -100,10 +111,12 @@ def run_git(repo: Path, args: list[str], *, check: bool = True) -> subprocess.Co
 
 
 def utc_stamp() -> str:
+    """Return a compact UTC timestamp string for filenames."""
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
 def sha256_file(path: Path) -> str:
+    """Return the SHA-256 hex digest of *path*."""
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -198,6 +211,7 @@ def _abort_if_tracked_codesleuth_would_be_ignored(
 
 
 def ensure_local_gitignore(repo: Path, *, preserve_archive_only: bool = False) -> Path:
+    """Ensure the managed CodeSleuth local-only ignore block exists."""
     path = repo / ".gitignore"
     existed = path.exists()
     original_raw = path.read_text(encoding="utf-8") if existed else ""
@@ -217,23 +231,310 @@ def ensure_local_gitignore(repo: Path, *, preserve_archive_only: bool = False) -
     return path
 
 
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        tmp.write_text(content, encoding="utf-8")
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink(missing_ok=True)
+
+
+def report_timestamp_key(name: str) -> tuple[int, ...]:
+    """Return a sortable timestamp key for a report filename stem.
+
+    Args:
+        name: Report file name or stem (with or without ``.md``).
+
+    Returns:
+        A tuple suitable for newest-first ordering. Unparseable names sort last.
+    """
+    stem = name[:-3] if name.endswith(".md") else name
+    match = _REPORT_TS_RE.match(stem)
+    if not match:
+        return (0, 0, 0, 0, 0, 0)
+    g = match.groupdict()
+    if g.get("y1"):
+        return (
+            int(g["y1"]),
+            int(g["m1"]),
+            int(g["d1"]),
+            int(g["h1"]),
+            int(g["n1"]),
+            int(g["s1"] or 0),
+        )
+    return (
+        int(g["y2"]),
+        int(g["m2"]),
+        int(g["d2"]),
+        int(g["h2"]),
+        int(g["n2"]),
+        0,
+    )
+
+
+def _report_display_date(name: str) -> str:
+    stem = name[:-3] if name.endswith(".md") else name
+    match = _REPORT_TS_RE.match(stem)
+    if not match:
+        return ""
+    g = match.groupdict()
+    if g.get("y1"):
+        return f"{g['y1']}-{g['m1']}-{g['d1']}T{g['h1']}:{g['n1']}Z"
+    return f"{g['y2']}-{g['m2']}-{g['d2']}T{g['h2']}:{g['n2']}Z"
+
+
+def _report_basename(value: str | Path) -> str:
+    return Path(value).name
+
+
+def _title_from_report(path: Path) -> str:
+    if not path.is_file():
+        return Path(path).stem
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                return stripped.lstrip("#").strip() or path.stem
+    except OSError:
+        pass
+    return path.stem
+
+
+def _format_index_line(
+    name: str,
+    *,
+    date: str = "",
+    title: str = "",
+    scope: str = "",
+    head: str = "",
+) -> str:
+    return " — ".join(
+        [
+            f"- `{name}`",
+            date or "",
+            title or "",
+            scope or "",
+            head or "",
+        ]
+    )
+
+
+def _parse_index_entries(text: str) -> dict[str, dict[str, str]]:
+    entries: dict[str, dict[str, str]] = {}
+    for line in text.splitlines():
+        match = _REPORT_INDEX_LINE_RE.match(line.strip())
+        if not match:
+            continue
+        name = match.group(1)
+        rest = (match.group(2) or "").strip()
+        fields = [p.strip() for p in rest.split("—")] if rest else []
+        while len(fields) < 4:
+            fields.append("")
+        date, title, scope, head = fields[:4]
+        entries[name] = {
+            "date": date,
+            "title": title,
+            "scope": scope,
+            "head": head,
+        }
+    return entries
+
+
+def _iter_report_files(reports: Path) -> list[Path]:
+    if not reports.is_dir():
+        return []
+    files: list[Path] = []
+    for path in reports.iterdir():
+        if not path.is_file() or path.suffix.lower() != ".md":
+            continue
+        if path.name in {"README.md", "INDEX.md"}:
+            continue
+        files.append(path)
+    return files
+
+
+def _write_reports_index(index_path: Path, entries: dict[str, dict[str, str]]) -> None:
+    names = sorted(entries.keys(), key=report_timestamp_key, reverse=True)
+    lines = [REPORTS_INDEX_HEADER.rstrip(), ""]
+    if not names:
+        lines.append(REPORTS_INDEX_PLACEHOLDER)
+    else:
+        for name in names:
+            meta = entries[name]
+            lines.append(
+                _format_index_line(
+                    name,
+                    date=meta.get("date", ""),
+                    title=meta.get("title", ""),
+                    scope=meta.get("scope", ""),
+                    head=meta.get("head", ""),
+                )
+            )
+    lines.append("")
+    _atomic_write_text(index_path, "\n".join(lines))
+
+
+def update_reports_index(
+    repo: Path,
+    *,
+    add: str | Path | None = None,
+    remove: str | Path | None = None,
+    title: str | None = None,
+    date: str | None = None,
+    scope: str | None = None,
+    head: str | None = None,
+) -> Path:
+    """Atomically refresh ``.codesleuth/reports/INDEX.md``.
+
+    Args:
+        repo: Target repository root.
+        add: Report path or basename to upsert.
+        remove: Report path or basename to drop from the index.
+        title: Optional report title override.
+        date: Optional UTC date string override.
+        scope: Optional scope label (for example ``HEAD``).
+        head: Optional HEAD / commit label.
+
+    Returns:
+        Path to the written ``INDEX.md``.
+
+    Notes:
+        With neither ``add`` nor ``remove``, syncs the index to files on disk
+        (newest first, one line per report).
+    """
+    reports = repo / LOCAL_ROOT / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    index_path = reports / "INDEX.md"
+    existing_text = index_path.read_text(encoding="utf-8") if index_path.is_file() else REPORTS_INDEX
+    entries = _parse_index_entries(existing_text)
+
+    if remove is not None:
+        entries.pop(_report_basename(remove), None)
+
+    if add is not None:
+        add_path = Path(add)
+        if add_path.is_file():
+            file_path = add_path
+            name = add_path.name
+        else:
+            name = _report_basename(add)
+            file_path = reports / name
+        meta = dict(entries.get(name, {}))
+        meta["title"] = title if title is not None else (meta.get("title") or _title_from_report(file_path))
+        meta["date"] = date if date is not None else (meta.get("date") or _report_display_date(name))
+        if scope is not None:
+            meta["scope"] = scope
+        else:
+            meta.setdefault("scope", "")
+        if head is not None:
+            meta["head"] = head
+        else:
+            meta.setdefault("head", "")
+        entries[name] = meta
+
+    if add is None and remove is None:
+        on_disk = {_report_basename(p): p for p in _iter_report_files(reports)}
+        for name in list(entries):
+            if name not in on_disk:
+                entries.pop(name, None)
+        for name, path in on_disk.items():
+            meta = dict(entries.get(name, {}))
+            meta["title"] = meta.get("title") or _title_from_report(path)
+            meta["date"] = meta.get("date") or _report_display_date(name)
+            meta.setdefault("scope", "")
+            meta.setdefault("head", "")
+            entries[name] = meta
+
+    _write_reports_index(index_path, entries)
+    return index_path
+
+
 def ensure_reports_workspace(repo: Path) -> Path:
+    """Ensure ``.codesleuth/reports`` exists with README and INDEX.
+
+    Args:
+        repo: Target repository root.
+
+    Returns:
+        Path to the reports directory.
+    """
     reports = repo / LOCAL_ROOT / "reports"
     reports.mkdir(parents=True, exist_ok=True)
     readme = reports / "README.md"
     if not readme.is_file():
         readme.write_text(REPORTS_README, encoding="utf-8")
-    index = reports / "INDEX.md"
-    if not index.is_file():
-        index.write_text(REPORTS_INDEX, encoding="utf-8")
+    update_reports_index(repo)
     return reports
 
 
-def ensure_agents_reports_pointer(repo: Path) -> Path:
+def validate_agents_pointer(repo: Path) -> None:
+    """Validate the managed CodeSleuth reports block in ``AGENTS.md``.
+
+    Args:
+        repo: Target repository root.
+
+    Raises:
+        RuntimeError: If BEGIN/END markers are mismatched or unpaired.
+    """
     path = repo / "AGENTS.md"
+    if not path.is_file():
+        return
+    text = path.read_text(encoding="utf-8")
+    begins = text.count(AGENTS_BEGIN)
+    ends = text.count(AGENTS_END)
+    if begins == 0 and ends == 0:
+        return
+    if begins != ends:
+        if begins > ends:
+            raise RuntimeError("BEGIN without END in AGENTS.md CodeSleuth reports block")
+        raise RuntimeError("malformed CodeSleuth reports block in AGENTS.md")
+    pos = 0
+    for _ in range(begins):
+        b = text.find(AGENTS_BEGIN, pos)
+        if b < 0:
+            raise RuntimeError("malformed CodeSleuth reports block in AGENTS.md")
+        e = text.find(AGENTS_END, b + len(AGENTS_BEGIN))
+        if e < 0:
+            raise RuntimeError("BEGIN without END in AGENTS.md CodeSleuth reports block")
+        next_b = text.find(AGENTS_BEGIN, b + len(AGENTS_BEGIN))
+        if next_b != -1 and next_b < e:
+            raise RuntimeError("BEGIN without END in AGENTS.md CodeSleuth reports block")
+        pos = e + len(AGENTS_END)
+
+
+def ensure_agents_reports_pointer(repo: Path) -> Path:
+    """Ensure ``AGENTS.md`` ends with exactly one CodeSleuth reports pointer.
+
+    Args:
+        repo: Target repository root.
+
+    Returns:
+        Path to ``AGENTS.md``.
+
+    Raises:
+        RuntimeError: If a malformed block is present (refuses to overwrite
+            user content).
+    """
+    path = repo / "AGENTS.md"
+    try:
+        validate_agents_pointer(repo)
+    except RuntimeError as exc:
+        raise RuntimeError(
+            f"refusing to overwrite user content: malformed CodeSleuth reports block ({exc})"
+        ) from exc
+
     original = path.read_text(encoding="utf-8") if path.is_file() else ""
-    if original.rstrip("\n").endswith(AGENTS_POINTER.rstrip("\n")) and original.count(AGENTS_BEGIN) == 1:
+    if (
+        original.count(AGENTS_BEGIN) == 1
+        and original.count(AGENTS_END) == 1
+        and original.rstrip("\n").endswith(AGENTS_POINTER.rstrip("\n"))
+    ):
         return path
+
     cleaned = original
     while True:
         before, marker, tail = cleaned.partition(AGENTS_BEGIN)
@@ -241,7 +542,9 @@ def ensure_agents_reports_pointer(repo: Path) -> Path:
             break
         _, end_marker, after = tail.partition(AGENTS_END)
         if not end_marker:
-            raise RuntimeError("malformed CodeSleuth reports block in AGENTS.md")
+            raise RuntimeError(
+                "refusing to overwrite user content: malformed CodeSleuth reports block"
+            )
         cleaned = before.rstrip("\n") + ("\n" if before else "") + after.lstrip("\n")
     body = cleaned.rstrip("\n")
     new_content = (
@@ -260,6 +563,14 @@ def ensure_agents_reports_pointer(repo: Path) -> Path:
 
 
 def remove_agents_reports_pointer(repo: Path) -> None:
+    """Remove the managed CodeSleuth reports pointer from ``AGENTS.md``.
+
+    Args:
+        repo: Target repository root.
+
+    Notes:
+        Missing files or absent markers are soft no-ops.
+    """
     path = repo / "AGENTS.md"
     if not path.exists():
         return
@@ -276,8 +587,8 @@ def remove_agents_reports_pointer(repo: Path) -> None:
     else:
         path.unlink()
 
-
 def remove_local_gitignore_block(repo: Path) -> None:
+    """Remove the managed CodeSleuth local-only ignore block if present."""
     path = repo / ".gitignore"
     if not path.exists():
         return
@@ -296,6 +607,7 @@ def remove_local_gitignore_block(repo: Path) -> None:
 
 
 def create_preinstall_snapshot(repo: Path) -> dict[str, Any]:
+    """Snapshot pre-existing OpenCode/project state before install."""
     repo = repo.resolve()
     root = repo / LOCAL_ROOT
     pointer = root / "preinstall.json"
@@ -347,6 +659,7 @@ def _load_snapshot(repo: Path) -> tuple[dict[str, Any] | None, Path | None]:
 
 
 def git_root(path: Path) -> Path:
+    """Return the Git repository root containing *path*."""
     resolved = path.expanduser().resolve()
     result = run_git(resolved, ["rev-parse", "--show-toplevel"])
     return Path(result.stdout.strip()).resolve()
@@ -375,6 +688,7 @@ def record_postinstall_snapshot(repo: Path) -> None:
 
 
 def dependency_status(repo: Path, dependency_path: str = DEFAULT_DEPENDENCY_PATH) -> dict[str, Any]:
+    """Return binding status for the optional CodeSleuth git dependency."""
     repo = git_root(repo)
     rel = _safe_rel(dependency_path).as_posix()
     staged = run_git(repo, ["ls-files", "--stage", "--", rel], check=False)
@@ -394,6 +708,7 @@ def dependency_status(repo: Path, dependency_path: str = DEFAULT_DEPENDENCY_PATH
 
 
 def lifecycle_state(repo: Path, dependency_path: str = DEFAULT_DEPENDENCY_PATH) -> str:
+    """Classify the repository lifecycle state for install/update/uninstall."""
     repo = git_root(repo)
     runtime = (repo / ".opencode" / "review-pack.json").is_file()
     bound = dependency_status(repo, dependency_path)["bound"]
@@ -452,6 +767,7 @@ def bind_dependency(
     source_metadata: dict[str, Any] | None = None,
     dependency_path: str = DEFAULT_DEPENDENCY_PATH,
 ) -> dict[str, Any]:
+    """Bind CodeSleuth as a pinned Git submodule dependency."""
     repo = repo.resolve()
     rel = _safe_rel(dependency_path).as_posix()
     current = dependency_status(repo, rel)
@@ -503,6 +819,7 @@ def bind_dependency(
 
 
 def archive_traces(repo: Path) -> Path:
+    """Archive managed CodeSleuth traces under ``.codesleuth/archive``."""
     stamp = utc_stamp()
     archive = repo / LOCAL_ROOT / "archive" / stamp
     candidates = [
@@ -568,6 +885,7 @@ def _remove_codesleuth_files(
 
 
 def restore_preinstall_snapshot(repo: Path) -> dict[str, Any]:
+    """Restore pre-install OpenCode files using the three-way comparison."""
     repo = git_root(repo)
     meta_path = repo / ".opencode" / "review-pack.json"
     metadata = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.is_file() else None
@@ -664,6 +982,7 @@ def restore_preinstall_snapshot(repo: Path) -> dict[str, Any]:
 
 
 def remove_dependency(repo: Path, dependency_path: str = DEFAULT_DEPENDENCY_PATH) -> dict[str, Any]:
+    """Remove the bound CodeSleuth submodule/gitlink when safe."""
     repo = git_root(repo)
     rel = _safe_rel(dependency_path).as_posix()
     status = dependency_status(repo, rel)
@@ -684,6 +1003,7 @@ def uninstall_project(
     remove_bound_dependency: bool = True,
     dependency_path: str = DEFAULT_DEPENDENCY_PATH,
 ) -> dict[str, Any]:
+    """Uninstall CodeSleuth from *repo* (runtime and optional dependency)."""
     repo = git_root(repo)
     archive = archive_traces(repo) if preserve_traces else None
     remove_agents_reports_pointer(repo)
@@ -727,6 +1047,7 @@ def _metadata_source(repo: Path) -> dict[str, Any] | None:
 
 
 def main() -> int:
+    """CLI entrypoint for project lifecycle operations."""
     parser = argparse.ArgumentParser(description="Manage CodeSleuth as a project-local dependency and reversible installation.")
     parser.add_argument("repo", nargs="?", default=".")
     parser.add_argument("--dependency-path", default=DEFAULT_DEPENDENCY_PATH)

@@ -17,7 +17,7 @@ OpenCode primary build
     ↓
 native provider-specific controller prompt
     ↓
-Task → explore / general / CodeSleuth skills and subagents
+Task → explore / general / CodeSleuth skills
 ```
 
 OpenCode is the current runtime/integration environment. Historical `review-pack*` commands remain compatibility aliases while the public surface moves to `codesleuth`.
@@ -28,11 +28,11 @@ A target repository can contain three deliberately separate layers:
 
 ```text
 project/
-├── AGENTS.md                # discovery pointer to reports (managed block)
-├── tools/codesleuth/        # optional pinned Git submodule; reusable CodeSleuth source
-├── .opencode/               # project-owned CodeSleuth/OpenCode policy, agents, profiles and tools
-└── .codesleuth/             # local backups / reports / preserved artifacts
-    └── reports/             # OpenCode-written analytical reports for later sessions and other assistants
+├── AGENTS.md            # reports pointer (managed block)
+├── tools/codesleuth/    # optional pinned CodeSleuth submodule
+├── .opencode/           # installed policy, agents, profiles, tools
+└── .codesleuth/         # local backups / reports / archives
+    └── reports/         # analytical reports for later sessions
 ```
 
 `tools/codesleuth/` is intentionally **not** gitignored when the user chooses dependency mode. The superproject records an exact CodeSleuth commit as a Git gitlink. `.opencode/` is the target project's installed contract. `.codesleuth/` backups and report bodies are ignored by default; `.codesleuth/reports/README.md` may be committed so other assistants can find the convention.

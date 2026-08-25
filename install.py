@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -22,6 +23,45 @@ import review_pack_tui_core as tui_core  # noqa: E402
 
 def run_git(args, cwd=None, check=True):
     return subprocess.run(["git", *args], cwd=cwd, text=True, capture_output=True, check=check)
+
+
+
+MIN_GIT_VERSION = (2, 35, 0)
+
+
+def parse_git_version(raw: str) -> tuple[int, int, int]:
+    """Parse ``git --version`` output into an (major, minor, patch) tuple."""
+    match = re.search(r"git version\s+(\d+)\.(\d+)\.(\d+)", raw)
+    if not match:
+        raise ValueError(f"unrecognized git version: {raw!r}")
+    return int(match.group(1)), int(match.group(2)), int(match.group(3))
+
+
+def require_git_version() -> tuple[int, int, int]:
+    """Require Git >= MIN_GIT_VERSION; return the parsed version tuple."""
+    try:
+        proc = subprocess.run(
+            ["git", "--version"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError as exc:
+        raise SystemExit(f"git --version failed: {exc}") from exc
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip() or f"exit {proc.returncode}"
+        raise SystemExit(f"git --version failed: {detail}")
+    raw = (proc.stdout or proc.stderr or "").strip()
+    try:
+        version = parse_git_version(raw)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    if version < MIN_GIT_VERSION:
+        raise SystemExit(
+            f"CodeSleuth requires Git {MIN_GIT_VERSION[0]}.{MIN_GIT_VERSION[1]}.{MIN_GIT_VERSION[2]} "
+            f"or newer (found {version[0]}.{version[1]}.{version[2]})"
+        )
+    return version
 
 
 def git_files(repo: Path):
