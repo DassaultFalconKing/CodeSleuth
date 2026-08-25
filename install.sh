@@ -7,7 +7,7 @@ if command -v python3 >/dev/null 2>&1; then
 elif command -v python >/dev/null 2>&1; then
   PYTHON=python
 else
-  echo "review-pack installer requires Python 3" >&2
+  echo "codesleuth installer requires Python 3" >&2
   exit 127
 fi
 

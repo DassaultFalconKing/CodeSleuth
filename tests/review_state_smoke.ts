@@ -17,7 +17,7 @@ async function git(root: string, args: string[]): Promise<void> {
 async function main() {
   const root = await mkdtemp(path.join(tmpdir(), "review-state-smoke-"))
   await git(root, ["init"])
-  await git(root, ["config", "user.email", "review-pack-ci@example.invalid"])
+  await git(root, ["config", "user.email", "codesleuth-ci@example.invalid"])
   await git(root, ["config", "user.name", "Review Pack CI"])
   await writeFile(path.join(root, "tracked.txt"), "alpha\nbeta\n", "utf8")
   await git(root, ["add", "tracked.txt"])

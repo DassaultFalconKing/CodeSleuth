@@ -2,7 +2,7 @@
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/../.." && pwd)
-SETTINGS="$ROOT/.opencode/review-pack-user.json"
+SETTINGS="$ROOT/.opencode/codesleuth-user.json"
 TUI_CONFIG="$ROOT/.opencode/tui.json"
 EXA=1
 if [ -f "$SETTINGS" ]; then

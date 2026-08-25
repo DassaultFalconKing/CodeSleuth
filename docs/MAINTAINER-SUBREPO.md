@@ -27,7 +27,7 @@ The first standalone import was derived from:
 ```text
 DassaultFalconKing/Aleph_Rugent
 commit b00f83b81d50b2ac804fd24c83df0db86fe01c00
-subtree opencode-repo-review-pack/
+subtree opencode-repo-codesleuth/
 ```
 
 The initial imported tree was exactly:
@@ -51,7 +51,7 @@ bun install --frozen-lockfile
 bun tests/review_state_smoke.ts
 ```
 
-Also exercise the pinned `textual==8.2.8` app in headless mode. `ReviewPackApp` remains a compatibility class name, but it must never override Textual `App.log`.
+Also exercise the pinned `textual==8.2.8` app in headless mode. `CodeSleuthBaseApp` remains a compatibility class name, but it must never override Textual `App.log`.
 
 A release that advertises cross-platform support should execute PowerShell/Windows launcher coverage as well as Linux/Ubuntu coverage.
 
@@ -79,7 +79,7 @@ git submodule update --init --recursive
 
 This creates a reproducible relationship between application source, auditor source, and auditor policy.
 
-To revert a pin, checkout an earlier accepted SHA in `tools/codesleuth`, run that checkout's installer with `--update`, inspect the materialized diff, and commit the reverted gitlink plus intended `.opencode` changes together. Target-local `review-pack-update*` compatibility scripts are a floating-source path only when metadata contains an explicit `remote + ref`; they are not the advancement mechanism for a detached pin.
+To revert a pin, checkout an earlier accepted SHA in `tools/codesleuth`, run that checkout's installer with `--update`, inspect the materialized diff, and commit the reverted gitlink plus intended `.opencode` changes together. Target-local `codesleuth-update*` compatibility scripts are a floating-source path only when metadata contains an explicit `remote + ref`; they are not the advancement mechanism for a detached pin.
 
 ## Reversible installation
 
@@ -110,10 +110,10 @@ See [OpenCode `build` controller](../README.md#opencode-build-controller). `/rep
 The following historical names remain during migration:
 
 ```text
-review-pack
-review-pack.json
-review-pack-user.json
-ReviewPackApp
+codesleuth
+codesleuth.json
+codesleuth-user.json
+CodeSleuthBaseApp
 ```
 
 New product-facing entrypoints are named `codesleuth`. Compatibility removal should be a separately versioned change after downstream projects have migrated.

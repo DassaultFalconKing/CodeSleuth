@@ -31,8 +31,8 @@ def test_missing_source_version_fails_closed(tmp_path: Path) -> None:
         source_version(tmp_path)
 
 
-def test_installed_version_comes_from_review_pack_metadata(tmp_path: Path) -> None:
-    metadata = tmp_path / ".opencode" / "review-pack.json"
+def test_installed_version_comes_from_codesleuth_metadata(tmp_path: Path) -> None:
+    metadata = tmp_path / ".opencode" / "codesleuth.json"
     metadata.parent.mkdir(parents=True)
     metadata.write_text(json.dumps({"version": "9.8.7"}), encoding="utf-8")
     assert installed_version(tmp_path) == "9.8.7"
@@ -40,10 +40,10 @@ def test_installed_version_comes_from_review_pack_metadata(tmp_path: Path) -> No
 
 def test_source_cli_version_matches_root_metadata() -> None:
     env = dict(os.environ)
-    env["REVIEW_PACK_DISTRIBUTION_ROOT"] = str(ROOT)
-    env.pop("REVIEW_PACK_TARGET_ROOT", None)
+    env["CODESLEUTH_DISTRIBUTION_ROOT"] = str(ROOT)
+    env.pop("CODESLEUTH_TARGET_ROOT", None)
     result = subprocess.run(
-        [sys.executable, str(BIN / "review_pack_tui_bootstrap.py"), "--version"],
+        [sys.executable, str(BIN / "codesleuth_tui_bootstrap.py"), "--version"],
         env=env,
         text=True,
         capture_output=True,
@@ -54,14 +54,14 @@ def test_source_cli_version_matches_root_metadata() -> None:
 
 
 def test_installed_cli_version_matches_installed_metadata(tmp_path: Path) -> None:
-    metadata = tmp_path / ".opencode" / "review-pack.json"
+    metadata = tmp_path / ".opencode" / "codesleuth.json"
     metadata.parent.mkdir(parents=True)
     metadata.write_text(json.dumps({"version": "1.2.3"}), encoding="utf-8")
     env = dict(os.environ)
-    env.pop("REVIEW_PACK_DISTRIBUTION_ROOT", None)
-    env["REVIEW_PACK_TARGET_ROOT"] = str(tmp_path)
+    env.pop("CODESLEUTH_DISTRIBUTION_ROOT", None)
+    env["CODESLEUTH_TARGET_ROOT"] = str(tmp_path)
     result = subprocess.run(
-        [sys.executable, str(BIN / "review_pack_tui_bootstrap.py"), "--version"],
+        [sys.executable, str(BIN / "codesleuth_tui_bootstrap.py"), "--version"],
         env=env,
         text=True,
         capture_output=True,
@@ -80,7 +80,7 @@ async def test_tui_status_uses_installed_metadata_version(tmp_path: Path) -> Non
     subprocess.run(["git", "-C", str(tmp_path), "add", "README.md"], check=True)
     subprocess.run(["git", "-C", str(tmp_path), "commit", "-m", "fixture"], check=True, capture_output=True)
 
-    metadata = tmp_path / ".opencode" / "review-pack.json"
+    metadata = tmp_path / ".opencode" / "codesleuth.json"
     metadata.parent.mkdir(parents=True)
     metadata.write_text(
         json.dumps({"schemaVersion": 2, "version": "7.6.5", "complete": True, "source": {}}),

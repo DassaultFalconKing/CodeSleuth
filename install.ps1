@@ -6,7 +6,7 @@ if (-not $Python) {
     $Python = Get-Command python3 -ErrorAction SilentlyContinue
 }
 if (-not $Python) {
-    throw 'review-pack installer requires Python 3'
+    throw 'codesleuth installer requires Python 3'
 }
 
 & $Python.Source (Join-Path $Here 'install.py') @args

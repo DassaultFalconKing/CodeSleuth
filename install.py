@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -13,12 +14,19 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 PACK = ROOT / "pack" / ".opencode"
-META_NAME = "review-pack.json"
-SETTINGS_NAME = "review-pack-user.json"
 sys.path.insert(0, str(PACK / "bin"))
+from codesleuth_naming import load_naming  # noqa: E402
 from codesleuth_version import source_version  # noqa: E402
 import codesleuth_project as project_lifecycle  # noqa: E402
-import review_pack_tui_core as tui_core  # noqa: E402
+import codesleuth_tui_core as tui_core  # noqa: E402
+
+NAMING = load_naming(PACK / "codesleuth-naming.json")
+CANONICAL = NAMING["canonical"]
+LEGACY = NAMING["legacy"]
+META_NAME = CANONICAL["state"]["metadata"]
+SETTINGS_NAME = CANONICAL["state"]["settings"]
+LEGACY_META_NAME = LEGACY["state"]["metadata"]
+LEGACY_SETTINGS_NAME = LEGACY["state"]["settings"]
 
 VERSION = source_version(ROOT)
 
@@ -304,15 +312,100 @@ def preserve_merged_config_settings(repo: Path, settings: dict, profiles: list[s
     }, indent=2) + "\n", encoding="utf-8")
 
 
+
+def _atomic_write_json(path: Path, value: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        temp.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+        os.replace(temp, path)
+    finally:
+        temp.unlink(missing_ok=True)
+
+
+def _read_state_json(path: Path) -> dict:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"invalid CodeSleuth persistent state at {path}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise RuntimeError(f"invalid CodeSleuth persistent state at {path}: expected a JSON object")
+    return value
+
+
+def _resolve_named_state(target: Path, canonical_name: str, legacy_name: str) -> tuple[dict | None, bool]:
+    canonical = target / canonical_name
+    legacy = target / legacy_name
+    canonical_exists = canonical.is_file()
+    legacy_exists = legacy.is_file()
+    if not canonical_exists and not legacy_exists:
+        return None, False
+    canonical_value = _read_state_json(canonical) if canonical_exists else None
+    legacy_value = _read_state_json(legacy) if legacy_exists else None
+    if canonical_exists and legacy_exists:
+        if canonical_value != legacy_value:
+            raise RuntimeError(
+                f"conflicting CodeSleuth persistent state: {canonical} and {legacy} differ; refusing to guess authority"
+            )
+        legacy.unlink()
+        return canonical_value, True
+    if canonical_exists:
+        return canonical_value, False
+    assert legacy_value is not None
+    _atomic_write_json(canonical, legacy_value)
+    legacy.unlink()
+    return legacy_value, True
+
+
+def _materialize_legacy_update_bridges(target: Path) -> None:
+    bin_dir = target / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    bridges = set(NAMING["migration"]["bridgeEntrypoints"])
+    legacy_env = LEGACY["environment"]
+    canonical_env = CANONICAL["environment"]
+    legacy_verify = LEGACY["entrypoints"]["verify"]
+    legacy_bootstrap = LEGACY["python"]["tuiBootstrap"]
+    if legacy_verify in bridges:
+        verify = target / legacy_verify
+        verify.write_text(
+            "#!/usr/bin/env python3\n"
+            "import os, sys\n"
+            "from pathlib import Path\n"
+            "here = Path(__file__).resolve().parent\n"
+            f"os.execv(sys.executable, [sys.executable, str(here / {CANONICAL['entrypoints']['verify'].split('/')[-1]!r}), *sys.argv[1:]])\n",
+            encoding="utf-8",
+        )
+        verify.chmod(0o755)
+    if legacy_bootstrap in bridges:
+        bootstrap = target / legacy_bootstrap
+        bootstrap.write_text(
+            "#!/usr/bin/env python3\n"
+            "import os, sys\n"
+            "from pathlib import Path\n"
+            f"old_target = {legacy_env['targetRoot']!r}\n"
+            f"new_target = {canonical_env['targetRoot']!r}\n"
+            f"old_distribution = {legacy_env['distributionRoot']!r}\n"
+            f"new_distribution = {canonical_env['distributionRoot']!r}\n"
+            "if old_target in os.environ and new_target not in os.environ:\n    os.environ[new_target] = os.environ[old_target]\n"
+            "if old_distribution in os.environ and new_distribution not in os.environ:\n    os.environ[new_distribution] = os.environ[old_distribution]\n"
+            "here = Path(__file__).resolve().parent\n"
+            f"os.execv(sys.executable, [sys.executable, str(here / {CANONICAL['python']['tuiBootstrap'].split('/')[-1]!r}), *sys.argv[1:]])\n",
+            encoding="utf-8",
+        )
+        bootstrap.chmod(0o755)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Install, update, bind, or uninstall CodeSleuth for a Git repository.")
     parser.add_argument("--version", action="version", version=VERSION)
     parser.add_argument("repo", nargs="?", default=".")
     parser.add_argument("--profile", action="append", choices=["generic", "rust", "python", "node", "typescript"])
     parser.add_argument("--settings-file", help="validated CodeSleuth project-settings payload, normally produced by the TUI")
-    parser.add_argument("--force-pack-files", action="store_true", help="overwrite CodeSleuth-owned files, including locally modified ones")
+    parser.add_argument("--force-codesleuth-files", dest="force_managed_files", action="store_true", help="overwrite CodeSleuth-owned files, including locally modified ones")
+    parser.add_argument(LEGACY["cliOptions"]["forceManagedFiles"], dest="force_managed_files", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--update", action="store_true", help="update an existing versioned installation")
-    parser.add_argument("--adopt-existing-pack", action="store_true", help="adopt an older unversioned installation with backups")
+    parser.add_argument("--adopt-existing-codesleuth", dest="adopt_existing", action="store_true", help="adopt an older unversioned CodeSleuth installation with backups")
+    parser.add_argument(LEGACY["cliOptions"]["adoptExisting"], dest="adopt_existing", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--bind-dependency", action="store_true", help="pin this exact CodeSleuth commit as tools/codesleuth Git submodule")
     parser.add_argument("--dependency-path", default=project_lifecycle.DEFAULT_DEPENDENCY_PATH)
     parser.add_argument("--uninstall", action="store_true", help="restore pre-CodeSleuth configuration and remove CodeSleuth runtime")
@@ -330,7 +423,7 @@ def main():
     repo = project_lifecycle.git_root(Path(args.repo))
 
     if args.uninstall:
-        if args.update or args.adopt_existing_pack or args.bind_dependency:
+        if args.update or args.adopt_existing or args.bind_dependency:
             raise SystemExit("--uninstall is mutually exclusive with install/update/bind operations")
         result = project_lifecycle.uninstall_project(
             repo,
@@ -342,8 +435,8 @@ def main():
         print("CodeSleuth uninstalled. Review staged Git changes before committing.")
         return
 
-    if args.adopt_existing_pack and args.update:
-        raise SystemExit("--adopt-existing-pack and --update are mutually exclusive")
+    if args.adopt_existing and args.update:
+        raise SystemExit("--adopt-existing-codesleuth and --update are mutually exclusive")
 
     project_lifecycle.create_preinstall_snapshot(repo)
     project_lifecycle.ensure_local_gitignore(repo)
@@ -351,10 +444,16 @@ def main():
     target = repo / ".opencode"
     target.mkdir(exist_ok=True)
     meta_path = target / META_NAME
-    old_meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else None
+    legacy_runtime = (target / LEGACY_META_NAME).is_file() or (target / LEGACY_SETTINGS_NAME).is_file()
+    try:
+        old_meta, migrated_meta = _resolve_named_state(target, META_NAME, LEGACY_META_NAME)
+        _, migrated_settings = _resolve_named_state(target, SETTINGS_NAME, LEGACY_SETTINGS_NAME)
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
+    legacy_runtime = legacy_runtime or migrated_meta or migrated_settings
     if args.update and not old_meta:
-        raise SystemExit("cannot --update: .opencode/review-pack.json is missing; use --adopt-existing-pack for an older installation")
-    if args.adopt_existing_pack and old_meta:
+        raise SystemExit("cannot --update: .opencode/codesleuth.json is missing; use --adopt-existing-codesleuth for an older unversioned installation")
+    if args.adopt_existing and old_meta:
         raise SystemExit("installation is already versioned; use --update")
 
     profiles = args.profile or detect(git_files(repo))
@@ -364,7 +463,9 @@ def main():
     settings = resolve_settings(args, repo, profiles)
     profiles = settings["profiles"]
 
-    managed, conflicts = install_files(target, old_meta, args.update, args.force_pack_files, args.adopt_existing_pack)
+    managed, conflicts = install_files(target, old_meta, args.update, args.force_managed_files, args.adopt_existing)
+    if args.update and legacy_runtime:
+        _materialize_legacy_update_bridges(target)
     base_config = update_config(target, old_meta, args.update)
     if args.update and not args.settings_file:
         preserve_merged_config_settings(repo, settings, profiles)
@@ -384,7 +485,7 @@ def main():
         "dependency": dependency,
         "preInstallBackup": f"{project_lifecycle.LOCAL_ROOT}/preinstall.json",
         "conflicts": conflicts,
-        "adoptedLegacy": bool(args.adopt_existing_pack),
+        "adoptedLegacy": bool(args.adopt_existing),
     }
     meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
 
@@ -404,7 +505,7 @@ def main():
 
     print("profiles:", ", ".join(profiles))
     print(("updated" if args.update else "installed"), f"CodeSleuth {VERSION} into", repo)
-    if args.adopt_existing_pack:
+    if args.adopt_existing:
         print("legacy installation adopted; backups are under .opencode/state/installer-backups/legacy-adoption")
     if conflicts:
         print(f"update completed with {len(conflicts)} conflict(s); inspect .opencode/state/update-conflicts", file=sys.stderr)
@@ -413,7 +514,7 @@ def main():
     print("pre-install backup: .codesleuth/backups/pre-install/")
     print("analytical reports: .codesleuth/reports/ (INDEX.md + markdown; OpenCode build writes them)")
     print("control TUI: .opencode/bin/codesleuth")
-    print("smoke: python3 .opencode/bin/review-pack-smoke.py . (compatibility filename)")
+    print("verify: python3 .opencode/bin/codesleuth-verify.py .")
     print("uninstall preserving traces: .opencode/bin/codesleuth-project --uninstall .")
     print("SECURITY: review evidence may contain development credentials; local reports/state are gitignored by default.")
 

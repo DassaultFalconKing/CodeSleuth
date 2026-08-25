@@ -1,6 +1,6 @@
-# Locally generated OpenCode/review-pack state; keep project configuration and
+# Locally generated OpenCode/codesleuth state; keep project configuration and
 # authored agents, commands, plugins, profiles, skills, tools, and
-# review-pack-user.json versioned.
+# codesleuth-user.json versioned.
 .cache/
 cache/
 logs/

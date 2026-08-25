@@ -6,7 +6,12 @@ import sys
 import tempfile
 from pathlib import Path
 
-META_NAME = "review-pack.json"
+from codesleuth_naming import load_naming
+
+NAMING = load_naming()
+CANONICAL = NAMING["canonical"]
+META_NAME = CANONICAL["state"]["metadata"]
+STATUS = CANONICAL["statusMessages"]
 
 
 def run(args, **kwargs):
@@ -46,7 +51,7 @@ def main():
     ap.add_argument("--source-remote", help="override recorded Git remote for this run")
     ap.add_argument("--source-ref", help="override recorded branch/tag for this run")
     ap.add_argument("--source-subdir", help="override pack subdirectory inside the source repository")
-    ap.add_argument("--force-pack-files", action="store_true", help="replace locally modified managed files")
+    ap.add_argument("--force-codesleuth-files", action="store_true", help="replace locally modified managed files")
     args = ap.parse_args()
 
     repo = Path(args.repo).resolve()
@@ -57,11 +62,11 @@ def main():
     print("installed source:", installed_commit or "unknown")
     print("remote source:", head)
     if installed_commit == head:
-        print("REVIEW PACK CURRENT"); return
-    print("REVIEW PACK UPDATE AVAILABLE")
+        print(STATUS["current"]); return
+    print(STATUS["updateAvailable"])
     if args.check: return
 
-    with tempfile.TemporaryDirectory(prefix="opencode-review-pack-update-") as td:
+    with tempfile.TemporaryDirectory(prefix="opencode-codesleuth-update-") as td:
         clone = Path(td) / "source"
         p = subprocess.run(["git", "clone", "--depth", "1", "--branch", source["ref"], source["remote"], str(clone)])
         if p.returncode != 0: raise SystemExit(p.returncode)
@@ -70,7 +75,7 @@ def main():
         if not installer.is_file():
             raise SystemExit(f"latest source does not contain {installer.relative_to(clone)}; recorded source metadata is stale or points at the wrong repository")
         cmd = [sys.executable, str(installer), str(repo), "--update", "--source-remote", source["remote"], "--source-ref", source["ref"], "--source-subdir", source.get("subdir", ""), "--source-commit", head]
-        if args.force_pack_files: cmd.append("--force-pack-files")
+        if args.force_pack_files: cmd.append("--force-codesleuth-files")
         code = subprocess.run(cmd).returncode
         if code: raise SystemExit(code)
 

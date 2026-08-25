@@ -13,7 +13,7 @@ BIN = ROOT / "pack" / ".opencode" / "bin"
 sys.path.insert(0, str(ROOT / "pack" / ".opencode"))
 from tests_util import parse_frontmatter_field_from_text  # noqa: E402
 
-BIN_HELPER = BIN / "review-pack-smoke.py"
+BIN_HELPER = BIN / "codesleuth-verify.py"
 SMOKE_HELPER = ROOT / "smoke.py"
 
 

@@ -34,7 +34,7 @@ It contains one semantic version such as `0.4.0`.
 Installed CodeSleuth materializes that value into:
 
 ```text
-.opencode/review-pack.json -> version
+.opencode/codesleuth.json -> version
 ```
 
 The installed metadata is the authority for the version actually present in a target repository. A source checkout and an installed target can therefore honestly report different versions during an upgrade.
@@ -44,7 +44,7 @@ Runtime code must not contain a numeric fallback version. Missing or malformed v
 The version must be projected from those metadata sources into user-visible surfaces:
 
 - source `codesleuth --version` -> root `VERSION`;
-- installed `codesleuth --version` -> installed `review-pack.json.version`;
+- installed `codesleuth --version` -> installed `codesleuth.json.version`;
 - installer/update/smoke logs -> the same source/installed metadata they act on;
 - TUI status -> installed target metadata;
 - release notes/changelog -> the numbered release being accepted.

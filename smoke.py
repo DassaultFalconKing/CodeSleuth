@@ -18,12 +18,12 @@ required = [
     "profiles/builtin/generic.json", "profiles/builtin/rust.json", "profiles/builtin/python.json",
     "profiles/builtin/node.json", "profiles/builtin/typescript.json",
     "bin/opencode-review", "bin/opencode-review.ps1",
-    "bin/review-pack", "bin/review-pack.ps1",
-    "bin/review_pack_tui.py", "bin/codesleuth_tui.py", "bin/review_pack_tui_core.py", "bin/review_pack_tui_bootstrap.py",
+    "bin/codesleuth", "bin/codesleuth.ps1",
+    "bin/codesleuth_tui_base.py", "bin/codesleuth_tui.py", "bin/codesleuth_tui_core.py", "bin/codesleuth_tui_bootstrap.py",
     "bin/requirements-tui.txt",
-    "bin/review-pack-update", "bin/review-pack-update.ps1", "bin/review-pack-update.py",
-    "bin/review-pack-smoke.py", "themes/codesleuth.json", "tui.json",
-    "opencode.json", "review-pack.json", "review-pack-user.json", "CODESLEUTH-REPORTS.md"
+    "bin/codesleuth-update", "bin/codesleuth-update.ps1", "bin/codesleuth_update.py",
+    "bin/codesleuth-verify.py", "themes/codesleuth.json", "tui.json",
+    "opencode.json", "codesleuth.json", "codesleuth-user.json", "CODESLEUTH-REPORTS.md"
 ]
 missing = [x for x in required if not (oc / x).is_file()]
 if missing:
@@ -58,7 +58,7 @@ if isinstance(bash, dict):
         if bash.get(destructive) == "allow":
             print(f"warning: destructive shell rule is explicitly allowed: {destructive}")
 
-meta = json.loads((oc / "review-pack.json").read_text(encoding="utf-8"))
+meta = json.loads((oc / "codesleuth.json").read_text(encoding="utf-8"))
 if meta.get("schemaVersion") not in (1, 2):
     raise SystemExit("unsupported or missing CodeSleuth metadata schemaVersion")
 if not meta.get("version"):
@@ -72,7 +72,7 @@ if source.get("remote") and not source.get("ref"):
     else:
         raise SystemExit("CodeSleuth source has a remote but neither ref nor commit")
 
-settings = json.loads((oc / "review-pack-user.json").read_text(encoding="utf-8"))
+settings = json.loads((oc / "codesleuth-user.json").read_text(encoding="utf-8"))
 if settings.get("schemaVersion") != 1:
     raise SystemExit("unsupported CodeSleuth project-settings schema")
 profiles = settings.get("profiles")
@@ -146,7 +146,7 @@ if not (root / ".codesleuth" / "reports" / "README.md").is_file():
 if "CodeSleuth reports" not in (root / "AGENTS.md").read_text(encoding="utf-8"):
     raise SystemExit("AGENTS.md is missing the CodeSleuth reports discovery pointer")
 
-print("PACK SMOKE PASS")
+print("CODESLEUTH VERIFY PASS")
 print("product: CodeSleuth")
 print("version:", meta["version"])
 print("installation complete:", bool(meta.get("complete", False)))
@@ -156,4 +156,4 @@ print("Exa runtime:", "enabled" if settings.get("runtime", {}).get("exaEnabled",
 print("CodeSleuth console: .opencode/bin/codesleuth")
 print("POSIX launcher: .opencode/bin/opencode-review")
 print("PowerShell launcher: .opencode/bin/opencode-review.ps1")
-print("floating update check (compatibility command): .opencode/bin/review-pack-update --check")
+print("floating update check (compatibility command): .opencode/bin/codesleuth-update --check")

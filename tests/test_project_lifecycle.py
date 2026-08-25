@@ -55,9 +55,9 @@ def test_preinstall_backup_and_restore(tmp_path: Path) -> None:
 
     (oc / "opencode.json").write_text('{"codesleuth":true}\n', encoding="utf-8")
     (oc / "agents" / "repo-reviewer.md").write_text("managed\n", encoding="utf-8")
-    (oc / "review-pack-user.json").write_text('{"x":1}\n', encoding="utf-8")
+    (oc / "codesleuth-user.json").write_text('{"x":1}\n', encoding="utf-8")
     managed_hash = lifecycle.sha256_file(oc / "agents" / "repo-reviewer.md")
-    (oc / "review-pack.json").write_text(
+    (oc / "codesleuth.json").write_text(
         json.dumps({"managedFiles": {"agents/repo-reviewer.md": managed_hash}}), encoding="utf-8"
     )
     lifecycle.record_postinstall_snapshot(repo)
@@ -67,7 +67,7 @@ def test_preinstall_backup_and_restore(tmp_path: Path) -> None:
     assert json.loads((oc / "opencode.json").read_text(encoding="utf-8"))["original"] is True
     assert (oc / "agents" / "custom.md").read_text(encoding="utf-8") == "custom\n"
     assert not (oc / "agents" / "repo-reviewer.md").exists()
-    assert not (oc / "review-pack-user.json").exists()
+    assert not (oc / "codesleuth-user.json").exists()
 
 
 def test_postinstall_restore_hash_is_not_redefined_by_later_user_change(tmp_path: Path) -> None:
@@ -194,8 +194,8 @@ def test_uninstall_preserves_sensitive_traces_in_ignored_archive(tmp_path: Path)
     (oc / "opencode.json").write_text('{"before":"codesleuth"}\n', encoding="utf-8")
     lifecycle.create_preinstall_snapshot(repo)
 
-    (oc / "review-pack.json").write_text(json.dumps({"managedFiles": {}}), encoding="utf-8")
-    (oc / "review-pack-user.json").write_text('{"profile":"rust"}\n', encoding="utf-8")
+    (oc / "codesleuth.json").write_text(json.dumps({"managedFiles": {}}), encoding="utf-8")
+    (oc / "codesleuth-user.json").write_text('{"profile":"rust"}\n', encoding="utf-8")
     reviews = oc / "state" / "reviews" / "r1"
     reviews.mkdir(parents=True)
     (reviews / "findings.ndjson").write_text('{"evidence":"TOKEN=secret"}\n', encoding="utf-8")
@@ -223,7 +223,7 @@ def test_uninstall_never_loses_postinstall_change_to_preexisting_file(
     lifecycle.create_preinstall_snapshot(repo)
 
     custom.write_text("installed\n", encoding="utf-8")
-    meta = repo / ".opencode" / "review-pack.json"
+    meta = repo / ".opencode" / "codesleuth.json"
     meta.write_text(json.dumps({"managedFiles": {}}), encoding="utf-8")
     lifecycle.record_postinstall_snapshot(repo)
     custom.write_text("user change after install\n", encoding="utf-8")
@@ -260,7 +260,7 @@ def test_uninstall_preserves_postinstall_deletion_or_type_change(
     lifecycle.create_preinstall_snapshot(repo)
 
     custom.write_text("installed\n", encoding="utf-8")
-    meta = repo / ".opencode" / "review-pack.json"
+    meta = repo / ".opencode" / "codesleuth.json"
     meta.write_text(json.dumps({"managedFiles": {}}), encoding="utf-8")
     lifecycle.record_postinstall_snapshot(repo)
     custom.unlink()
@@ -294,7 +294,7 @@ def test_uninstall_purge_restores_config_and_removes_local_root(tmp_path: Path) 
     (oc / "opencode.json").write_text('{"before":1}\n', encoding="utf-8")
     lifecycle.create_preinstall_snapshot(repo)
     (oc / "opencode.json").write_text('{"after":1}\n', encoding="utf-8")
-    (oc / "review-pack.json").write_text(json.dumps({"managedFiles": {}}), encoding="utf-8")
+    (oc / "codesleuth.json").write_text(json.dumps({"managedFiles": {}}), encoding="utf-8")
     lifecycle.record_postinstall_snapshot(repo)
 
     result = lifecycle.uninstall_project(repo, preserve_traces=False, remove_bound_dependency=False)
@@ -318,7 +318,7 @@ def test_installer_normalizes_nested_target_to_git_root(tmp_path: Path) -> None:
     nested = repo / "nested" / "directory"
     nested.mkdir(parents=True)
     subprocess.run([sys.executable, str(BIN.parents[2] / "install.py"), str(nested)], check=True)
-    assert (repo / ".opencode" / "review-pack.json").is_file()
+    assert (repo / ".opencode" / "codesleuth.json").is_file()
     assert not (nested / ".opencode").exists()
     reports = repo / ".codesleuth" / "reports"
     assert (reports / "README.md").is_file()
@@ -348,7 +348,7 @@ def test_reports_workspace_is_seeded_and_uninstalled_pointer_removed(tmp_path: P
     (repo / ".codesleuth" / "reports" / "20260825T010000Z-demo.md").write_text("# demo\n", encoding="utf-8")
     oc = repo / ".opencode"
     oc.mkdir()
-    (oc / "review-pack.json").write_text(json.dumps({"managedFiles": {}}), encoding="utf-8")
+    (oc / "codesleuth.json").write_text(json.dumps({"managedFiles": {}}), encoding="utf-8")
     result = lifecycle.uninstall_project(repo, preserve_traces=True, remove_bound_dependency=False)
     archive = repo / result["archive"]
     assert (archive / "files" / ".codesleuth" / "reports" / "20260825T010000Z-demo.md").is_file()

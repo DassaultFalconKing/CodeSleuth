@@ -27,7 +27,7 @@ def init_target(path: Path, files):
 
 
 def main():
-    with tempfile.TemporaryDirectory(prefix="review-pack-test-") as td:
+    with tempfile.TemporaryDirectory(prefix="codesleuth-test-") as td:
         tmp = Path(td)
 
         target = tmp / "target"
@@ -38,16 +38,16 @@ def main():
 
         run([sys.executable, str(ROOT / "install.py"), str(target)])
         oc = target / ".opencode"
-        meta = load(oc / "review-pack.json")
+        meta = load(oc / "codesleuth.json")
         assert meta["version"] == (ROOT / "VERSION").read_text(encoding="utf-8").strip()
         assert meta["complete"] is True
         detected = load(oc / "profiles" / "detected.json")["profiles"]
         assert "rust" in detected and "typescript" in detected
-        assert (oc / "bin" / "review-pack-update.py").is_file()
+        assert (oc / "bin" / "codesleuth_update.py").is_file()
 
         # Branding is additive: compatibility identifiers remain, while the installed
         # user-facing console and OpenCode runtime select CodeSleuth assets.
-        assert (oc / "bin" / "review_pack_tui.py").is_file()
+        assert (oc / "bin" / "codesleuth_tui_base.py").is_file()
         branded_tui = oc / "bin" / "codesleuth_tui.py"
         assert branded_tui.is_file()
         branded_source = branded_tui.read_text(encoding="utf-8")
@@ -62,7 +62,7 @@ def main():
         assert "codesleuth-project --uninstall" in branded_source
         assert "There is no automated uninstaller yet." not in branded_source
         assert "CodeSleuth Review Prompts" not in branded_source
-        assert "APP = HERE / \"codesleuth_tui.py\"" in (oc / "bin" / "review_pack_tui_bootstrap.py").read_text(encoding="utf-8")
+        assert "APP = HERE / \"codesleuth_tui.py\"" in (oc / "bin" / "codesleuth_tui_bootstrap.py").read_text(encoding="utf-8")
 
         tui_cfg = load(oc / "tui.json")
         assert tui_cfg["$schema"] == "https://opencode.ai/tui.json"
@@ -95,14 +95,14 @@ def main():
         assert "LOCAL USER CHANGE" in reviewer.read_text(encoding="utf-8")
         assert "PACK UPDATE MARKER" in (oc / "agents" / "repo-scout.md").read_text(encoding="utf-8")
         assert load(cfg_path)["compaction"]["reserved"] == 12345
-        assert load(oc / "review-pack-user.json")["runtime"]["compactionReserved"] == 12345
+        assert load(oc / "codesleuth-user.json")["runtime"]["compactionReserved"] == 12345
 
-        meta2 = load(oc / "review-pack.json")
+        meta2 = load(oc / "codesleuth.json")
         assert meta2["version"] == "9.9.9"
         assert meta2["complete"] is False
         assert any(x["path"] == "agents/repo-reviewer.md" for x in meta2["conflicts"])
         assert any((oc / "state" / "update-conflicts").rglob("repo-reviewer.md.incoming"))
-        run([sys.executable, str(oc / "bin" / "review-pack-smoke.py"), str(target)])
+        run([sys.executable, str(oc / "bin" / "codesleuth-verify.py"), str(target)])
 
         legacy = tmp / "legacy"
         init_target(legacy, {"README.md": "legacy target\n"})
@@ -113,20 +113,20 @@ def main():
         legacy_cfg = legacy_oc / "opencode.json"
         legacy_cfg.write_text('{"compaction":{"reserved":7777}}\n', encoding="utf-8")
 
-        run([sys.executable, str(ROOT / "install.py"), str(legacy), "--adopt-existing-pack"])
-        legacy_meta = load(legacy_oc / "review-pack.json")
+        run([sys.executable, str(ROOT / "install.py"), str(legacy), "--adopt-existing-codesleuth"])
+        legacy_meta = load(legacy_oc / "codesleuth.json")
         assert legacy_meta["adoptedLegacy"] is True
         assert legacy_meta["complete"] is True
         assert "OLD PRE-VERSIONED REVIEWER" not in legacy_agent.read_text(encoding="utf-8")
         assert load(legacy_cfg)["compaction"]["reserved"] == 7777
         backups = legacy_oc / "state" / "installer-backups" / "legacy-adoption"
         assert any(backups.rglob("repo-reviewer.md"))
-        run([sys.executable, str(legacy_oc / "bin" / "review-pack-smoke.py"), str(legacy)])
+        run([sys.executable, str(legacy_oc / "bin" / "codesleuth-verify.py"), str(legacy)])
 
         assert "install.py" in (ROOT / "install.sh").read_text(encoding="utf-8")
         assert "install.py" in (ROOT / "install.ps1").read_text(encoding="utf-8")
-        assert "review-pack-update.py" in (ROOT / "pack" / ".opencode" / "bin" / "review-pack-update").read_text(encoding="utf-8")
-        assert "review-pack-update.py" in (ROOT / "pack" / ".opencode" / "bin" / "review-pack-update.ps1").read_text(encoding="utf-8")
+        assert "codesleuth_update.py" in (ROOT / "pack" / ".opencode" / "bin" / "codesleuth-update").read_text(encoding="utf-8")
+        assert "codesleuth_update.py" in (ROOT / "pack" / ".opencode" / "bin" / "codesleuth-update.ps1").read_text(encoding="utf-8")
 
         print("LIFECYCLE TEST PASS")
 

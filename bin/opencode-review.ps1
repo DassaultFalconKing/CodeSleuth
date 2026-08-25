@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root = (Resolve-Path (Join-Path $Here '../..')).Path
-$Settings = Join-Path $Root '.opencode/review-pack-user.json'
+$Settings = Join-Path $Root '.opencode/codesleuth-user.json'
 $ExaEnabled = $true
 if (Test-Path $Settings) {
   try {

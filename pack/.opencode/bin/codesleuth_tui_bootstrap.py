@@ -8,7 +8,12 @@ import sys
 import venv
 from pathlib import Path
 
+from codesleuth_naming import load_naming
 from codesleuth_version import VersionMetadataError, resolve_version
+
+NAMING = load_naming()
+ENV_DISTRIBUTION_ROOT = NAMING["canonical"]["environment"]["distributionRoot"]
+ENV_TARGET_ROOT = NAMING["canonical"]["environment"]["targetRoot"]
 
 TEXTUAL_VERSION = "8.2.8"
 HERE = Path(__file__).resolve().parent
@@ -24,10 +29,10 @@ def usable_current_python() -> bool:
 
 
 def runtime_root() -> Path:
-    distribution = os.environ.get("REVIEW_PACK_DISTRIBUTION_ROOT")
+    distribution = os.environ.get(ENV_DISTRIBUTION_ROOT)
     if distribution:
         return Path(distribution).resolve() / ".runtime" / "tui"
-    target = Path(os.environ.get("REVIEW_PACK_TARGET_ROOT", HERE.parents[1])).resolve()
+    target = Path(os.environ.get("CODESLEUTH_TARGET_ROOT", HERE.parents[1])).resolve()
     return target / ".opencode" / "state" / "tui-runtime"
 
 
@@ -59,6 +64,20 @@ def ensure_runtime(version: str) -> Path:
     )
     marker.write_text(TEXTUAL_VERSION + "\n", encoding="utf-8")
     return python
+
+
+
+def cleanup_transition_bridges(target: Path) -> None:
+    if not NAMING["migration"].get("removeBridgeAfterCanonicalBootstrap", False):
+        return
+    opencode = target.resolve() / ".opencode"
+    for rel in NAMING["migration"].get("bridgeEntrypoints", []):
+        candidate = opencode / rel
+        try:
+            if candidate.is_file():
+                candidate.unlink()
+        except OSError:
+            pass
 
 
 def main() -> int:

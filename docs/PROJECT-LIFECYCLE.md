@@ -19,7 +19,7 @@ CodeSleuth creates one durable pre-install snapshot before it first modifies pro
 
 The snapshot includes the target root `.gitignore` and `.gitmodules` for forensic recovery plus non-ephemeral files under `.opencode`. It excludes caches, logs, sessions, state, dependency directories and bytecode.
 
-For an older target that already has review-pack metadata when 0.3 first sees it, the manifest records `pre-0.3-upgrade` rather than pretending the snapshot predates the historical installation.
+For an older target that already has codesleuth metadata when 0.3 first sees it, the manifest records `pre-0.3-upgrade` rather than pretending the snapshot predates the historical installation.
 
 Automatic uninstall compares each pre-existing file's pre-install, post-install, and current hashes. An unchanged installed file can be restored automatically. If a pre-existing file changed again after installation, its current worktree version is never overwritten: CodeSleuth retains baseline/current copies plus an explicit manifest under `.codesleuth/restore-conflicts/`. This recovery evidence survives purge. The target root `.gitignore` and `.gitmodules` are not blindly replaced. Current CodeSleuth installs do not write an ignore block to the root `.gitignore`; uninstall can still remove the exact managed block left by older CodeSleuth versions. CodeSleuth manages only its own submodule section/gitlink in `.gitmodules`.
 

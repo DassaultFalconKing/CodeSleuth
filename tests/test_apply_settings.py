@@ -5,7 +5,7 @@ from pathlib import Path
 
 BIN = Path(__file__).resolve().parents[1] / "pack" / ".opencode" / "bin"
 sys.path.insert(0, str(BIN))
-from review_pack_tui_core import apply_settings_to_config_dict, default_settings  # noqa: E402
+from codesleuth_tui_core import apply_settings_to_config_dict, default_settings  # noqa: E402
 
 
 def test_apply_settings_sets_top_level_model() -> None:

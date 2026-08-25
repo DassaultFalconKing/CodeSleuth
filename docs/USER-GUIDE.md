@@ -101,13 +101,13 @@ After installation:
 Compatibility alias:
 
 ```bash
-.opencode/bin/review-pack
+.opencode/bin/codesleuth
 ```
 
 Validate the installation:
 
 ```bash
-python3 .opencode/bin/review-pack-smoke.py .
+python3 .opencode/bin/codesleuth-verify.py .
 ```
 
 Launch the configured OpenCode runtime:

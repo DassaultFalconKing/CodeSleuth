@@ -29,8 +29,8 @@ from textual.widgets import (
 
 import codesleuth_project as project_lifecycle
 from constants import AGENT_PROFILE_OPTIONS
-from review_pack_tui import AbortableModalScreen, ConfigScreen, PromptScreen, ReviewPackApp, launch_opencode
-from review_pack_tui_core import (
+from codesleuth_tui_base import AbortableModalScreen, ConfigScreen, PromptScreen, CodeSleuthBaseApp, launch_opencode
+from codesleuth_tui_core import (
     detect_profiles,
     installation_state,
     load_settings,
@@ -343,7 +343,7 @@ class CodeSleuthConfigScreen(ConfigScreen):
         if self.state == "versioned":
             return [("Update CodeSleuth + apply settings", "update"), ("Apply settings only", "configure")], "update"
         if self.state == "legacy-pack":
-            return [("Adopt legacy review-pack with backup", "adopt"), ("Install without claiming old files", "install")], "adopt"
+            return [("Adopt legacy codesleuth with backup", "adopt"), ("Install without claiming old files", "install")], "adopt"
         return [("Install CodeSleuth / safe overlay", "install")], "install"
 
     def on_mount(self) -> None:
@@ -454,7 +454,7 @@ class CodeSleuthConfigScreen(ConfigScreen):
                 yield Button("Cancel", id="cancel")
 
 
-class CodeSleuthApp(ReviewPackApp):
+class CodeSleuthApp(CodeSleuthBaseApp):
     TITLE = "CodeSleuth · Evidence Console"
     CSS = """
     Screen { background: #081018; color: #d8e3eb; }
@@ -807,7 +807,7 @@ class CodeSleuthApp(ReviewPackApp):
             runtime = settings["runtime"]
             permissions = settings["permissions"]
             state = installation_state(self.target)
-            meta_path = self.target / ".opencode" / "review-pack.json"
+            meta_path = self.target / ".opencode" / "codesleuth.json"
             version = "not installed"
             complete = None
             meta: dict = {}
@@ -1033,8 +1033,8 @@ def main() -> int:
     parser.add_argument("repo", nargs="?", help="target Git repository")
     parser.add_argument("--target", help="target Git repository (same as positional repo)")
     args = parser.parse_args()
-    distribution = os.environ.get("REVIEW_PACK_DISTRIBUTION_ROOT")
-    target = args.target or args.repo or os.environ.get("REVIEW_PACK_TARGET_ROOT") or "."
+    distribution = os.environ.get("CODESLEUTH_DISTRIBUTION_ROOT")
+    target = args.target or args.repo or os.environ.get("CODESLEUTH_TARGET_ROOT") or "."
     app = CodeSleuthApp(Path(target), Path(distribution) if distribution else None)
     result = app.run()
     if result and result[0] == "launch":

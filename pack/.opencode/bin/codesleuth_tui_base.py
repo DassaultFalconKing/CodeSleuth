@@ -17,7 +17,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, RichLog, Select, Static, Switch
 
 import codesleuth_project as project_lifecycle
-from review_pack_tui_core import (
+from codesleuth_tui_core import (
     AGENT_PROFILE_OPTIONS,
     apply_settings_to_target,
     config_preview,
@@ -387,7 +387,7 @@ class ConfigScreen(AbortableModalScreen[bool]):
         self.perform_apply(settings, operation, bind_dependency)
 
     def _installed_source(self) -> dict | None:
-        meta = self.repo / ".opencode" / "review-pack.json"
+        meta = self.repo / ".opencode" / "codesleuth.json"
         if not meta.is_file():
             return None
         return json.loads(meta.read_text(encoding="utf-8")).get("source")
@@ -417,7 +417,7 @@ class ConfigScreen(AbortableModalScreen[bool]):
                     if operation == "update":
                         command.append("--update")
                     elif operation == "adopt":
-                        command.append("--adopt-existing-pack")
+                        command.append("--adopt-existing-codesleuth")
                     if bind_dependency:
                         command.append("--bind-dependency")
                     result = subprocess.run(command, text=True, capture_output=True)
@@ -435,7 +435,7 @@ class ConfigScreen(AbortableModalScreen[bool]):
             self.app.call_from_thread(setattr, self.query_one("#apply", Button), "disabled", False)
 
 
-class ReviewPackApp(App[tuple[str, Path] | None]):
+class CodeSleuthBaseApp(App[tuple[str, Path] | None]):
     TITLE = "CodeSleuth"
     CSS = """
     Screen { background: $background; }
@@ -498,7 +498,7 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
             self.target = self.validate_target()
             profiles = detect_profiles(self.target)
             state = installation_state(self.target)
-            meta_path = self.target / ".opencode" / "review-pack.json"
+            meta_path = self.target / ".opencode" / "codesleuth.json"
             version = "not installed"
             complete = "n/a"
             if meta_path.is_file():
@@ -606,11 +606,11 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
             repo = self.validate_target()
             ocbin = repo / ".opencode" / "bin"
             if action == "smoke":
-                command = [sys.executable, str(ocbin / "review-pack-smoke.py"), str(repo)]
+                command = [sys.executable, str(ocbin / "codesleuth-verify.py"), str(repo)]
             elif action == "check":
-                command = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ocbin / "review-pack-update.ps1"), "--check"] if os.name == "nt" else [str(ocbin / "review-pack-update"), "--check"]
+                command = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ocbin / "codesleuth-update.ps1"), "--check"] if os.name == "nt" else [str(ocbin / "codesleuth-update"), "--check"]
             elif action == "update":
-                command = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ocbin / "review-pack-update.ps1")] if os.name == "nt" else [str(ocbin / "review-pack-update")]
+                command = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ocbin / "codesleuth-update.ps1")] if os.name == "nt" else [str(ocbin / "codesleuth-update")]
             else:
                 raise ValueError(action)
             result = subprocess.run(command, text=True, capture_output=True)
@@ -636,9 +636,9 @@ def main() -> int:
     parser.add_argument("repo", nargs="?", help="target Git repository")
     parser.add_argument("--target", help="target Git repository (same as positional repo)")
     args = parser.parse_args()
-    distribution = os.environ.get("REVIEW_PACK_DISTRIBUTION_ROOT")
-    target = args.target or args.repo or os.environ.get("REVIEW_PACK_TARGET_ROOT") or "."
-    app = ReviewPackApp(Path(target), Path(distribution) if distribution else None)
+    distribution = os.environ.get("CODESLEUTH_DISTRIBUTION_ROOT")
+    target = args.target or args.repo or os.environ.get("CODESLEUTH_TARGET_ROOT") or "."
+    app = CodeSleuthBaseApp(Path(target), Path(distribution) if distribution else None)
     result = app.run()
     if result and result[0] == "launch":
         return launch_opencode(result[1])

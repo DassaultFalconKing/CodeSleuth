@@ -7,8 +7,8 @@ if command -v python3 >/dev/null 2>&1; then
 elif command -v python >/dev/null 2>&1; then
   PYTHON=python
 else
-  echo "review-pack updater requires Python 3" >&2
+  echo "CodeSleuth updater requires Python 3" >&2
   exit 127
 fi
 
-exec "$PYTHON" "$HERE/review-pack-update.py" "$@"
+exec "$PYTHON" "$HERE/codesleuth_update.py" "$@"

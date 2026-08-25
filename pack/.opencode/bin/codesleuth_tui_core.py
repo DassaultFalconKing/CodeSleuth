@@ -17,6 +17,13 @@ from constants import (
     SETTINGS_SCHEMA,
 )
 
+from codesleuth_naming import load_naming
+
+NAMING = load_naming()
+META_NAME = NAMING["canonical"]["state"]["metadata"]
+SETTINGS_NAME = NAMING["canonical"]["state"]["settings"]
+LEGACY_META_NAME = NAMING["legacy"]["state"]["metadata"]
+
 SAFE_GIT_RULES = {
     "*": "ask",
     "git status*": "allow",
@@ -127,8 +134,10 @@ def detect_profiles(repo: Path) -> list[str]:
 def installation_state(repo: Path) -> str:
     """Describe whether CodeSleuth is installed in *target*."""
     oc = repo / ".opencode"
-    if (oc / "review-pack.json").is_file():
+    if (oc / META_NAME).is_file():
         return "versioned"
+    if (oc / LEGACY_META_NAME).is_file():
+        return "legacy-pack"
     legacy_markers = (
         oc / "agents" / "repo-reviewer.md",
         oc / "commands" / "repo-review.md",
@@ -360,8 +369,8 @@ def settings_from_config(cfg: dict[str, Any], profiles: list[str]) -> dict[str, 
 
 
 def load_settings(repo: Path, profiles: list[str] | None = None) -> dict[str, Any]:
-    """Load persisted review-pack user settings for *repo*."""
-    path = repo / ".opencode" / "review-pack-user.json"
+    """Load persisted codesleuth user settings for *repo*."""
+    path = repo / ".opencode" / SETTINGS_NAME
     if path.is_file():
         return validate_settings(json.loads(path.read_text(encoding="utf-8")))
     cfg_path = repo / ".opencode" / "opencode.json"
@@ -377,7 +386,7 @@ def load_settings(repo: Path, profiles: list[str] | None = None) -> dict[str, An
 def save_settings(repo: Path, settings: dict[str, Any]) -> Path:
     """Persist validated settings beside the OpenCode install."""
     settings = validate_settings(settings)
-    path = repo / ".opencode" / "review-pack-user.json"
+    path = repo / ".opencode" / SETTINGS_NAME
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
     return path
@@ -402,7 +411,7 @@ def apply_settings_to_target(repo: Path, settings: dict[str, Any]) -> Path:
     detected.write_text(json.dumps({
         "profiles": settings["profiles"],
         "detectedFromTrackedFiles": settings.get("profilesMode") == "auto",
-        "exaLaunchDefault": "OPENCODE_ENABLE_EXA=1" if settings["runtime"]["exaEnabled"] else "disabled by review-pack-user.json",
+        "exaLaunchDefault": "OPENCODE_ENABLE_EXA=1" if settings["runtime"]["exaEnabled"] else "disabled by canonical CodeSleuth settings",
     }, indent=2) + "\n", encoding="utf-8")
     import codesleuth_project as project_lifecycle
     project_lifecycle.ensure_reports_workspace(repo)

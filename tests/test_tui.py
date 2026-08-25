@@ -11,7 +11,7 @@ pytest.importorskip("textual")
 BIN = Path(__file__).resolve().parents[1] / "pack" / ".opencode" / "bin"
 sys.path.insert(0, str(BIN))
 import codesleuth_project as lifecycle  # noqa: E402
-from review_pack_tui import ConfigScreen, ReviewPackApp, UninstallScreen  # noqa: E402
+from codesleuth_tui_base import ConfigScreen, CodeSleuthBaseApp, UninstallScreen  # noqa: E402
 from codesleuth_tui import (  # noqa: E402
     HELP_SECTIONS,
     NAV_SURFACES,
@@ -35,8 +35,8 @@ def init_repo(path: Path) -> None:
 async def test_app_mounts_and_exposes_dependency_and_uninstall_controls(tmp_path: Path) -> None:
     repo = tmp_path / "target"
     init_repo(repo)
-    app = ReviewPackApp(repo, None)
-    assert "log" not in ReviewPackApp.__dict__
+    app = CodeSleuthBaseApp(repo, None)
+    assert "log" not in CodeSleuthBaseApp.__dict__
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.pause()
         assert app.query_one("#configure")
@@ -48,7 +48,7 @@ async def test_app_mounts_and_exposes_dependency_and_uninstall_controls(tmp_path
 async def test_uninstall_modal_requires_explicit_choice(tmp_path: Path) -> None:
     repo = tmp_path / "target"
     init_repo(repo)
-    app = ReviewPackApp(repo, None)
+    app = CodeSleuthBaseApp(repo, None)
     async with app.run_test(size=(120, 40)) as pilot:
         await pilot.click("#uninstall")
         await pilot.pause()
@@ -75,12 +75,12 @@ async def test_pilot_can_unbind_dependency_without_uninstalling_runtime(tmp_path
         ["git", "-C", str(source), "rev-parse", "HEAD"], text=True, capture_output=True, check=True
     ).stdout.strip()
     lifecycle.bind_dependency(target, source_metadata={"remote": str(source), "commit": sha})
-    runtime = target / ".opencode" / "review-pack.json"
+    runtime = target / ".opencode" / "codesleuth.json"
     runtime.parent.mkdir()
     runtime.write_text('{"version":"0.3.0","complete":true,"source":{"remote":null,"ref":null}}\n', encoding="utf-8")
     (runtime.parent / "opencode.json").write_text("{}\n", encoding="utf-8")
 
-    app = ReviewPackApp(target, None)
+    app = CodeSleuthBaseApp(target, None)
     async with app.run_test(size=(120, 140)) as pilot:
         await pilot.pause()
         assert app.query_one("#check-update", Button).disabled
@@ -252,7 +252,7 @@ def _assert_visible_within(widget: Button, width: int, height: int) -> None:
 async def test_config_back_and_escape_abort_without_applying(tmp_path: Path) -> None:
     repo = tmp_path / "target"
     init_repo(repo)
-    settings_path = repo / ".opencode" / "review-pack-user.json"
+    settings_path = repo / ".opencode" / "codesleuth-user.json"
     app = CodeSleuthApp(repo, None)
     async with app.run_test(size=(120, 140)) as pilot:
         await pilot.pause()

@@ -506,7 +506,6 @@ From the target repository:
 .\.opencode\bin\codesleuth.ps1
 ```
 
-`review-pack` remains a compatibility alias during the naming migration.
 
 ### Install / update materialized OpenCode files
 
@@ -528,10 +527,10 @@ Important installer options:
 | `--profile <name>` | manually add a built-in profile; repeatable |
 | `--settings-file <path>` | load validated settings JSON, normally produced by the TUI |
 | `--update` | update an existing versioned installation |
-| `--adopt-existing-pack` | adopt an older unversioned review-pack installation with backups |
+| `--adopt-existing-codesleuth` | adopt an older unversioned codesleuth installation with backups |
 | `--bind-dependency` | pin the current CodeSleuth source as `tools/codesleuth` |
 | `--dependency-path <path>` | override the dependency path |
-| `--force-pack-files` | replace locally modified CodeSleuth-managed files; use deliberately |
+| `--force-codesleuth-files` | replace locally modified CodeSleuth-managed files; use deliberately |
 | `--uninstall` | uninstall through the installer entry point |
 | `--purge-traces` | with uninstall, remove ordinary local CodeSleuth traces/backups instead of archiving |
 | `--keep-dependency` | with uninstall, keep the CodeSleuth gitlink/submodule |
@@ -589,13 +588,13 @@ CodeSleuth refuses unsafe submodule removal such as a dirty dependency checkout 
 
 ### Verify
 
-Direct smoke/integrity check:
+Direct integrity check:
 
 ```bash
-python3 .opencode/bin/review-pack-smoke.py .
+python3 .opencode/bin/codesleuth-verify.py .
 ```
 
-The TUI **Verify** button invokes this installed smoke gate.
+The TUI **Verify** button invokes this installed integrity gate.
 
 ### Launch OpenCode with CodeSleuth project settings
 
@@ -662,13 +661,13 @@ CodeSleuth intentionally has a small environment surface.
 | --- | --- | --- |
 | `OPENCODE_ENABLE_EXA` | installed OpenCode launcher sets/unsets it from CodeSleuth runtime settings | normally managed by CodeSleuth |
 | `OPENCODE_TUI_CONFIG` | installed launcher points OpenCode at `.opencode/tui.json` when present | normally managed by CodeSleuth |
-| `REVIEW_PACK_DISTRIBUTION_ROOT` | source-checkout TUI tells the app where the CodeSleuth distribution lives | internal compatibility name |
-| `REVIEW_PACK_TARGET_ROOT` | installed TUI/bootstrap identifies the target repository | internal compatibility name |
+| `CODESLEUTH_DISTRIBUTION_ROOT` | source-checkout TUI tells the app where the CodeSleuth distribution lives | internal compatibility name |
+| `CODESLEUTH_TARGET_ROOT` | installed TUI/bootstrap identifies the target repository | internal compatibility name |
 | `CODESLEUTH_MCP_PYTHON` | PowerShell MCP wrapper override for the Python executable | optional user override |
 | `CODESLEUTH_MCP_DEBUG` | enables MCP diagnostic tracing to stderr | optional debugging |
 | `PYTHONPATH` | standard Python mechanism that can expose a local CodeSleuth checkout to an MCP host without installing the package | optional integration aid |
 
-The `REVIEW_PACK_*` names are retained compatibility surfaces from the imported implementation. New user-facing naming is CodeSleuth, but removing those internals without migration would break installed launch paths.
+The `CODESLEUTH_*` names are retained compatibility surfaces from the imported implementation. New user-facing naming is CodeSleuth, but removing those internals without migration would break installed launch paths.
 
 # Extending CodeSleuth
 

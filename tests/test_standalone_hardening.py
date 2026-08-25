@@ -68,7 +68,7 @@ def test_apply_settings_never_sets_build_prompt(tmp_path: Path) -> None:
 
     bin_dir = ROOT / "pack" / ".opencode" / "bin"
     sys.path.insert(0, str(bin_dir))
-    from review_pack_tui_core import apply_settings_to_config_dict, default_settings
+    from codesleuth_tui_core import apply_settings_to_config_dict, default_settings
 
     cfg = {"permission": {}, "compaction": {}}
     settings = default_settings(["generic"])

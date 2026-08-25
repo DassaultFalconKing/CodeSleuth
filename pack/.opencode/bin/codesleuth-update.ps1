@@ -6,8 +6,8 @@ if (-not $Python) {
     $Python = Get-Command python3 -ErrorAction SilentlyContinue
 }
 if (-not $Python) {
-    throw 'review-pack updater requires Python 3'
+    throw 'CodeSleuth updater requires Python 3'
 }
 
-& $Python.Source (Join-Path $Here 'review-pack-update.py') @args
+& $Python.Source (Join-Path $Here 'codesleuth_update.py') @args
 exit $LASTEXITCODE
