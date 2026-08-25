@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "product": "CodeSleuth",
+  "status": "accepted",
+  "purpose": "Canonical user-facing UI semantic colormap",
+  "dark": {
+    "background": "#081018",
+    "panel": "#0E1822",
+    "element": "#13212D",
+    "border": "#29404F",
+    "borderActive": "#3E718A",
+    "primary": "#63D5F4",
+    "secondary": "#8AA7B8",
+    "accent": "#A7E3F2",
+    "text": "#D8E3EB",
+    "muted": "#71879A",
+    "success": "#62D394",
+    "warning": "#F0C36A",
+    "error": "#F07178",
+    "diffAddedBackground": "#10271F",
+    "diffRemovedBackground": "#2A171B"
+  },
+  "light": {
+    "background": "#F5F8FA",
+    "panel": "#EAF0F4",
+    "element": "#DFE8EE",
+    "border": "#BAC9D3",
+    "borderActive": "#4C839A",
+    "primary": "#087EA4",
+    "secondary": "#4C6575",
+    "accent": "#176F85",
+    "text": "#16202A",
+    "muted": "#607482",
+    "success": "#197A4A",
+    "warning": "#9B6411",
+    "error": "#B8323E",
+    "diffAddedBackground": "#DDF3E7",
+    "diffRemovedBackground": "#F8DFE2"
+  },
+  "semantics": {
+    "primary": [
+      "product identity",
+      "navigation",
+      "active headings",
+      "setup state"
+    ],
+    "secondary": [
+      "secondary labels",
+      "runtime attribution",
+      "metadata"
+    ],
+    "accent": [
+      "non-state emphasis"
+    ],
+    "success": [
+      "READY",
+      "VERIFIED",
+      "PASS",
+      "successful additions"
+    ],
+    "warning": [
+      "ATTENTION",
+      "incomplete",
+      "caution"
+    ],
+    "error": [
+      "failure",
+      "contradiction",
+      "blocking error",
+      "removals"
+    ],
+    "muted": [
+      "UNKNOWN",
+      "de-emphasized metadata",
+      "inactive context"
+    ]
+  },
+  "constraints": {
+    "greenIsStateSemanticOnly": true,
+    "asciiArtMustNotCarryEssentialState": true,
+    "preserveUserOwnedOpenCodeTheme": true,
+    "canonicalTerminalSizes": [
+      "80x24",
+      "120x35"
+    ]
+  },
+  "runtimeTheme": "pack/.opencode/themes/codesleuth.json",
+  "runbook": "docs/CODESLEUTH-BRANDING.md"
+}

@@ -3,6 +3,7 @@ set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/../.." && pwd)
 SETTINGS="$ROOT/.opencode/review-pack-user.json"
+TUI_CONFIG="$ROOT/.opencode/tui.json"
 EXA=1
 if [ -f "$SETTINGS" ]; then
   EXA=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); print("1" if d.get("runtime",{}).get("exaEnabled", True) else "0")' "$SETTINGS" 2>/dev/null || printf '1')
@@ -11,5 +12,8 @@ if [ "$EXA" = "1" ]; then
   export OPENCODE_ENABLE_EXA=1
 else
   unset OPENCODE_ENABLE_EXA || true
+fi
+if [ -f "$TUI_CONFIG" ]; then
+  export OPENCODE_TUI_CONFIG="$TUI_CONFIG"
 fi
 exec opencode "$@"

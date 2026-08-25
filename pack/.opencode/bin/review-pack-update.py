@@ -16,7 +16,7 @@ def run(args, **kwargs):
 def load_meta(repo: Path):
     path = repo / ".opencode" / META_NAME
     if not path.is_file():
-        raise SystemExit(f"missing {path}; this repository is not a managed review-pack installation")
+        raise SystemExit(f"missing {path}; this repository is not a managed CodeSleuth installation")
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -40,7 +40,7 @@ def remote_head(remote: str, ref: str):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Check for and apply OpenCode review-pack updates from the recorded Git source.")
+    ap = argparse.ArgumentParser(description="Check for and apply floating CodeSleuth updates from an explicit Git source ref.")
     ap.add_argument("repo", nargs="?", default=".")
     ap.add_argument("--check", action="store_true", help="only compare installed source commit with the remote source")
     ap.add_argument("--source-remote", help="override recorded Git remote for this run")

@@ -2,105 +2,151 @@
 
 **Evidence-first repository intelligence**
 
-CodeSleuth is the product name. OpenCode is the runtime/integration environment
-used by the current implementation. The imported `review-pack*` commands and
-file names remain temporary compatibility identifiers.
+CodeSleuth is a portable OpenCode-based repository auditor for deep review of large codebases without stuffing the entire repository into model context. It keeps the repository addressable on disk, records exact evidence, persists review state, and can be installed into an arbitrary Git project with project-specific policy and profiles.
 
-## Import provenance
+OpenCode is the current runtime/integration environment. Historical `review-pack*` commands remain compatibility aliases while the public surface moves to `codesleuth`.
 
-- Product: `CodeSleuth`
-- Imported from: `DassaultFalconKing/Aleph_Rugent`
-- Source commit: `b00f83b81d50b2ac804fd24c83df0db86fe01c00`
-- Source subtree: `opencode-repo-review-pack/`
-- Imported behavior/version: `0.2.1`
+## What CodeSleuth owns
 
-This import is not a new `v0.2.1` release tag. The following standalone release
-blockers remain open:
+A target repository can contain three deliberately separate layers:
 
-- **EXT-001:** detached/pinned source metadata must not invent a floating ref
-  from `origin/HEAD`.
-- **EXT-002:** built-in profiles must not widen project permissions.
+```text
+project/
+├── tools/codesleuth/        # optional pinned Git submodule; reusable CodeSleuth source
+├── .opencode/               # project-owned CodeSleuth/OpenCode policy, agents, profiles and tools
+└── .codesleuth/             # local backups / preserved review artifacts; gitignored by default
+```
 
-## Current compatibility implementation
+`tools/codesleuth/` is intentionally **not** gitignored when the user chooses dependency mode. The superproject records an exact CodeSleuth commit as a Git gitlink. `.opencode/` is the target project's installed contract. `.codesleuth/` is local safety state and is ignored by default.
 
-Portable, evidence-first OpenCode environment for deep repository review,
-architecture documentation, profile generation, and long-running large-context
-analysis.
+## Security and credential warning
 
-The pack is designed for arbitrary Git repositories and keeps the repository
-**addressable rather than resident** in model context. It combines deterministic
-inventory, bounded scouts, exact evidence recording, durable checkpoints,
-compaction recovery, watchdog support, Exa/web verification, safe updates, and a
-cross-platform setup/control TUI.
+CodeSleuth audits a developer repository through OpenCode. If the operator grants OpenCode permission to read files, run tests, invoke tools, or access development services, those operations may legitimately use environment variables, local credentials, test tokens, API keys, cookies, connection strings, or other secrets available on that developer host.
 
-Current distribution version: see [`VERSION`](VERSION).
+CodeSleuth **does not blindly redact all evidence**. Blanket redaction would make some real test and audit workflows incorrect. Consequently, review findings, excerpts, logs, preserved traces, generated prompts, or reports may contain sensitive values that were visible to the authorized runtime.
 
-## Recommended start
+Safety defaults:
 
-Prerequisites: Git, Python 3.9+, and OpenCode available as `opencode`.
+- `.codesleuth/` is gitignored;
+- `.opencode/state/`, logs, caches, sessions and snapshots are gitignored;
+- preserved uninstall archives remain gitignored;
+- CodeSleuth warns before destructive uninstall choices;
+- project policy controls web/edit/external-directory permissions;
+- built-in repository profiles do not grant extra permissions;
+- **inspect and sanitize reports before sharing or force-adding ignored artifacts to Git.**
 
-From a standalone pack checkout:
+CodeSleuth cannot guarantee that arbitrary reports authored by an LLM outside its managed local-state paths contain no secrets. Treat audit output like other developer diagnostics.
 
-Linux/macOS/WSL:
+## Install into any Git repository
+
+Prerequisites: Git, Python 3.10+, and OpenCode available as `opencode`.
+
+From a CodeSleuth checkout:
 
 ```bash
-./review-pack /path/to/target-repo
+./codesleuth /path/to/project
 ```
 
 PowerShell:
 
 ```powershell
-.\review-pack.ps1 C:\path\to\target-repo
+.\codesleuth.ps1 C:\path\to\project
 ```
 
-The first TUI launch creates an isolated runtime and installs pinned
-`textual==8.2.8`; it does not modify the target project's Python dependencies.
-
-In the TUI, review and apply:
-
-- install/adopt/update operation;
-- automatic or manual repository profiles;
-- `review-safe`, `balanced`, or `autonomous` permission preset;
-- `websearch`, `webfetch`, edit, and external-directory permissions;
-- Exa runtime enablement;
-- watchdog timeouts/recovery policy;
-- compaction reserve;
-- update-check behavior.
-
-Then validate the installed target:
-
-```bash
-cd /path/to/target-repo
-python3 .opencode/bin/review-pack-smoke.py .
-```
-
-Expected prefix:
+The TUI lets you choose profiles, permission policy, runtime settings, and whether CodeSleuth should pin itself into the target repository as:
 
 ```text
-PACK SMOKE PASS
+tools/codesleuth
 ```
 
-Launch OpenCode through the pack launcher:
+For a non-interactive install without a persistent submodule:
 
 ```bash
-.opencode/bin/opencode-review
+./install.sh /path/to/project
 ```
 
-PowerShell:
+For a reproducible development-repository install with a pinned CodeSleuth dependency:
 
-```powershell
-.opencode\bin\opencode-review.ps1
+```bash
+./install.sh /path/to/project --bind-dependency
 ```
 
-Inside OpenCode, start with:
+The binding is an explicit Git change: `.gitmodules` and the `tools/codesleuth` gitlink are staged for the operator to review and commit. CodeSleuth never commits or pushes the target repository on the user's behalf.
+
+CLI targets are normalized to the containing Git root, so passing `/path/to/project/subdir` still installs into `/path/to/project`.
+
+## Reversible first install
+
+Before the first install CodeSleuth snapshots the pre-existing project OpenCode configuration under:
 
 ```text
-/repo-prompts
+.codesleuth/backups/pre-install/<timestamp>/
 ```
 
-The advisor inspects the actual repository and proposes copy/paste-ready prompts
-for the highest-value review, documentation, profile, CI/runtime, and external
-API verification tasks.
+The backup records hashes and copies project configuration while excluding obvious ephemeral caches, logs, sessions, state, virtual/runtime dependencies, and bytecode. Existing `.gitignore` and `.gitmodules` are backed up for recovery, but uninstall does not blindly replace them because that could erase unrelated changes made after installation.
+
+A pointer is kept at `.codesleuth/preinstall.json`. An upgrade from an older already-installed review-pack records a `pre-0.3-upgrade` baseline instead of falsely claiming it predates CodeSleuth.
+
+The installer also writes a managed block to the target root `.gitignore` for local CodeSleuth/OpenCode state. It does not add an ignore for `tools/codesleuth`. If the project already ignores that dependency path, CodeSleuth refuses to override the project's ignore policy and explains the conflict.
+
+## Uninstall
+
+From the installed project:
+
+```bash
+.opencode/bin/codesleuth-project --uninstall .
+```
+
+Default uninstall behavior:
+
+1. archive CodeSleuth settings, profiles and known review state under `.codesleuth/archive/<timestamp>/`;
+2. restore the pre-CodeSleuth `.opencode` snapshot when safe;
+3. remove CodeSleuth-owned runtime files;
+4. remove the bound `tools/codesleuth` submodule/gitlink when present and clean;
+5. keep the archive gitignored.
+
+To remove CodeSleuth and its local traces/backups:
+
+```bash
+.opencode/bin/codesleuth-project --uninstall . --purge-traces
+```
+
+To remove the installed runtime while intentionally retaining the pinned submodule:
+
+```bash
+.opencode/bin/codesleuth-project --uninstall . --keep-dependency
+```
+
+Restore compares pre-install, post-install, and current files. A post-install edit to a pre-existing `.opencode` file stays in the worktree; baseline/current copies and an explicit manifest are retained under gitignored `.codesleuth/restore-conflicts/`. Required conflict evidence survives purge.
+
+The TUI exposes the same **Preserve traces** / **Purge traces** choice. CodeSleuth refuses to remove either a dirty submodule or a clean detached local commit that differs from the recorded gitlink.
+
+CodeSleuth only knows how to archive/delete its managed settings and local review-state namespaces. Reports deliberately authored elsewhere in the project are project files and are never guessed at or deleted automatically.
+
+Runtime and dependency are independent: `--uninstall --keep-dependency` leaves a **dependency-only** state, while `.opencode/bin/codesleuth-project --unbind .` removes only the dependency and keeps the installed runtime.
+
+## Update model
+
+For reproducible projects, advance the pinned CodeSleuth submodule intentionally, then materialize that exact version into `.opencode`:
+
+```bash
+git -C tools/codesleuth fetch origin
+git -C tools/codesleuth checkout --detach <accepted-codesleuth-sha>
+./tools/codesleuth/install.sh . --update
+```
+
+Then review and commit both the gitlink change and project `.opencode` changes together.
+
+Fresh clone and recovery administration:
+
+```bash
+git clone --recurse-submodules <project-url>
+git submodule update --init --recursive  # for an existing clone
+```
+
+To revert a pin, checkout the previous accepted SHA in `tools/codesleuth`, materialize that checkout with `install.sh . --update`, inspect, and commit both changes. The TUI disables target-local floating update controls in pinned detached mode; an explicit `remote + ref` is required for floating updates.
+
+A detached CodeSleuth checkout records its exact source commit but **does not invent a floating branch from `origin/HEAD`**. Floating update behavior requires an explicit source ref.
 
 ## Main OpenCode commands
 
@@ -112,166 +158,46 @@ API verification tasks.
 /repo-review-resume
 ```
 
-## Built-in profiles
+Review state is durable under local `.opencode/state/reviews/` and is bound to tracked source blob hashes so changed files can invalidate stale coverage.
 
-```text
-generic
-rust
-python
-node
-typescript
-```
+## Development
 
-Mixed repositories may activate several profiles at once.
-
-## Security model
-
-The default `review-safe` policy is deliberately conservative:
-
-- `.env` and `.env.*` reads are denied; `.env.example` remains readable;
-- normal read-only Git inspection is allowed;
-- other shell work asks by default;
-- destructive Git actions such as `git push*`, `git reset --hard*`, and
-  `git clean*` are denied by the default project policy;
-- reviewer/scout agents remain read-only;
-- external-directory access asks by default;
-- `websearch` and `webfetch` ask by default;
-- Exa runtime availability and permission to execute web tools are separate
-  controls.
-
-When enabled, the launcher sets:
-
-```text
-OPENCODE_ENABLE_EXA=1
-```
-
-The profile/review workflow uses web search only for discovery and web fetch for
-primary-source verification. No successful web tool call means no claim of web
-verification.
-
-## Installed control center
-
-After installation, use the target-local TUI:
+Install development/test dependencies:
 
 ```bash
-.opencode/bin/review-pack
+python -m pip install -r requirements-dev.txt
 ```
 
-PowerShell:
-
-```powershell
-.opencode\bin\review-pack.ps1
-```
-
-It can reconfigure project policy, run smoke, check/apply updates, show suggested
-prompts, and launch OpenCode.
-
-## Non-interactive install
-
-Linux/macOS/WSL:
+Run the Python gates:
 
 ```bash
-./install.sh /path/to/target-repo
+python -m pytest
+ruff check .
 ```
 
-PowerShell:
+The dev set includes `pytest`, `pytest-asyncio`, Ruff, and the pinned Textual runtime used by the TUI. Textual UI tests use `App.run_test()` and `Pilot` rather than terminal scraping.
 
-```powershell
-.\install.ps1 C:\path\to\target-repo
-```
-
-Both wrappers delegate to the same `install.py`; platform wrappers contain no
-separate install semantics.
-
-Manual profile example:
+The existing Bun durable-state smoke remains part of acceptance:
 
 ```bash
-./install.sh /path/to/target-repo \
-  --profile generic \
-  --profile rust \
-  --profile typescript
+bun tests/review_state_smoke.ts
 ```
 
-## Managed installation state
+## Current compatibility names
 
-The target receives:
+The imported v0.2.1 implementation used `review-pack`, `review-pack-user.json`, `review-pack.json`, and `ReviewPackApp`. Those names remain compatibility surfaces during the CodeSleuth migration. New user-facing entrypoints use `codesleuth` where practical without breaking existing installed targets.
 
-```text
-.opencode/review-pack.json
-.opencode/review-pack-user.json
-```
+## Provenance
 
-`review-pack.json` records version/source/managed-file hashes/update conflicts.
-`review-pack-user.json` records the project-level TUI policy and profile/runtime
-choices.
+CodeSleuth was extracted from `DassaultFalconKing/Aleph_Rugent`.
 
-Local runtime state is kept under `.opencode/state/` and ignored by Git.
+- frozen Aleph source commit: `b00f83b81d50b2ac804fd24c83df0db86fe01c00`
+- source subtree: `opencode-repo-review-pack/`
+- imported behavior/version: `0.2.1`
+- initial imported tree: `0037ea6c33584bc280dfc9152d623125d35f2f15`
 
-## Safe updates
+The first standalone import preserved that tree exactly. CodeSleuth development is now owned by this repository.
 
-Check:
+## Watchdog roadmap
 
-```bash
-.opencode/bin/review-pack-update --check
-```
-
-Update:
-
-```bash
-.opencode/bin/review-pack-update
-```
-
-PowerShell equivalents:
-
-```powershell
-.opencode\bin\review-pack-update.ps1 --check
-.opencode\bin\review-pack-update.ps1
-```
-
-Locally modified managed files are preserved; incoming versions are written to
-`.opencode/state/update-conflicts/`. `opencode.json` uses a three-way defaults
-merge so ordinary project overrides survive.
-
-For a project that pins this pack as a Git submodule, prefer **pinned update
-mode**: advance the submodule intentionally, then run that exact checkout's
-`install.sh . --update`. This keeps the installed `.opencode` and submodule
-revision auditable together.
-
-## Documentation
-
-Complete daily-use guide:
-
-- [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md)
-
-Maintainer guide for extracting this pack into a standalone repository and using
-it as a project submodule/subrepo:
-
-- [`docs/MAINTAINER-SUBREPO.md`](docs/MAINTAINER-SUBREPO.md)
-
-## Lifecycle verification
-
-Run from the pack repository:
-
-```bash
-python3 tests/test_lifecycle.py
-```
-
-The lifecycle gate covers installation, profile detection, managed metadata,
-config preservation, update safety, legacy adoption, and target smoke behavior.
-
-## Large-context discipline
-
-A 1M-token context is headroom, not a target occupancy. The protocol is:
-
-```text
-deterministic inventory
-→ bounded component scouts
-→ parent re-verification of exact source
-→ durable finding ledger/checkpoints
-→ compaction-safe recovery
-→ selective evidence rehydration
-```
-
-Do not bulk-load an entire large repository merely because the model technically
-accepts it. The working set belongs in model context; the repository belongs on
-disk.
+The current runtime retains the existing OpenCode keepalive watchdog. A separate follow-up will integrate the stronger watchdog/recovery functionality developed in Aleph_Rugent. That work is intentionally separate from installation/dependency/uninstall semantics so a runtime watchdog cannot accidentally become the package manager. Civilization has limits.

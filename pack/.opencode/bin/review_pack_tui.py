@@ -15,6 +15,7 @@ from textual.containers import Horizontal, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, RichLog, Select, Static, Switch
 
+import codesleuth_project as project_lifecycle
 from review_pack_tui_core import (
     apply_settings_to_target,
     config_preview,
@@ -53,11 +54,11 @@ class PromptScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="prompt-dialog"):
-            yield Label("Suggested prompts for this repository")
+            yield Label("Suggested CodeSleuth prompts")
             yield Static("Generated from the active profile set. /repo-prompts remains the in-OpenCode advisor.")
             yield RichLog(id="prompt-log", wrap=True, markup=True)
             with Horizontal(id="prompt-actions"):
-                yield Button("Save to repo state", id="save-prompts", variant="primary")
+                yield Button("Save to local repo state", id="save-prompts", variant="primary")
                 yield Button("Close", id="close-prompts")
 
     def on_mount(self) -> None:
@@ -73,12 +74,47 @@ class PromptScreen(ModalScreen[None]):
             self.dismiss(None)
 
 
+class UninstallScreen(ModalScreen[str | None]):
+    CSS = """
+    UninstallScreen { align: center middle; background: rgba(0,0,0,0.45); }
+    #uninstall-dialog { width: 82%; height: auto; border: round $error; background: $surface; padding: 1 2; }
+    #uninstall-actions { height: auto; align-horizontal: right; margin-top: 1; }
+    """
+
+    def compose(self) -> ComposeResult:
+        with VerticalScroll(id="uninstall-dialog"):
+            yield Label("Remove CodeSleuth from this repository?")
+            yield Static(
+                "CodeSleuth restores the pre-install .opencode snapshot when available and removes its bound submodule. "
+                "Preserve archives known CodeSleuth settings, profiles, review state and TUI state under .codesleuth/archive (gitignored). "
+                "Purge deletes CodeSleuth traces/backups after a conflict-safe restore; unrelated project files are not archived or deleted. "
+                "If a pre-existing file changed after installation, the worktree version wins and explicit recovery evidence is retained."
+            )
+            yield Static(
+                "SECURITY: archived review evidence can contain development credentials or secrets. "
+                "It stays gitignored by default; inspect it before sharing or force-adding it."
+            )
+            with Horizontal(id="uninstall-actions"):
+                yield Button("Preserve traces", id="preserve", variant="warning")
+                yield Button("Purge traces", id="purge", variant="error")
+                yield Button("Cancel", id="cancel")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "preserve":
+            self.dismiss("preserve")
+        elif event.button.id == "purge":
+            self.dismiss("purge")
+        else:
+            self.dismiss(None)
+
+
 class ConfigScreen(ModalScreen[bool]):
     CSS = """
     ConfigScreen { align: center middle; background: rgba(0,0,0,0.45); }
     #config-dialog { width: 94%; height: 94%; border: round $accent; background: $surface; padding: 1 2; }
     .section { margin-top: 1; color: $accent; text-style: bold; }
     .hint { color: $text-muted; }
+    .warning { color: $warning; }
     .row { height: auto; }
     Select { width: 38; }
     Input { width: 18; }
@@ -99,12 +135,13 @@ class ConfigScreen(ModalScreen[bool]):
         except Exception:
             self.settings = default_settings(self.detected)
         self.state = installation_state(repo)
+        self.dependency = project_lifecycle.dependency_status(repo)
 
     def operation_options(self) -> tuple[list[tuple[str, str]], str]:
         if self.distribution_root is None:
-            return [("Configure installed pack only", "configure")], "configure"
+            return [("Configure installed CodeSleuth", "configure")], "configure"
         if self.state == "versioned":
-            return [("Update pack + apply settings", "update"), ("Apply settings only", "configure")], "update"
+            return [("Update CodeSleuth + apply settings", "update"), ("Apply settings only", "configure")], "update"
         if self.state == "legacy-pack":
             return [("Adopt legacy pack with backup", "adopt"), ("Overlay without claiming old files", "install")], "adopt"
         return [("Install / safe overlay", "install")], "install"
@@ -114,15 +151,27 @@ class ConfigScreen(ModalScreen[bool]):
         r = self.settings["runtime"]
         ops, selected_op = self.operation_options()
         with VerticalScroll(id="config-dialog"):
-            yield Label("Review Pack Setup")
+            yield Label("CodeSleuth Setup")
             yield Static(f"Target: {self.repo}\nCurrent state: {self.state}", classes="hint")
+            yield Static(
+                "CodeSleuth backs up pre-existing project OpenCode settings before first install. "
+                "Local backups/review state are gitignored; tools/codesleuth is intentionally NOT ignored when pinned.",
+                classes="hint",
+            )
+            yield Static(
+                "Credential warning: OpenCode may legitimately use development credentials for local tests. "
+                "CodeSleuth does not blindly redact evidence, so reports may contain credentials or secrets. "
+                "Review before sharing or committing reports.",
+                classes="warning",
+            )
 
-            yield Label("1. Installation", classes="section")
-            yield Static("This pack targets OpenCode V1 stable. OpenCode V2 is still beta and uses a different plugin API; the TUI will not silently migrate V1 plugins/configuration.", classes="hint")
+            yield Label("1. Installation and persistence", classes="section")
             yield Select(ops, value=selected_op, allow_blank=False, id="operation")
+            with Horizontal(classes="row"):
+                yield Switch(value=bool(self.dependency["bound"]), id="bind-dependency")
+                yield Label("Bind/unbind tools/codesleuth independently of the installed runtime")
 
             yield Label("2. Repository profile", classes="section")
-            yield Static("Auto-detection uses tracked manifests/source. You can switch to manual selection for mixed or unusual repositories.", classes="hint")
             yield Switch(value=self.settings.get("profilesMode") == "auto", id="profiles-auto")
             yield Label("Auto-detect profiles", classes="hint")
             with Horizontal(classes="row"):
@@ -130,7 +179,7 @@ class ConfigScreen(ModalScreen[bool]):
                     yield Checkbox(profile, value=profile in self.settings["profiles"], id=f"profile-{profile}")
 
             yield Label("3. Permission policy", classes="section")
-            yield Static("Review-safe is least-privilege. Web search/fetch can disclose queries and requested URLs to external services; choose explicit consent behavior.", classes="hint")
+            yield Static("Profiles never widen project permissions. Permission changes come only from this explicit policy layer.", classes="hint")
             yield Select(PRESET_OPTIONS, value=p["preset"], allow_blank=False, id="preset")
             with Horizontal(classes="row"):
                 yield Label("websearch")
@@ -146,10 +195,10 @@ class ConfigScreen(ModalScreen[bool]):
             yield Label("4. Runtime", classes="section")
             with Horizontal(classes="row"):
                 yield Switch(value=r["exaEnabled"], id="exa")
-                yield Label("Enable Exa websearch runtime (OPENCODE_ENABLE_EXA=1)")
+                yield Label("Enable Exa websearch runtime")
             with Horizontal(classes="row"):
                 yield Switch(value=r["watchdogEnabled"], id="watchdog")
-                yield Label("Enable opencode-keepalive watchdog")
+                yield Label("Enable current OpenCode keepalive watchdog")
             with Horizontal(classes="row"):
                 yield Label("Global stall seconds")
                 yield Input(str(r["stallSeconds"]), type="integer", id="stall")
@@ -161,7 +210,7 @@ class ConfigScreen(ModalScreen[bool]):
                 yield Label("Compaction reserved tokens")
                 yield Input(str(r["compactionReserved"]), type="integer", id="reserved")
                 yield Switch(value=r["checkUpdatesOnStart"], id="check-updates")
-                yield Label("Check upstream when TUI starts")
+                yield Label("Check updates on TUI start")
 
             yield Label("5. Planned policy", classes="section")
             yield Static("", id="summary")
@@ -182,7 +231,11 @@ class ConfigScreen(ModalScreen[bool]):
             profiles = self.detected
             mode = "auto"
         else:
-            profiles = [p for p in ("generic", "rust", "python", "node", "typescript") if self.query_one(f"#profile-{p}", Checkbox).value]
+            profiles = [
+                p
+                for p in ("generic", "rust", "python", "node", "typescript")
+                if self.query_one(f"#profile-{p}", Checkbox).value
+            ]
             mode = "manual"
         settings = {
             "schemaVersion": 1,
@@ -222,7 +275,11 @@ class ConfigScreen(ModalScreen[bool]):
         try:
             settings = self._collect()
             operation = self._select_value("#operation")
-            text = f"Operation: {operation}\n{settings_summary(settings)}\n\nConfig preview:\n{config_preview(settings)}"
+            bind = self.query_one("#bind-dependency", Switch).value
+            text = (
+                f"Operation: {operation}\nPinned dependency: {'yes' if bind else 'no'}\n"
+                f"{settings_summary(settings)}\n\nConfig preview:\n{config_preview(settings)}"
+            )
         except Exception as exc:
             text = f"Settings are not valid yet: {exc}"
         self.query_one("#summary", Static).update(text)
@@ -241,12 +298,11 @@ class ConfigScreen(ModalScreen[bool]):
 
     def on_select_changed(self, event: Select.Changed) -> None:
         if event.select.id == "preset":
-            preset = str(event.value)
             suggested = {
                 "review-safe": ("ask", "ask", "ask", "ask"),
                 "balanced": ("allow", "allow", "ask", "ask"),
                 "autonomous": ("allow", "allow", "allow", "ask"),
-            }.get(preset)
+            }.get(str(event.value))
             if suggested:
                 for widget_id, value in zip(("#websearch", "#webfetch", "#edit", "#external"), suggested):
                     self.query_one(widget_id, Select).value = value
@@ -264,22 +320,31 @@ class ConfigScreen(ModalScreen[bool]):
             self.notify(str(exc), severity="error")
             return
         operation = self._select_value("#operation")
+        bind_dependency = self.query_one("#bind-dependency", Switch).value
         self.query_one("#apply", Button).disabled = True
-        self.perform_apply(settings, operation)
+        self.perform_apply(settings, operation, bind_dependency)
+
+    def _installed_source(self) -> dict | None:
+        meta = self.repo / ".opencode" / "review-pack.json"
+        if not meta.is_file():
+            return None
+        return json.loads(meta.read_text(encoding="utf-8")).get("source")
 
     @work(thread=True, exclusive=True)
-    def perform_apply(self, settings: dict, operation: str) -> None:
+    def perform_apply(self, settings: dict, operation: str, bind_dependency: bool) -> None:
         try:
             if operation == "configure":
                 save_settings(self.repo, settings)
                 apply_settings_to_target(self.repo, settings)
-                output = "Configured installed review pack."
+                if bind_dependency and not project_lifecycle.dependency_status(self.repo)["bound"]:
+                    project_lifecycle.bind_dependency(self.repo, source_metadata=self._installed_source())
+                elif not bind_dependency and project_lifecycle.dependency_status(self.repo)["bound"]:
+                    project_lifecycle.remove_dependency(self.repo)
+                output = "Configured CodeSleuth."
             else:
                 if self.distribution_root is None:
                     raise RuntimeError("distribution checkout is required for install/adopt/update")
                 installer = self.distribution_root / "install.py"
-                if not installer.is_file():
-                    raise RuntimeError(f"installer not found: {installer}")
                 with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
                     json.dump(settings, handle, indent=2)
                     settings_path = Path(handle.name)
@@ -291,12 +356,16 @@ class ConfigScreen(ModalScreen[bool]):
                         command.append("--update")
                     elif operation == "adopt":
                         command.append("--adopt-existing-pack")
+                    if bind_dependency:
+                        command.append("--bind-dependency")
                     result = subprocess.run(command, text=True, capture_output=True)
                     if result.returncode != 0:
                         raise RuntimeError((result.stderr or result.stdout or "installer failed").strip())
                     output = result.stdout.strip()
                 finally:
                     settings_path.unlink(missing_ok=True)
+                if not bind_dependency and project_lifecycle.dependency_status(self.repo)["bound"]:
+                    project_lifecycle.remove_dependency(self.repo)
             self.app.call_from_thread(self.notify, output[-1200:] or "Applied", severity="information")
             self.app.call_from_thread(self.dismiss, True)
         except Exception as exc:
@@ -305,12 +374,13 @@ class ConfigScreen(ModalScreen[bool]):
 
 
 class ReviewPackApp(App[tuple[str, Path] | None]):
-    TITLE = "OpenCode Repository Review Pack"
+    TITLE = "CodeSleuth"
     CSS = """
     Screen { background: $background; }
     #body { padding: 1 2; }
     #target { width: 100%; }
     #status { border: round $panel; padding: 1; margin: 1 0; }
+    #security { color: $warning; margin-bottom: 1; }
     #actions { height: auto; }
     #actions Button { margin-right: 1; }
     #log { height: 1fr; border: solid $panel; margin-top: 1; }
@@ -327,6 +397,11 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
         with VerticalScroll(id="body"):
             yield Label("Target repository")
             yield Input(str(self.target), id="target")
+            yield Static(
+                "Reports/evidence may contain development credentials that OpenCode was allowed to use. "
+                "CodeSleuth local state is gitignored by default; inspect before sharing or force-adding it.",
+                id="security",
+            )
             yield Static("", id="status")
             with Horizontal(id="actions"):
                 yield Button("Configure / install", id="configure", variant="primary")
@@ -334,28 +409,26 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
                 yield Button("Check update", id="check-update")
                 yield Button("Update", id="update")
                 yield Button("Prompts", id="prompts")
+                yield Button("Uninstall", id="uninstall", variant="error")
                 yield Button("Launch OpenCode", id="launch", variant="success")
             yield RichLog(id="log", wrap=True, markup=True)
         yield Footer()
 
     def on_mount(self) -> None:
         self.refresh_status()
-        try:
-            settings = load_settings(self.target, detect_profiles(self.target))
-            if installation_state(self.target) == "versioned" and settings["runtime"]["checkUpdatesOnStart"]:
-                self.run_action("check")
-        except Exception:
-            pass
 
     def current_target(self) -> Path:
-        raw = self.query_one("#target", Input).value.strip()
-        return Path(raw or ".").expanduser().resolve()
+        return Path(self.query_one("#target", Input).value or ".").expanduser().resolve()
 
     def validate_target(self) -> Path:
         repo = self.current_target()
-        result = subprocess.run(["git", "-C", str(repo), "rev-parse", "--show-toplevel"], capture_output=True, text=True)
+        result = subprocess.run(["git", "-C", str(repo), "rev-parse", "--show-toplevel"], text=True, capture_output=True)
         if result.returncode != 0:
-            raise ValueError(f"Not a Git repository: {repo}")
+            raise RuntimeError(f"not a Git repository: {repo}")
+        top = Path(result.stdout.strip()).resolve()
+        if top != repo:
+            repo = top
+            self.query_one("#target", Input).value = str(repo)
         return repo
 
     def refresh_status(self) -> None:
@@ -371,7 +444,22 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
                 version = str(meta.get("version") or "unknown")
                 complete = str(bool(meta.get("complete")))
             operation = recommended_operation(self.target, self.distribution_root is not None)
-            self.query_one("#status", Static).update(f"State: {state}\nVersion: {version}; complete: {complete}\nDetected profiles: {', '.join(profiles)}\nRecommended operation: {operation}")
+            dependency = project_lifecycle.dependency_status(self.target)
+            dep_text = f"{dependency['path']} @ {dependency['commit']}" if dependency["bound"] else "not pinned"
+            lifecycle = project_lifecycle.lifecycle_state(self.target)
+            source = meta.get("source", {}) if meta_path.is_file() else {}
+            update_mode = "pinned: advance/revert the gitlink, then materialize that checkout" if dependency["bound"] else (
+                "floating" if source.get("remote") and source.get("ref") else "unavailable: no explicit floating source ref"
+            )
+            pinned = dependency["bound"]
+            self.query_one("#check-update", Button).disabled = pinned or update_mode.startswith("unavailable")
+            self.query_one("#update", Button).disabled = pinned or update_mode.startswith("unavailable")
+            backup = self.target / project_lifecycle.LOCAL_ROOT / "preinstall.json"
+            self.query_one("#status", Static).update(
+                f"State: {state}; lifecycle: {lifecycle}\nVersion: {version}; complete: {complete}\n"
+                f"Dependency: {dep_text}\nUpdate path: {update_mode}\nPre-install backup: {'yes' if backup.is_file() else 'no'}\n"
+                f"Detected profiles: {', '.join(profiles)}\nRecommended operation: {operation}"
+            )
         except Exception as exc:
             self.query_one("#status", Static).update(str(exc))
 
@@ -406,25 +494,41 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
         elif button == "prompts":
             self.action_prompts()
         elif button == "smoke":
-            self.run_action("smoke")
+            self.run_runtime_action("smoke")
         elif button == "check-update":
-            self.run_action("check")
+            self.run_runtime_action("check")
         elif button == "update":
-            self.run_action("update")
+            self.run_runtime_action("update")
+        elif button == "uninstall":
+            self.push_screen(UninstallScreen(), self._uninstall_choice)
         elif button == "launch":
             try:
                 repo = self.validate_target()
                 launcher = repo / ".opencode" / "bin" / ("opencode-review.ps1" if os.name == "nt" else "opencode-review")
                 if not launcher.is_file():
-                    raise FileNotFoundError("review pack launcher is not installed")
+                    raise FileNotFoundError("CodeSleuth OpenCode launcher is not installed")
                 self.exit(("launch", repo))
             except Exception as exc:
                 self.notify(str(exc), severity="error")
 
-    @work(thread=True, exclusive=False)
-    def run_action(self, action: str) -> None:
+    def _uninstall_choice(self, choice: str | None) -> None:
+        if choice:
+            self.perform_uninstall(choice)
+
+    @work(thread=True, exclusive=True)
+    def perform_uninstall(self, choice: str) -> None:
         try:
-            repo = self.current_target()
+            repo = self.validate_target()
+            result = project_lifecycle.uninstall_project(repo, preserve_traces=choice == "preserve")
+            self.app.call_from_thread(self.write_ui_log, f"[green]uninstall[/]:\n{json.dumps(result, indent=2)}")
+            self.app.call_from_thread(self.refresh_status)
+        except Exception as exc:
+            self.app.call_from_thread(self.write_ui_log, f"[red]uninstall failed: {exc}[/red]")
+
+    @work(thread=True, exclusive=False)
+    def run_runtime_action(self, action: str) -> None:
+        try:
+            repo = self.validate_target()
             ocbin = repo / ".opencode" / "bin"
             if action == "smoke":
                 command = [sys.executable, str(ocbin / "review-pack-smoke.py"), str(repo)]
@@ -453,7 +557,7 @@ def launch_opencode(repo: Path) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Interactive setup/control TUI for the OpenCode repository review pack")
+    parser = argparse.ArgumentParser(description="CodeSleuth interactive setup/control TUI")
     parser.add_argument("repo", nargs="?", help="target Git repository")
     parser.add_argument("--target", help="target Git repository (same as positional repo)")
     args = parser.parse_args()
