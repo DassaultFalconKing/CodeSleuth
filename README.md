@@ -2,7 +2,7 @@
 
 **Evidence-first repository intelligence**
 
-CodeSleuth is a portable OpenCode-based repository auditor for deep review of large codebases without stuffing the entire repository into model context. It keeps the repository addressable on disk, records exact evidence, persists review state, and can be installed into an arbitrary Git project with project-specific policy and profiles.
+CodeSleuth is an evidence-oriented control panel, configuration layer, and lifecycle manager for OpenCode repository review. It keeps repositories directly usable by OpenCode, presents readiness and evidence state clearly, and installs project-specific policy and profiles without replacing OpenCode's models, agents, tools, commands, or durable review execution.
 
 OpenCode is the current runtime/integration environment. Historical `review-pack*` commands remain compatibility aliases while the public surface moves to `codesleuth`.
 
@@ -180,6 +180,7 @@ The dev set includes `pytest`, `pytest-asyncio`, Ruff, and the pinned Textual ru
 The existing Bun durable-state smoke remains part of acceptance:
 
 ```bash
+bun install --frozen-lockfile
 bun tests/review_state_smoke.ts
 ```
 

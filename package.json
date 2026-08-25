@@ -1,0 +1,10 @@
+{
+  "name": "codesleuth-development-gates",
+  "private": true,
+  "scripts": {
+    "test:review-state": "bun tests/review_state_smoke.ts"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "1.14.48"
+  }
+}
