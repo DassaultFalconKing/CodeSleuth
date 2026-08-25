@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-exec python3 "$HERE/codesleuth_project.py" "$@"
+export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m codesleuth_project "$@"
