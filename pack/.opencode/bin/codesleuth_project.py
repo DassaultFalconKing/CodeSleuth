@@ -168,9 +168,40 @@ def _snapshot_candidates(repo: Path) -> list[Path]:
     return candidates
 
 
+def _abort_if_tracked_codesleuth_would_be_ignored(
+    repo: Path, original_content: str, original_existed: bool
+) -> None:
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "ls-files", "-z", "--", ".codesleuth"],
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return
+    tracked = [x for x in proc.stdout.decode("utf-8", "surrogateescape").split("\0") if x]
+    for rel in tracked:
+        check = subprocess.run(
+            ["git", "-C", str(repo), "check-ignore", "-q", "--", rel],
+            capture_output=True,
+            check=False,
+        )
+        if check.returncode == 0:
+            path = repo / ".gitignore"
+            if original_existed:
+                path.write_text(original_content, encoding="utf-8")
+            else:
+                if path.exists():
+                    path.unlink()
+            raise RuntimeError(
+                f"tracked file {rel} would become ignored by CodeSleuth gitignore; aborting installation"
+            )
+
+
 def ensure_local_gitignore(repo: Path, *, preserve_archive_only: bool = False) -> Path:
     path = repo / ".gitignore"
-    original = path.read_text(encoding="utf-8") if path.exists() else ""
+    existed = path.exists()
+    original_raw = path.read_text(encoding="utf-8") if existed else ""
+    original = original_raw
     before, marker, tail = original.partition(IGNORE_BEGIN)
     if marker:
         _, end_marker, after = tail.partition(IGNORE_END)
@@ -182,6 +213,7 @@ def ensure_local_gitignore(repo: Path, *, preserve_archive_only: bool = False) -
     body = original.rstrip("\n")
     new_content = f"{body}\n\n{block}\n" if body else f"{block}\n"
     path.write_text(new_content, encoding="utf-8")
+    _abort_if_tracked_codesleuth_would_be_ignored(repo, original_raw, existed)
     return path
 
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -107,15 +108,23 @@ for launcher_name in ("opencode-review", "opencode-review.ps1"):
 
 def _frontmatter_field(path: Path, key: str) -> str | None:
     text = path.read_text(encoding="utf-8")
-    if not text.startswith("---"):
+    if text.startswith("\ufeff"):
+        text = text.lstrip("\ufeff")
+    if not text.lstrip().startswith("---"):
         return None
-    parts = text.split("---", 2)
-    if len(parts) < 3:
-        return None
-    prefix = f"{key}:"
-    for line in parts[1].splitlines():
-        if line.startswith(prefix):
-            return line.split(":", 1)[1].strip()
+    match = re.search(r"^[ \t]*---[ \t]*\r?\n(.*?)\r?\n[ \t]*---[ \t]*\r?\n", text, re.S | re.M)
+    if match:
+        inner = match.group(1)
+    else:
+        parts = text.split("---", 2)
+        if len(parts) < 3:
+            return None
+        inner = parts[1]
+    pat = re.compile(rf"^\s*{re.escape(key)}\s*:\s*(.*?)\s*$")
+    for line in inner.splitlines():
+        m = pat.match(line)
+        if m:
+            return m.group(1).strip()
     return None
 
 for name in ("repo-review.md", "repo-docs.md", "repo-review-resume.md", "repo-profile.md", "repo-prompts.md", "repo-report.md"):
