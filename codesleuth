@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+set -eu
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+export REVIEW_PACK_DISTRIBUTION_ROOT="$HERE"
+exec python3 "$HERE/pack/.opencode/bin/review_pack_tui_bootstrap.py" "$@"

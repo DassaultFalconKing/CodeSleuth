@@ -1,298 +1,116 @@
-# User Guide
+# CodeSleuth User Guide
 
-This guide explains how to install, configure, validate, update, and use the
-OpenCode Repository Deep Review Pack in any Git repository.
+CodeSleuth is an evidence-first OpenCode repository auditor. The normal workflow is: install it into a Git repository, choose repository/profile policy, run deep reviews, keep durable local review state, and optionally pin the exact CodeSleuth source commit as a project dependency.
 
-The recommended workflow is:
-
-```text
-review-pack source
-      ↓
-setup TUI
-      ↓
-install managed .opencode environment
-      ↓
-smoke validation
-      ↓
-launch OpenCode through pack launcher
-      ↓
-/repo-prompts
-      ↓
-/repo-review | /repo-docs | /repo-profile | /repo-review-resume
-```
-
-## 1. Prerequisites
-
-Required:
-
-- Git;
-- Python 3.9 or newer;
-- OpenCode installed and available as `opencode`;
-- a Git repository that you want to review or document.
-
-For the interactive TUI, the first launch may require network access. The pack
-creates an isolated Python virtual environment and installs the pinned
-`textual==8.2.8` dependency there. It does not add Textual to the target
-repository's Python dependencies.
-
-For self-update from GitHub, Git must be able to reach the recorded pack remote.
-
-## 2. Recommended installation: setup TUI
-
-From a standalone checkout of the review pack, launch the setup UI and point it
-at the target repository.
+## Start from a CodeSleuth checkout
 
 Linux/macOS/WSL:
 
 ```bash
-./review-pack /path/to/target-repo
+./codesleuth /path/to/project
 ```
 
 PowerShell:
 
 ```powershell
-.\review-pack.ps1 C:\path\to\target-repo
+.\codesleuth.ps1 C:\path\to\project
 ```
 
-The distribution TUI can install a fresh pack, safely overlay an existing
-`.opencode` environment, adopt an older unversioned review-pack installation, or
-update a managed installation.
+The TUI creates an isolated `textual==8.2.8` runtime if needed and does not install Textual into the target application's Python environment.
 
-### Questions the TUI asks
+## TUI setup
 
-The setup screen collects the project policy instead of silently choosing it.
+The setup screen controls:
 
-1. **Installation operation**
-   - fresh/safe overlay;
-   - adopt an older unversioned pack with backup;
-   - update an existing managed installation;
-   - configure an already installed pack without replacing pack files.
+- install / update / legacy adoption;
+- automatic or manual repository profiles;
+- explicit OpenCode permission policy;
+- Exa web runtime;
+- keepalive/watchdog settings;
+- compaction reserve;
+- update checks;
+- whether CodeSleuth is pinned as `tools/codesleuth` Git submodule.
 
-2. **Repository profile**
-   - automatic profile detection from tracked files; or
-   - manual selection for mixed/unusual repositories.
+The dependency control is reversible: binding/unbinding the source dependency is independent of installing/uninstalling the `.opencode` runtime.
 
-   Built-in profile families are:
+Before first install CodeSleuth writes a pre-install backup under `.codesleuth/backups/pre-install/` and adds a managed root `.gitignore` block for local CodeSleuth/OpenCode state.
 
-   ```text
-   generic
-   rust
-   python
-   node
-   typescript
-   ```
+`tools/codesleuth` is never ignored by CodeSleuth. If the target project's own ignore rules hide that path, dependency binding refuses to proceed until the project owner resolves the policy intentionally.
 
-3. **Permission preset**
-   - `review-safe` (recommended): read-oriented, destructive Git actions denied,
-     most non-read shell work asks first;
-   - `balanced`: common local verification commands may run automatically;
-   - `autonomous`: broad local shell access, but destructive Git operations still
-     require explicit confirmation.
+## Security warning
 
-4. **Explicit sensitive permissions**
-   - `websearch`: allow / ask / deny;
-   - `webfetch`: allow / ask / deny;
-   - repository edits: allow / ask / deny;
-   - access outside the repository: allow / ask / deny.
+OpenCode may have access to development credentials because the application under review may genuinely need them to run tests or access development services. CodeSleuth does not blanket-redact evidence. Findings, snippets, logs, reports, generated prompts and preserved review state may therefore contain secrets visible to the authorized runtime.
 
-5. **Runtime behavior**
-   - enable/disable Exa-backed web search runtime;
-   - enable/disable `opencode-keepalive` watchdog;
-   - global stall timeout;
-   - web tool stall timeout;
-   - maximum watchdog recoveries;
-   - reserved compaction tokens;
-   - whether the TUI should check upstream updates when opened.
+Local CodeSleuth state and preserved uninstall archives are gitignored by default. Inspect/sanitize audit output before sharing or force-adding ignored artifacts to Git.
 
-Before applying, the TUI shows the resulting policy/configuration preview.
+## Project layout
 
-## 3. Security defaults
-
-The default `review-safe` policy is intentionally conservative.
-
-Pack defaults include:
-
-- tracked repository reads are allowed;
-- `.env` and `.env.*` are denied, while `.env.example` remains readable;
-- normal read-only Git inspection commands are allowed;
-- other shell commands ask by default;
-- `git push*`, `git reset --hard*`, and `git clean*` are denied in the default
-  project policy;
-- reviewer/scout agents remain read-only even if the project policy later becomes
-  more permissive;
-- external directory access asks by default;
-- web search/fetch ask by default;
-- the repository deep-review skill is allowed while unrelated skills ask.
-
-Web tools are deliberately separate from the Exa runtime switch. Enabling
-`OPENCODE_ENABLE_EXA=1` only makes Exa-backed `websearch` available; the OpenCode
-permission still controls whether the agent may execute it without asking.
-
-Web search queries and fetched URLs may be sent to external services. Choose
-`ask` or `deny` for repositories where that disclosure is inappropriate.
-
-## 4. Non-interactive installation
-
-The TUI is a front-end over the same installer contract. CI and scripted setups
-should call the deterministic installer directly.
-
-Linux/macOS/WSL:
-
-```bash
-./install.sh /path/to/target-repo
-```
-
-PowerShell:
-
-```powershell
-.\install.ps1 C:\path\to\target-repo
-```
-
-Both wrappers delegate all logic to the same `install.py` implementation.
-
-Force a profile set when automatic detection is not desired:
-
-```bash
-./install.sh /path/to/target-repo \
-  --profile generic \
-  --profile rust \
-  --profile typescript
-```
-
-Do not use `--force-pack-files` casually. It intentionally overwrites locally
-modified pack-managed files.
-
-## 5. What is installed
-
-A normal target repository receives:
+A fully pinned development repository normally looks like:
 
 ```text
-.opencode/
-├── agents/
-├── commands/
-├── skills/
+project/
+├── .gitmodules
 ├── tools/
-├── plugins/
-├── profiles/
-│   ├── builtin/
-│   └── detected.json
-├── bin/
-│   ├── review-pack
-│   ├── review-pack.ps1
-│   ├── review-pack-smoke.py
-│   ├── review-pack-update
-│   ├── review-pack-update.ps1
-│   ├── review-pack-update.py
-│   ├── opencode-review
-│   └── opencode-review.ps1
-├── opencode.json
-├── review-pack.json
-└── review-pack-user.json
+│   └── codesleuth/       # exact CodeSleuth gitlink/submodule
+├── .opencode/            # project-owned installed auditor/runtime policy
+└── .codesleuth/          # local backups/archives, ignored
 ```
 
-Important files:
+`.opencode/state/` is local runtime/review state and remains ignored.
 
-- `review-pack.json`: installer/update metadata, pack version, source commit/ref,
-  managed-file hashes, conflicts;
-- `review-pack-user.json`: project-level settings selected through the TUI;
-- `opencode.json`: effective OpenCode configuration;
-- `profiles/detected.json`: active profile set;
-- `.opencode/state/`: local runtime state, checkpoints, update conflicts,
-  backups, TUI runtime. This directory is ignored by Git.
+## Non-interactive installation
 
-## 6. Validate the installation
-
-Always run the target-local smoke test after initial install, adoption, or
-update.
-
-Linux/macOS/WSL:
+Install without adding a project dependency:
 
 ```bash
-cd /path/to/target-repo
-python3 .opencode/bin/review-pack-smoke.py .
+./install.sh /path/to/project
 ```
 
-PowerShell:
+Install and pin CodeSleuth in the target repository:
 
-```powershell
-cd C:\path\to\target-repo
-python .opencode\bin\review-pack-smoke.py .
+```bash
+./install.sh /path/to/project --bind-dependency
 ```
 
-Expected prefix:
+The bind operation stages `.gitmodules` and `tools/codesleuth`. It does not commit or push the target repository.
 
-```text
-PACK SMOKE PASS
+Passing a nested project directory is safe: CLI entrypoints normalize it to the containing Git repository root before writing `.opencode` or `.codesleuth`.
+
+After cloning a bound project:
+
+```bash
+git clone --recurse-submodules <project-url>
+# or in an existing clone
+git submodule update --init --recursive
 ```
 
-The smoke validates the managed pack surface, metadata schema, active profiles,
-permission shape, TUI files, launchers, and update tooling. Warnings about an
-intentionally permissive policy are warnings, not fabricated failures.
+## Installed controls
 
-## 7. Open the installed control TUI
+After installation:
 
-After installation the target repository is self-contained for normal use.
+```bash
+.opencode/bin/codesleuth
+```
 
-Linux/macOS/WSL:
+Compatibility alias:
 
 ```bash
 .opencode/bin/review-pack
 ```
 
-PowerShell:
+Validate the installation:
 
-```powershell
-.opencode\bin\review-pack.ps1
+```bash
+python3 .opencode/bin/review-pack-smoke.py .
 ```
 
-The installed TUI can:
-
-- inspect installation/version/profile state;
-- edit project permission/runtime settings;
-- apply the settings to `opencode.json`;
-- run smoke validation;
-- check for upstream pack updates;
-- apply a self-update;
-- show/save suggested prompts;
-- launch OpenCode with the correct runtime environment.
-
-## 8. Launch OpenCode correctly
-
-Prefer the pack launcher instead of plain `opencode`.
-
-Linux/macOS/WSL:
+Launch the configured OpenCode runtime:
 
 ```bash
 .opencode/bin/opencode-review
 ```
 
-PowerShell:
-
-```powershell
-.opencode\bin\opencode-review.ps1
-```
-
-The launcher reads `review-pack-user.json`. When Exa runtime is enabled it sets:
-
-```text
-OPENCODE_ENABLE_EXA=1
-```
-
-When disabled, the launcher does not expose that flag.
-
-## 9. First command inside OpenCode
-
-Start with:
-
-```text
-/repo-prompts
-```
-
-The prompt advisor inspects the actual repository and proposes 5-8
-copy/paste-ready tasks appropriate to the detected stack and current repository
-state.
-
-The main commands are:
+## Main OpenCode commands
 
 ```text
 /repo-prompts
@@ -302,191 +120,86 @@ The main commands are:
 /repo-review-resume
 ```
 
-### Typical review prompt
+The deep-review workflow uses deterministic repository inventory, bounded scouts, parent re-verification of exact source, durable finding/checkpoint state, compaction-safe recovery and selective evidence rehydration.
+
+## Durable state
+
+Review state lives under:
 
 ```text
-/repo-review map the repository architecture, identify authority boundaries and
-invariants, then perform an in-depth correctness review. Inspect callers,
-callees, tests, CI, migrations and documentation, not only obvious entrypoints.
-Record exact evidence for every material finding.
+.opencode/state/reviews/
 ```
 
-### Typical branch/PR-style review prompt
+Reviewed source paths are bound to current Git blob hashes. If a tracked file changes after review, resume can detect stale coverage rather than claiming the old evidence is still current.
 
-```text
-/repo-review compare current HEAD and worktree against the canonical base branch.
-Review changed code and unchanged consumers/contracts/tests/CI. Distinguish
-blockers from improvements and state all unreviewed areas.
-```
+This local state is intentionally ignored by Git because it may be large and may contain sensitive evidence.
 
-### Documentation prompt
+## Updating a pinned project
 
-```text
-/repo-docs build an evidence-first repository guide from current source,
-manifests, CI and tests. Separate documented guarantees from behavior inferred
-from code and call out stale or contradictory documentation.
-```
-
-## 10. Profiles and profile generation
-
-Automatic detection writes the initial active profile set. For a deeper,
-repository-specific profile use:
-
-```text
-/repo-profile
-```
-
-The profile architect follows this order:
-
-```text
-local manifests / lockfiles / CI / config
-        ↓
-identify uncertain or version-sensitive facts
-        ↓
-websearch discovery, if permitted
-        ↓
-webfetch primary official documentation, if permitted
-        ↓
-profile proposal
-        ↓
-effective edit permission
-        ↓
-generated project profile
-```
-
-Search snippets are not treated as authority. No successful tool call means no
-claim of external verification.
-
-## 11. Update the pack
-
-Check whether the recorded upstream source moved:
+A superproject records an exact CodeSleuth commit. Advance it deliberately:
 
 ```bash
-.opencode/bin/review-pack-update --check
+git -C tools/codesleuth fetch origin
+git -C tools/codesleuth checkout --detach <accepted-sha>
+./tools/codesleuth/install.sh . --update
 ```
 
-PowerShell:
+Then inspect the project diff and commit the gitlink plus intended `.opencode` changes together.
 
-```powershell
-.opencode\bin\review-pack-update.ps1 --check
-```
+To revert, checkout the prior accepted SHA in `tools/codesleuth`, rerun that checkout's `install.sh . --update`, inspect, and commit the gitlink/runtime changes. The TUI disables target-local check/update actions for pinned detached mode because those scripts require an explicit floating `remote + ref`.
 
-Apply an update:
+Detached CodeSleuth checkouts are normal. CodeSleuth records the exact source commit and does not infer a floating branch from `origin/HEAD`.
+
+## Uninstall while preserving audit traces
 
 ```bash
-.opencode/bin/review-pack-update
+.opencode/bin/codesleuth-project --uninstall .
 ```
 
-or:
+This archives only known CodeSleuth settings, profiles, review state and TUI state under `.codesleuth/archive/`, performs a conflict-safe pre-install restore, removes CodeSleuth-owned runtime files, and removes a safe bound CodeSleuth submodule. Arbitrary reports or project files outside managed namespaces are neither archived nor deleted.
 
-```powershell
-.opencode\bin\review-pack-update.ps1
-```
+If a pre-existing `.opencode` file changed after installation, its current version stays in place. Baseline/current copies and a conflict manifest are retained under ignored `.codesleuth/restore-conflicts/` for manual resolution.
 
-The updater clones the new source into a temporary directory and runs the **new
-version's installer**. This allows the installer/update protocol itself to
-evolve safely.
+The archive stays gitignored.
 
-### Update safety
-
-For pack-managed files:
-
-- unchanged local file -> replace with upstream version;
-- locally modified file -> preserve local file and save incoming version under
-  `.opencode/state/update-conflicts/<timestamp>/...incoming`;
-- new upstream file -> install;
-- retired upstream file -> delete only if still identical to the old managed
-  hash.
-
-`opencode.json` uses a previous-default/current-user/new-default merge so normal
-user overrides survive pack updates.
-
-After an update with unresolved managed-file conflicts,
-`review-pack.json` records:
-
-```json
-{
-  "complete": false
-}
-```
-
-Resolve the conflict and run smoke again.
-
-## 12. Adopt an older unversioned installation
-
-Older installations without `.opencode/review-pack.json` cannot safely
-self-update because no trusted managed-file hashes exist.
-
-Use the current distribution once:
+## Uninstall and purge CodeSleuth traces
 
 ```bash
-./install.sh /path/to/target-repo --adopt-existing-pack
+.opencode/bin/codesleuth-project --uninstall . --purge-traces
 ```
 
-PowerShell:
+This safely restores prior project configuration and deletes ordinary CodeSleuth backups/known local traces. Required restore-conflict evidence remains when a user edit prevents automatic restore. CodeSleuth does not guess at arbitrary report files authored elsewhere in the repository; those remain project-owned.
 
-```powershell
-.\install.ps1 C:\path\to\target-repo --adopt-existing-pack
+To remove only the installed runtime while keeping the pinned source dependency:
+
+```bash
+.opencode/bin/codesleuth-project --uninstall . --keep-dependency
 ```
 
-Known old pack files are backed up under:
+This is the first-class **dependency-only** / **bound-inactive** state. To remove only the dependency while keeping the runtime:
 
-```text
-.opencode/state/installer-backups/legacy-adoption/<timestamp>/
+```bash
+.opencode/bin/codesleuth-project --unbind .
 ```
 
-After adoption the installation becomes versioned and can use normal update
-commands.
+The TUI exposes Preserve/Purge choices and requires an explicit uninstall action.
 
-## 13. What should be committed in the target repository
+## Development and tests
 
-Recommended to commit:
-
-```text
-.opencode/.gitignore
-.opencode/agents/
-.opencode/commands/
-.opencode/plugins/
-.opencode/profiles/builtin/
-.opencode/skills/
-.opencode/tools/
-.opencode/bin/
-.opencode/opencode.json
-.opencode/review-pack.json
-.opencode/review-pack-user.json
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest
+ruff check .
 ```
 
-Generated project profiles may also be committed once reviewed.
+The TUI tests use Textual's headless `App.run_test()` / `Pilot` facilities. The Git lifecycle tests build disposable repositories and exercise actual submodule add/remove behavior rather than mocking Git's most important semantics.
 
-Do not commit:
+The TypeScript durable-state smoke remains:
 
-```text
-.opencode/state/
-.opencode/cache/
-.opencode/logs/
-.opencode/sessions/
-.opencode/node_modules/
-.opencode/**/__pycache__/
+```bash
+bun tests/review_state_smoke.ts
 ```
 
-This keeps the project policy and review machinery reproducible while keeping
-session/checkpoint/runtime state local.
+## Permission ownership
 
-## 14. Large-context operating rule
-
-A 1M-token context is headroom, not a target occupancy.
-
-The review pack intentionally uses:
-
-```text
-deterministic inventory
-→ bounded scouts
-→ exact parent verification
-→ durable findings/checkpoints
-→ compaction-safe recovery
-→ selective evidence rehydration
-```
-
-Do not defeat the design by asking the model to ingest the entire repository at
-once. The repository should remain addressable; only the current reasoning set
-should be resident in model context.
+Repository profiles describe stack evidence, verification commands and review focus. They do not grant web/edit/external permissions. Permission changes belong to the explicit project/TUI policy layer, so applying a profile cannot silently widen a stricter project policy.

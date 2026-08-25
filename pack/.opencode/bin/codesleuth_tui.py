@@ -15,17 +15,15 @@ from textual.containers import Horizontal, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, RichLog, Select, Static, Switch
 
+import codesleuth_project as project_lifecycle
 from review_pack_tui import ConfigScreen, PromptScreen, ReviewPackApp, launch_opencode
 from review_pack_tui_core import (
     apply_settings_to_target,
-    config_preview,
     detect_profiles,
     installation_state,
     load_settings,
     recommended_operation,
     save_settings,
-    settings_summary,
-    validate_settings,
 )
 
 PERMISSION_OPTIONS = [("Ask before use", "ask"), ("Allow", "allow"), ("Deny", "deny")]
@@ -112,15 +110,12 @@ HELP_SECTIONS = [
     ),
     (
         "Deinstallation",
-        "There is no automated uninstaller yet. Do not delete the whole .opencode directory unless it belongs only to CodeSleuth.\n"
-        "Safe manual removal:\n"
-        "1. Stop CodeSleuth/OpenCode and preserve any review checkpoints you care about.\n"
-        "2. Open .opencode/review-pack.json and use managedFiles as the authoritative CodeSleuth-owned file list.\n"
-        "3. Remove only managed files whose current content still matches the recorded managed hash; preserve locally modified files for manual review.\n"
-        "4. If .opencode/state/installer-backups/opencode.json.before-pack exists and is the desired pre-CodeSleuth config, restore it. Otherwise edit opencode.json manually; do not blindly delete a shared OpenCode config.\n"
-        "5. Remove review-pack.json and review-pack-user.json after the managed files/config are handled.\n"
-        "6. Remove .opencode/state/ only if you no longer need checkpoints, backups, logs, or conflict evidence.\n"
-        "Compatibility filenames still use review-pack* until a separate migration changes those contracts.",
+        "Use the explicit Uninstall action or .opencode/bin/codesleuth-project --uninstall. "
+        "Preserve archives known CodeSleuth settings/profile/review/TUI state; purge removes ordinary CodeSleuth traces/backups. "
+        "Neither mode guesses at unrelated project reports or configuration. If a pre-existing .opencode file changed after install, "
+        "its current version stays in place and baseline/current recovery copies plus a conflict manifest remain under ignored "
+        ".codesleuth/restore-conflicts/. Dependency binding is independent: --keep-dependency leaves dependency-only state, "
+        "while codesleuth-project --unbind removes only the dependency. Compatibility filenames remain documented interfaces.",
     ),
 ]
 
@@ -217,6 +212,9 @@ class CodeSleuthConfigScreen(ConfigScreen):
                 classes="hint",
             )
             yield Select(ops, value=selected_op, allow_blank=False, id="operation")
+            with Horizontal(classes="row"):
+                yield Switch(value=bool(self.dependency["bound"]), id="bind-dependency")
+                yield Label("Bind/unbind tools/codesleuth independently of the installed runtime")
 
             yield Label("2. Repository profile", classes="section")
             yield Static(
@@ -274,11 +272,15 @@ class CodeSleuthConfigScreen(ConfigScreen):
                 yield Button("Cancel", id="cancel")
 
     @work(thread=True, exclusive=True)
-    def perform_apply(self, settings: dict, operation: str) -> None:
+    def perform_apply(self, settings: dict, operation: str, bind_dependency: bool) -> None:
         try:
             if operation == "configure":
                 save_settings(self.repo, settings)
                 apply_settings_to_target(self.repo, settings)
+                if bind_dependency and not project_lifecycle.dependency_status(self.repo)["bound"]:
+                    project_lifecycle.bind_dependency(self.repo, source_metadata=self._installed_source())
+                elif not bind_dependency and project_lifecycle.dependency_status(self.repo)["bound"]:
+                    project_lifecycle.remove_dependency(self.repo)
                 output = "CodeSleuth configuration applied."
             else:
                 if self.distribution_root is None:
@@ -297,12 +299,16 @@ class CodeSleuthConfigScreen(ConfigScreen):
                         command.append("--update")
                     elif operation == "adopt":
                         command.append("--adopt-existing-pack")
+                    if bind_dependency:
+                        command.append("--bind-dependency")
                     result = subprocess.run(command, text=True, capture_output=True)
                     if result.returncode != 0:
                         raise RuntimeError((result.stderr or result.stdout or "installer failed").strip())
                     output = result.stdout.strip()
                 finally:
                     settings_path.unlink(missing_ok=True)
+                if not bind_dependency and project_lifecycle.dependency_status(self.repo)["bound"]:
+                    project_lifecycle.remove_dependency(self.repo)
             self.app.call_from_thread(self.notify, output[-1200:] or "Applied", severity="information")
             self.app.call_from_thread(self.dismiss, True)
         except Exception as exc:
@@ -320,6 +326,7 @@ class CodeSleuthApp(ReviewPackApp):
     #brand { color: #63d5f4; height: 15; text-style: bold; }
     #tagline { color: #8aa7b8; margin-bottom: 1; }
     #target { width: 100%; }
+    #security { color: #f0c36a; margin-bottom: 1; }
     #status { border: round #29404f; padding: 1; margin: 1 0; background: #0e1822; }
     #actions { height: auto; }
     #actions Button { margin-right: 1; }
@@ -332,6 +339,9 @@ class CodeSleuthApp(ReviewPackApp):
         ("c", "configure", "Configure"),
         ("p", "playbooks", "Playbooks"),
         ("h", "help", "Help"),
+        ("v", "verify", "Verify"),
+        ("k", "check_updates", "Check Updates"),
+        ("u", "uninstall", "Uninstall"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -341,6 +351,11 @@ class CodeSleuthApp(ReviewPackApp):
             yield Static("Evidence-first repository intelligence", id="tagline")
             yield Label("Repository")
             yield Input(str(self.target), id="target")
+            yield Static(
+                "Evidence may contain developer credentials visible to authorized tests/services. "
+                "Local state is ignored by default; inspect reports before sharing or committing them.",
+                id="security",
+            )
             yield Static("", id="status")
             with Horizontal(id="actions"):
                 yield Button("Configure", id="configure", variant="primary")
@@ -349,6 +364,7 @@ class CodeSleuthApp(ReviewPackApp):
                 yield Button("Update", id="update")
                 yield Button("Playbooks", id="playbooks")
                 yield Button("Help", id="help")
+                yield Button("Uninstall", id="uninstall", variant="error")
                 yield Button("Open CodeSleuth", id="launch", variant="success")
             yield RichLog(id="log", wrap=True, markup=True)
         yield Footer()
@@ -366,11 +382,21 @@ class CodeSleuthApp(ReviewPackApp):
                 version = str(meta.get("version") or "unknown")
                 complete = bool(meta.get("complete"))
             operation = recommended_operation(self.target, self.distribution_root is not None)
+            dependency = project_lifecycle.dependency_status(self.target)
+            lifecycle = project_lifecycle.lifecycle_state(self.target)
+            source = meta.get("source", {}) if meta_path.is_file() else {}
+            update_mode = "pinned: advance/revert the gitlink, then materialize that checkout" if dependency["bound"] else (
+                "floating" if source.get("remote") and source.get("ref") else "unavailable: no explicit floating source ref"
+            )
+            self.query_one("#check-update", Button).disabled = dependency["bound"] or update_mode.startswith("unavailable")
+            self.query_one("#update", Button).disabled = dependency["bound"] or update_mode.startswith("unavailable")
             readiness = "READY" if state == "versioned" and complete else ("ATTENTION" if state == "versioned" else "SETUP")
             complete_text = "yes" if complete is True else ("no" if complete is False else "n/a")
             self.query_one("#status", Static).update(
                 f"{readiness}  CodeSleuth {version}\n"
-                f"Installation: {state}; complete: {complete_text}\n"
+                f"Installation: {state}; lifecycle: {lifecycle}; complete: {complete_text}\n"
+                f"Dependency: {dependency['commit'] if dependency['bound'] else 'not pinned'}\n"
+                f"Update path: {update_mode}\n"
                 f"Profiles: {', '.join(profiles)}\n"
                 f"Next action: {operation}"
             )
@@ -395,6 +421,16 @@ class CodeSleuthApp(ReviewPackApp):
 
     def action_help(self) -> None:
         self.push_screen(CodeSleuthHelpScreen())
+
+    def action_verify(self) -> None:
+        self.run_runtime_action("smoke")
+
+    def action_check_updates(self) -> None:
+        if not self.query_one("#check-update", Button).disabled:
+            self.run_runtime_action("check")
+
+    def action_uninstall(self) -> None:
+        self.query_one("#uninstall", Button).press()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "playbooks":

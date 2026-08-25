@@ -59,7 +59,8 @@ def main():
         assert '("h", "help", "Help")' in branded_source
         assert "CodeSleuth Playbooks" in branded_source
         assert "Playbooks are prompts, not OpenCode Skills." in branded_source
-        assert "There is no automated uninstaller yet." in branded_source
+        assert "codesleuth-project --uninstall" in branded_source
+        assert "There is no automated uninstaller yet." not in branded_source
         assert "CodeSleuth Review Prompts" not in branded_source
         assert "APP = HERE / \"codesleuth_tui.py\"" in (oc / "bin" / "review_pack_tui_bootstrap.py").read_text(encoding="utf-8")
 

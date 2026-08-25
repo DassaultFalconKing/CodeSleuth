@@ -1,4 +1,8 @@
 .runtime/
+.venv/
+.codesleuth/
+.opencode/state/
 __pycache__/
 *.pyc
 .pytest_cache/
+.ruff_cache/
