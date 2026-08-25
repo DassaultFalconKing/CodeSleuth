@@ -19,7 +19,7 @@ required = [
     "bin/opencode-review", "bin/opencode-review.ps1",
     "bin/review-pack", "bin/review-pack.ps1",
     "bin/review_pack_tui.py", "bin/codesleuth_tui.py", "bin/review_pack_tui_core.py", "bin/review_pack_tui_bootstrap.py",
-    "bin/requirements-tui.txt",
+    "bin/codesleuth_version.py", "bin/requirements-tui.txt",
     "bin/review-pack-update", "bin/review-pack-update.ps1", "bin/review-pack-update.py",
     "bin/review-pack-smoke.py", "themes/codesleuth.json", "tui.json",
     "opencode.json", "review-pack.json", "review-pack-user.json", "CODESLEUTH-REPORTS.md"
@@ -27,6 +27,9 @@ required = [
 missing = [x for x in required if not (oc / x).is_file()]
 if missing:
     raise SystemExit("missing: " + ", ".join(missing))
+
+sys.path.insert(0, str(oc / "bin"))
+from codesleuth_version import installed_version  # noqa: E402
 
 cfg = json.loads((oc / "opencode.json").read_text(encoding="utf-8"))
 permission = cfg.get("permission", {})
@@ -60,8 +63,7 @@ if isinstance(bash, dict):
 meta = json.loads((oc / "review-pack.json").read_text(encoding="utf-8"))
 if meta.get("schemaVersion") not in (1, 2):
     raise SystemExit("unsupported or missing CodeSleuth metadata schemaVersion")
-if not meta.get("version"):
-    raise SystemExit("CodeSleuth metadata has no version")
+version = installed_version(root)
 if not isinstance(meta.get("managedFiles"), dict) or not meta["managedFiles"]:
     raise SystemExit("CodeSleuth metadata has no managedFiles hashes")
 source = meta.get("source", {})
@@ -106,6 +108,7 @@ for launcher_name in ("opencode-review", "opencode-review.ps1"):
     if "OPENCODE_TUI_CONFIG" not in (oc / "bin" / launcher_name).read_text(encoding="utf-8"):
         raise SystemExit(f"{launcher_name} does not activate the project-local CodeSleuth TUI config")
 
+
 def _frontmatter_field(path: Path, key: str) -> str | None:
     text = path.read_text(encoding="utf-8")
     if text.startswith("\ufeff"):
@@ -127,6 +130,7 @@ def _frontmatter_field(path: Path, key: str) -> str | None:
             return m.group(1).strip()
     return None
 
+
 for name in ("repo-review.md", "repo-docs.md", "repo-review-resume.md", "repo-profile.md", "repo-prompts.md", "repo-report.md"):
     agent = _frontmatter_field(oc / "commands" / name, "agent")
     if agent != "build":
@@ -147,7 +151,7 @@ if "CodeSleuth reports" not in (root / "AGENTS.md").read_text(encoding="utf-8"):
 
 print("PACK SMOKE PASS")
 print("product: CodeSleuth")
-print("version:", meta["version"])
+print("version:", version)
 print("installation complete:", bool(meta.get("complete", False)))
 print("profiles:", ", ".join(profiles))
 print("theme: codesleuth")
