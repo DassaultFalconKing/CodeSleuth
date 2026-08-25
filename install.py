@@ -13,17 +13,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 PACK = ROOT / "pack" / ".opencode"
-VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip() if (ROOT / "VERSION").exists() else "0.3.0"
 META_NAME = "review-pack.json"
 SETTINGS_NAME = "review-pack-user.json"
 sys.path.insert(0, str(PACK / "bin"))
+from codesleuth_version import source_version  # noqa: E402
 import codesleuth_project as project_lifecycle  # noqa: E402
 import review_pack_tui_core as tui_core  # noqa: E402
+
+VERSION = source_version(ROOT)
 
 
 def run_git(args, cwd=None, check=True):
     return subprocess.run(["git", *args], cwd=cwd, text=True, capture_output=True, check=check)
-
 
 
 MIN_GIT_VERSION = (2, 35, 0)
