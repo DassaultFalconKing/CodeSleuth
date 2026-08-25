@@ -1,0 +1,4 @@
+-r pack/.opencode/bin/requirements-tui.txt
+pytest>=8.4,<9
+pytest-asyncio>=0.23,<2
+ruff>=0.12,<1
