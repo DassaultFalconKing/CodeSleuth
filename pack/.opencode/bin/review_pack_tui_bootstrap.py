@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import importlib.metadata
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -14,12 +15,15 @@ from pathlib import Path
 
 from codesleuth_version import VersionMetadataError, resolve_version
 
-TEXTUAL_VERSION = "8.2.8"
 HERE = Path(__file__).resolve().parent
 REQ = HERE / "requirements-tui.txt"
+TEXTUAL_REQUIREMENT = REQ.read_text(encoding="utf-8").strip()
 RESTART_MARKER = Path(".opencode") / "state" / "tui-restart-request.json"
 WATCH_POLL_SECONDS = 0.20
 SOURCE_PROBE_SECONDS = 1.0
+
+_REQUIREMENT_RE = re.compile(r"^textual>=(\d+)\.(\d+)\.(\d+),<(\d+)$")
+_VERSION_PREFIX_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)")
 
 
 @dataclass
@@ -32,9 +36,33 @@ class RuntimeWatch:
     last_source_probe: float = 0.0
 
 
+def _textual_bounds() -> tuple[tuple[int, int, int], tuple[int, int, int]]:
+    match = _REQUIREMENT_RE.fullmatch(TEXTUAL_REQUIREMENT)
+    if match is None:
+        raise RuntimeError(f"unsupported Textual requirement format: {TEXTUAL_REQUIREMENT!r}")
+    lower = tuple(int(match.group(index)) for index in (1, 2, 3))
+    upper = (int(match.group(4)), 0, 0)
+    return lower, upper
+
+
+def _version_tuple(value: str) -> tuple[int, int, int] | None:
+    match = _VERSION_PREFIX_RE.match(value.strip())
+    if match is None:
+        return None
+    return tuple(int(match.group(index)) for index in (1, 2, 3))
+
+
+def textual_compatible(value: str) -> bool:
+    parsed = _version_tuple(value)
+    if parsed is None:
+        return False
+    lower, upper = _textual_bounds()
+    return lower <= parsed < upper
+
+
 def usable_current_python() -> bool:
     try:
-        return importlib.metadata.version("textual") == TEXTUAL_VERSION
+        return textual_compatible(importlib.metadata.version("textual"))
     except importlib.metadata.PackageNotFoundError:
         return False
 
@@ -51,12 +79,36 @@ def venv_python(root: Path) -> Path:
     return root / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
+def installed_textual_version(python: Path) -> str:
+    completed = subprocess.run(
+        [
+            str(python),
+            "-c",
+            "import importlib.metadata; print(importlib.metadata.version('textual'))",
+        ],
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    actual = completed.stdout.strip()
+    if not textual_compatible(actual):
+        raise RuntimeError(f"installed Textual {actual!r} does not satisfy {TEXTUAL_REQUIREMENT}")
+    return actual
+
+
 def ensure_runtime(version: str) -> Path:
     root = runtime_root()
     python = venv_python(root)
     marker = root / ".textual-version"
-    if python.is_file() and marker.is_file() and marker.read_text(encoding="utf-8").strip() == TEXTUAL_VERSION:
-        return python
+    if python.is_file() and marker.is_file():
+        try:
+            actual = installed_textual_version(python)
+        except (OSError, subprocess.SubprocessError, RuntimeError):
+            actual = ""
+        if actual:
+            if marker.read_text(encoding="utf-8").strip() != actual:
+                marker.write_text(actual + "\n", encoding="utf-8")
+            return python
     root.mkdir(parents=True, exist_ok=True)
     print(f"Preparing isolated CodeSleuth {version} TUI runtime in {root}", file=sys.stderr)
     venv.EnvBuilder(with_pip=True, clear=python.exists()).create(root)
@@ -73,7 +125,8 @@ def ensure_runtime(version: str) -> Path:
         ],
         check=True,
     )
-    marker.write_text(TEXTUAL_VERSION + "\n", encoding="utf-8")
+    actual = installed_textual_version(python)
+    marker.write_text(actual + "\n", encoding="utf-8")
     return python
 
 
@@ -158,10 +211,7 @@ def ensure_textual_runtime(argv: list[str], version: str) -> int | None:
         python = ensure_runtime(version)
     except Exception as exc:
         print(f"Unable to prepare the isolated CodeSleuth {version} Textual runtime: {exc}", file=sys.stderr)
-        print(
-            f"Install textual=={TEXTUAL_VERSION} in an isolated environment or retry with network access.",
-            file=sys.stderr,
-        )
+        print(f"Install {TEXTUAL_REQUIREMENT} in an isolated environment or retry with network access.", file=sys.stderr)
         return 2
     if python.resolve() != Path(sys.executable).resolve():
         sys.stdout.flush()
