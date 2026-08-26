@@ -25,6 +25,7 @@ The `SIB` branch is semantically the current **SIB2**. At policy introduction it
 
 - **Capability class** = a fundamental architectural type of ability, not an individual feature. Example: CLI is a capability class; `verify`, `update`, and `doctor` are feature population inside it.
 - **Feature population** = adding instances, variants, operations, workflows, depth, content, or polish inside existing capability classes without changing the fundamental class inventory. Example: adding more CodeSleuth profiles through the existing profile mechanism is feature population; adding a second independent execution runtime is not.
+- **Semantic refit** = recover still-valid intent from stale work by re-implementing its minimal required behavior on the current accepted base while preserving newer accepted semantics; the old diff is evidence of intent, not authority over the current tree.
 
 ## Required behavior
 
@@ -39,10 +40,11 @@ The `SIB` branch is semantically the current **SIB2**. At policy introduction it
 - Apply feature population incrementally and run full canonical acceptance after each substantial layer.
 - A feature being green on an old branch or old base is not acceptance evidence for the current composition.
 - Only an exact tested commit may be treated as an accepted integration state.
-- Preserve current semantics when transplanting stale work. Re-apply the intended delta rather than replacing newer files wholesale.
+- When stale work overlaps files or contracts that changed after its source base, perform a **semantic refit**: inventory the source intent, inventory current semantics, classify old behavior as REAPPLY/SUPERSEDED/REFIT/DROP, and re-implement only the still-valid delta.
+- Preserve current semantics when transplanting stale work. Never replace a newer file wholesale merely because the stale branch version applies more easily.
 - Never weaken, skip, xfail, or rewrite acceptance tests to promote a change.
 - Record the tested commit SHA and gate result appropriate to the claimed baseline level.
 - RC status is downstream of completed, accepted feature population. SIB2 itself is not an RC.
 - Moving any baseline ref is a separate maintainer promotion decision, never a side effect of ordinary feature work.
 
-See [`CONTRIBUTING.md`](../../CONTRIBUTING.md) and [`docs/STABLE-INTEGRATION-BASELINE.md`](../../docs/STABLE-INTEGRATION-BASELINE.md) for the full contract and examples.
+See [`CONTRIBUTING.md`](../../CONTRIBUTING.md), [`docs/STABLE-INTEGRATION-BASELINE.md`](../../docs/STABLE-INTEGRATION-BASELINE.md), and [`docs/SEMANTIC-REFIT.md`](../../docs/SEMANTIC-REFIT.md) for the full contracts and examples.

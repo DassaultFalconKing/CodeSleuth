@@ -1,4 +1,5 @@
 $ErrorActionPreference = 'Stop'
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
-& python (Join-Path $Here 'codesleuth_project.py') @args
+$env:PYTHONPATH = if ($env:PYTHONPATH) { "$Here;$env:PYTHONPATH" } else { $Here }
+& python -m codesleuth_project @args
 exit $LASTEXITCODE
