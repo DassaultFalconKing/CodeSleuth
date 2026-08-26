@@ -52,6 +52,20 @@ def test_eha_skill_inherits_append_only_store_contract() -> None:
     assert "raw" in skill.lower() and "rewrite" in skill.lower()
 
 
+def test_durable_store_contract_lists_playbooks_and_atomic_eha_skills() -> None:
+    contract = text(CONTRACT)
+    for token in (
+        "eha-sib-acceptance` (Playbook)",
+        "eha-repair` (Playbook)",
+        "eha-candidate-selection",
+        "eha-campaign-evidence",
+        "eha-repair-protocol",
+        "codesleuth-reports",
+    ):
+        assert token in contract, token
+    assert "eha-sib-acceptance` — records exact-head campaigns" not in contract
+
+
 def test_feature_porting_skill_already_forbids_duplicate_evidence_authority() -> None:
     skill = text(OPENCODE / "skills" / "feature-porting-discipline" / "SKILL.md")
     assert "evidence ledger" in skill

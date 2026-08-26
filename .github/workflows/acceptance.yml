@@ -9,6 +9,7 @@ on:
       - "chore/**"
       - "fix/**"
       - "test/**"
+      - "integration/**"
   pull_request:
 
 permissions:

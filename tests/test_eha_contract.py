@@ -101,6 +101,17 @@ def test_eha_state_smoke_is_part_of_the_canonical_bun_gate() -> None:
     assert '"test:eha-state"' in package
 
 
+def test_eha_state_rejects_verdict_immutability_violations() -> None:
+    tool_source = text(OPENCODE / "tools" / "eha_state.ts")
+    for token in (
+        "verdictForCampaignLevel",
+        "targetShaHasRecordedFail",
+        "EHA verdict already recorded",
+        "repair on a new exact SHA instead of starting another campaign",
+    ):
+        assert token in tool_source, token
+
+
 def test_docs_index_exposes_eha_playbook_repair_and_selection_contracts() -> None:
     docs_index = text(ROOT / "docs" / "README.md")
     assert "EHA-REPAIR-LOOP.md" in docs_index
