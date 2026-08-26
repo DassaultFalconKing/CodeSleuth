@@ -1,4 +1,4 @@
-﻿# TUI visual regression acceptance
+# TUI visual regression acceptance
 
 ## Status
 

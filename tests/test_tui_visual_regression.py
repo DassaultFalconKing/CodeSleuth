@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import os
@@ -219,7 +219,7 @@ async def test_tools_update_has_single_dispatch_visible_feedback_and_artifacts(t
             size=size,
             tmp_path=tmp_path,
             events=events,
-            required_text=("Tools ┬À OpenCode-native capabilities", "Recent activity", "Update started"),
+            required_text=("Tools · OpenCode-native capabilities", "Recent activity", "Update started"),
         )
 
 

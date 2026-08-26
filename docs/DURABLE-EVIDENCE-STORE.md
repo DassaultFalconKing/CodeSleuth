@@ -1,4 +1,4 @@
-﻿# CodeSleuth durable evidence store contract
+# CodeSleuth durable evidence store contract
 
 **Status:** Accepted
 **Classification:** CORE-HARDENING + SKILL-EXTENSION + DOCS

@@ -1,4 +1,4 @@
-﻿# SIB candidate selection from the release stream
+# SIB candidate selection from the release stream
 
 ## Status
 
