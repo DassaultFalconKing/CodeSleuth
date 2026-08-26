@@ -177,7 +177,7 @@ def reexec_bootstrap(argv: list[str]) -> None:
 
 
 def supervise_app(target: Path, distribution_root: Path | None, argv: list[str]) -> int:
-    from codesleuth_tui import CodeSleuthApp, launch_opencode
+    from codesleuth_tui_runtime import CodeSleuthApp, launch_opencode
 
     app = CodeSleuthApp(target, distribution_root)
     watch = capture_runtime_watch(target, distribution_root)
