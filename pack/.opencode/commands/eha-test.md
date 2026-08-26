@@ -15,8 +15,7 @@ head of the active `dev/release-X.Y.Z` branch. For the current line this means
 the checkout's literal `git rev-parse HEAD` equals that selected SHA.
 
 A PR head, repair-branch head, synthetic PR merge ref, convenience EHA branch,
-or tree-equivalent commit is not substituted for the selected release-stream
-head.
+or tree-equivalent commit is not substituted for the selected release-stream head.
 
 Before testing, capture literal HEAD, branch, and dirty state. Start or load
 `review_state`, then call `eha_state_start_campaign`.
