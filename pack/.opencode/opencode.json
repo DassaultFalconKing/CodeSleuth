@@ -35,7 +35,16 @@
     "lsp": "allow",
     "skill": {
       "*": "ask",
+      "exact-target-identity": "allow",
       "repository-deep-review": "allow",
+      "feature-porting-discipline": "allow",
+      "protected-capability-registry": "allow",
+      "contract-triangulation": "allow",
+      "forbidden-regression-ledger": "allow",
+      "dependency-impact-closure": "allow",
+      "target-ownership-map": "allow",
+      "acceptance-matrix-design": "allow",
+      "documentation-draft": "allow",
       "codesleuth-reports": "allow"
     },
     "question": "allow",

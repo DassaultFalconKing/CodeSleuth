@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "feature-port",
+  "description": "Evidence-first semantic port from exact source capability to target-native CodeSleuth implementation.",
+  "steps": [
+    {"id": "capture-identities", "execution": "step", "prompt": "steps/01-capture-identities.md", "skills": ["exact-target-identity"], "depends_on": [], "output": "source_target_identity", "isolation": "fresh_subagent"},
+    {"id": "extract-portable-contract", "execution": "skill", "skill": "feature-porting-discipline", "depends_on": ["capture-identities"], "output": "portable_contract", "isolation": "fresh_subagent"},
+    {"id": "map-target-ownership", "execution": "skill", "skill": "target-ownership-map", "depends_on": ["extract-portable-contract"], "output": "ownership_map", "isolation": "fresh_subagent"},
+    {"id": "design-acceptance", "execution": "skill", "skill": "acceptance-matrix-design", "depends_on": ["map-target-ownership"], "output": "acceptance_matrix", "isolation": "fresh_subagent"},
+    {"id": "implement-minimum-slice", "execution": "step", "prompt": "steps/05-implement-minimum-slice.md", "skills": ["contract-triangulation", "forbidden-regression-ledger"], "depends_on": ["design-acceptance"], "output": "implementation_result", "isolation": "fresh_subagent"},
+    {"id": "verify-port", "execution": "step", "prompt": "steps/06-verify-port.md", "skills": ["repository-deep-review", "contract-triangulation", "dependency-impact-closure"], "depends_on": ["implement-minimum-slice"], "output": "port_verdict", "isolation": "fresh_subagent"}
+  ]
+}

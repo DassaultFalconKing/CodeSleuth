@@ -1,20 +1,14 @@
 ---
-description: Query or maintain protected capability contracts and forbidden regressions
+description: Query one protected contract or run the full protected-capability assessment Playbook
 agent: build
 ---
-
-Load the `protected-capability-registry` skill and follow it.
 
 Requested contract query / diff / maintenance task:
 
 $ARGUMENTS
 
-Pin the exact repository HEAD before drawing conclusions. Treat `docs/protected-capabilities.json` as the machine-readable contract index and `docs/PROTECTED-CAPABILITY-CONTRACTS.md` as its normative semantics.
+For one narrow registry lookup, load the atomic `protected-capability-registry` Skill directly.
 
-For ordinary queries, search the manifest with grep/ripgrep and bounded reads. If the registry is genuinely large and host-native BM25, embedding retrieval, or reranking is already available, use those only to retrieve candidates, then reopen the exact manifest entries and their code/docs/tests evidence before answering.
+For a diff/PR, contract maintenance, forbidden-regression audit, impact closure, or SIB/EHA/RC/release preparation, execute the stored `protected-capability-assessment` Playbook one isolated Step at a time under `docs/PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`.
 
-For a diff or PR, map changed paths to protected contracts, compute the reverse dependency closure, and inspect each matched contract's own `forbidden_regressions` registry. Do not stop at new-feature tests.
-
-For contract maintenance, triangulate current code/config, normative/public documentation, and executable acceptance/regression tests. If they disagree, classify drift instead of inventing a compromise. Do not promote a capability to `protected` without explicit SIB1/SIB2 acceptance evidence.
-
-In read-only review mode, report registry drift rather than editing source. Modify `docs/protected-capabilities.json` only when the requested task authorizes contract maintenance.
+Pin the exact target before conclusions. In read-only review mode report registry drift rather than editing it. Do not promote lifecycle status without the required exact SIB evidence.
