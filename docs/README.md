@@ -8,6 +8,7 @@
 - [`CONTEXT-GRAPH-DISCIPLINE.md`](CONTEXT-GRAPH-DISCIPLINE.md) — Git source -> review state -> bounded RepositoryContextProjection -> compact context/Mermaid authority chain.
 - [`NOVACLAW-MCP.md`](NOVACLAW-MCP.md) — first external-host MCP integration and its read-only repository-evidence boundary.
 - [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — naming inventory and staged cutover from historical `review-pack` filenames; 0.4.0 keeps live compatibility names.
+- [`STABLE-INTEGRATION-BASELINE.md`](STABLE-INTEGRATION-BASELINE.md) — SIB0/SIB1/SIB2 architecture-recovery model: initialization freeze, implementation completeness, integration completeness, and release construction from SIB2.
 
 ## README language maintenance
 
@@ -69,6 +70,7 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         +--> NOVACLAW-MCP.md                              (external host seam)
         +--> ../AGENTS.md                                 (compact cross-agent entry point)
         +--> LLM-OPERATOR.md                              (task-specific operator surface)
+        +--> STABLE-INTEGRATION-BASELINE.md               (SIB0 -> SIB1 -> SIB2)
         |
         +--> pack/.opencode/themes/codesleuth.json
         +--> pack/.opencode/CODESLEUTH-REPORTS.md
