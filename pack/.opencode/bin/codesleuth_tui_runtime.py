@@ -108,6 +108,9 @@ class CodeSleuthApp(_base.CodeSleuthApp):
         super().action_update()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
+        # Textual calls same-named handlers on base classes automatically. Prevent
+        # that default MRO dispatch, then invoke exactly one accepted handler path.
+        event.prevent_default()
         if event.button.id == "smoke":
             event.stop()
             self.action_verify()
