@@ -10,6 +10,8 @@
 - [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — naming inventory and staged cutover from historical `review-pack` filenames; 0.4.0 keeps live compatibility names.
 - [`STABLE-INTEGRATION-BASELINE.md`](STABLE-INTEGRATION-BASELINE.md) — SIB0/SIB1/SIB2 architecture-recovery model: initialization freeze, implementation completeness, integration completeness, and release construction from SIB2.
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — normative SIB acceptance identity: SIB degree defines what is proven; exact-head acceptance binds that proof to one exact commit SHA.
+- [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — normative failure/repair discipline: freeze failed SHA, minimally repair into a new SHA, retain failed provenance, and start a new EHA campaign.
+- [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — operational mapping from SIB/EHA theory to CodeSleuth Skills, commands, durable evidence, repair lineage, and Mermaid status views.
 - [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — integration discipline for recovering still-valid intent from stale PRs without overwriting newer accepted semantics.
 
 ## Engineering articles
@@ -47,6 +49,8 @@ CodeSleuth documentation is text-first and terminal-native.
 - Maintained PNG/JPEG/WebP/SVG UI mockups/reference boards are not part of the documentation contract.
 - Mermaid is the allowed diagram format when relationships are materially clearer as encoded text. Mermaid source is reviewable presentation, not a second source of repository truth.
 
+For EHA history, `eha_state_mermaid` derives campaign/SIB/repair lineage from the structured `eha.ndjson` ledger. That diagram is a presentation of acceptance evidence, not the evidence authority itself and not part of the repository context-graph authority.
+
 ## Completed implementation packets
 
 - [`archive/CURSOR-PRODUCTION-HANDOFF.md`](archive/CURSOR-PRODUCTION-HANDOFF.md) — completed PR #2 production-hardening packet, retained for historical evidence only. It is not an active task or branch instruction.
@@ -56,6 +60,7 @@ CodeSleuth documentation is text-first and terminal-native.
 - [`USER-GUIDE.md`](USER-GUIDE.md) — install, configure, validate, update, and operate CodeSleuth.
 - [`LLM-OPERATOR.md`](LLM-OPERATOR.md) — task-specific cross-agent operator manual for safe installation, unattended configuration, verification, use, and removal.
 - [`SELF-UPDATE.md`](SELF-UPDATE.md) — floating update, post-update Verify, controlled CodeSleuth process restart, source-checkout reload, and pinned-update boundaries.
+- [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — `/eha-test`, `/eha-repair`, `/eha-status`, structured EHA evidence, and repair history.
 - [`_includes/build-controller-blurb.md`](_includes/build-controller-blurb.md) — canonical OpenCode `build` controller blurb. Public copy: [root README](../README.md#opencode-build-controller).
 
 ## Maintainers
@@ -64,6 +69,8 @@ CodeSleuth documentation is text-first and terminal-native.
 - [`RELEASE-PROCESS.md`](RELEASE-PROCESS.md) — numbered release branch policy and acceptance gates.
 - [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — product-namespace inventory; runtime rename remains post-0.4.0 work.
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — required acceptance identity contract for SIB promotion, accepted integration states, RCs, and releases.
+- [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — required repair-loop behavior after an EHA FAIL.
+- [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — executable product workflow and evidence topology for EHA campaigns.
 - [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — required method when useful stale work overlaps newer accepted contracts.
 - [`LESSONS-LEARNED-VIEWPORT-HARDENING.md`](LESSONS-LEARNED-VIEWPORT-HARDENING.md) — TUI collapse/Tools viewport acceptance lessons and anti-patterns (paired with `.cursor/rules/tui-viewport-acceptance.mdc`).
 
@@ -76,18 +83,21 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         |       +--> CODESLEUTH-COLORMAP.json
         |       +--> pack/.opencode/bin/codesleuth_tui.py  (canonical ASCII/TUI)
         |
-        +--> CONTEXT-GRAPH-DISCIPLINE.md                  (Mermaid when useful)
+        +--> CONTEXT-GRAPH-DISCIPLINE.md                  (repository linkage + Mermaid when useful)
         +--> NOVACLAW-MCP.md                              (external host seam)
         +--> ../AGENTS.md                                 (compact cross-agent entry point)
         +--> LLM-OPERATOR.md                              (task-specific operator surface)
         +--> STABLE-INTEGRATION-BASELINE.md               (SIB0 -> SIB1 -> SIB2)
         |       +--> EXACT-HEAD-ACCEPTANCE.md             (what is proven -> exact SHA carrying the proof)
+        |               +--> EHA-REPAIR-LOOP.md           (FAIL -> frozen SHA -> repair -> new candidate)
+        |               +--> EHA-OPERATING-PLAYBOOK.md    (Skill/commands/eha.ndjson/Mermaid)
         +--> SEMANTIC-REFIT.md                            (stale intent -> current semantics -> accepted refit)
         |
         +--> pack/.opencode/themes/codesleuth.json
         +--> pack/.opencode/CODESLEUTH-REPORTS.md
         +--> host runtime / commands / Skills / tools
-        +--> .codesleuth/reports/ (host-written analysis where supported)
+        +--> .opencode/state/reviews/*/eha.ndjson         (structured local EHA evidence)
+        +--> .codesleuth/reports/                         (human-readable local analysis)
 ```
 
 Core CodeSleuth is feature-frozen. Growth continues through profiles, Skills, Playbooks, small tools, host integrations, and extension-management UX without adding a second execution runtime.
