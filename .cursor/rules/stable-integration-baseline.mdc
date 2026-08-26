@@ -25,7 +25,7 @@ The `SIB` branch is semantically the current **SIB2**. At policy introduction it
 
 - **Capability class** = a fundamental architectural type of ability, not an individual feature. Example: CLI is a capability class; `verify`, `update`, and `doctor` are feature population inside it.
 - **Feature population** = adding instances, variants, operations, workflows, depth, content, or polish inside existing capability classes without changing the fundamental class inventory. Example: adding more CodeSleuth profiles through the existing profile mechanism is feature population; adding a second independent execution runtime is not.
-- **Semantic refit** = recover still-valid intent from stale work by re-implementing its minimal required behavior on the current accepted base while preserving newer accepted semantics; the old diff is evidence of intent, not authority over the current tree.
+- **Semantic refit** = the target condition in which the product's relevant evidenced semantic surface is preserved or explicitly reconciled across implementation/architectural change. Porting, adaptation, reimplementation, separate current changes, no change, defer, or block are possible delivery outcomes; implementation resemblance is not the success criterion.
 - **Exact-head acceptance** = successful execution of the required acceptance profile against one exact repository commit; the tested SHA must be identical to the candidate head being accepted.
 - **Acceptance profile** = the required checks, gates, and environments for the maturity or release claim being made.
 - **Acceptance evidence** = the successful result of an acceptance profile attached to one exact commit SHA.
@@ -54,8 +54,9 @@ SIB levels define **what is proven**; exact-head acceptance defines **which repo
 - Apply feature population incrementally and run full canonical acceptance after each substantial layer.
 - A feature being green on an old branch or old base is not acceptance evidence for the current composition.
 - Only an exact tested commit may be treated as an accepted integration state.
-- When stale work overlaps files or contracts that changed after its source base, perform a **semantic refit**: inventory the source intent, inventory current semantics, classify old behavior as REAPPLY/SUPERSEDED/REFIT/DROP, and re-implement only the still-valid delta.
-- Preserve current semantics when transplanting stale work. Never replace a newer file wholesale merely because the stale branch version applies more easily.
+- When stale work overlaps files or contracts that changed after its source base, pursue **semantic refit** by inventorying evidenced historical claims and negative knowledge, resolving current normative authority, recording claim status separately from delivery disposition, and implementing only the target-native delta required by surviving claims. Do not treat branch age, conflict count, or a clean cherry-pick as semantic evidence.
+- Preserve current accepted contracts when transplanting stale work. Never replace a newer file wholesale merely because the stale branch version applies more easily.
+- Never silently convert implementation difficulty into claim retirement or supersession. `SUPERSEDED` requires coverage evidence; `RETIRED` requires an explicit current authority.
 - Never weaken, skip, xfail, or rewrite acceptance tests to promote a change.
 - Record the tested commit SHA, acceptance profile/gate, environment matrix where applicable, and result appropriate to the claimed baseline level.
 - RC status is downstream of completed, accepted feature population. SIB2 itself is not an RC.
