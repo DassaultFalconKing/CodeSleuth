@@ -24,6 +24,7 @@ class CodeSleuthApp(_base.CodeSleuthApp):
     }
     #center-column #activity-title { margin-bottom: 1; }
     #center-column #log { height: 1fr; min-height: 3; }
+    #workspace.compact { height: 1fr; }
     #workspace.compact #center-column { height: 1fr; }
     #workspace.compact #main-scroll { height: 1fr; max-height: 1fr; }
     #workspace.compact #activity-panel { height: 7; min-height: 6; margin: 0 1; padding: 0 1; }
