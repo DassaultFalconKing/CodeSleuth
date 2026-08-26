@@ -9,12 +9,35 @@ Normative definitions remain in:
 
 - [`STABLE-INTEGRATION-BASELINE.md`](STABLE-INTEGRATION-BASELINE.md);
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md);
+- [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md);
 - [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md);
 - [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md).
 
 The installed agent-facing implementation is the `eha-sib-acceptance` Skill.
 The installed command playbooks are `/eha-test`, `/eha-repair`, and
 `/eha-status`.
+
+## Candidate stream
+
+For a numbered release, future SIB candidates are selected from the literal
+head of the active `dev/release-X.Y.Z` branch.
+
+For the current release line:
+
+```text
+dev/release-0.4.0 -> literal exact HEAD -> EHA target
+```
+
+The release branch is mutable. The EHA target is not. Candidate selection
+freezes the SHA recorded in the campaign, not the branch ref.
+
+A PR head, repair-branch head, synthetic PR merge ref, convenience EHA branch,
+or tree-equivalent commit is not substituted for the selected literal
+release-stream head.
+
+If the release branch moves while EHA is running, the campaign remains bound to
+the originally selected SHA. A newer release head requires a new campaign if it
+is to become the SIB candidate.
 
 ## Evidence topology
 
@@ -51,18 +74,24 @@ Do not merge these authorities merely because both can render Mermaid.
 
 Use `/eha-test <target/scope>`.
 
+For normal future-SIB selection, begin from the active release stream and verify
+that literal current HEAD is the selected `dev/release-X.Y.Z` head. Record that
+branch and SHA as selection provenance before starting the campaign.
+
 The build agent must:
 
 1. capture literal HEAD, branch, and dirty state;
-2. start/load `review_state`;
-3. call `eha_state_start_campaign`;
-4. run SIB0 architecture profile;
-5. record `SIB0 PASS|FAIL`;
-6. run SIB1 capability-implementation profile;
-7. record `SIB1 PASS|FAIL`;
-8. run SIB2 integration/E2E profile;
-9. record `SIB2 PASS|FAIL`;
-10. load the structured ledger and write a report.
+2. for future-SIB selection, confirm the target was selected from literal
+   `dev/release-X.Y.Z` HEAD;
+3. start/load `review_state`;
+4. call `eha_state_start_campaign`;
+5. run SIB0 architecture profile;
+6. record `SIB0 PASS|FAIL`;
+7. run SIB1 capability-implementation profile;
+8. record `SIB1 PASS|FAIL`;
+9. run SIB2 integration/E2E profile;
+10. record `SIB2 PASS|FAIL`;
+11. load the structured ledger and write a report.
 
 All three levels belong to the same immutable SHA. If HEAD changes, the
 campaign is invalidated.
@@ -75,9 +104,17 @@ The failed SHA is frozen. The repairer creates a branch from it, applies the
 minimum repair delta, adds regression coverage, runs focused tests, and records
 that decision with `eha_state_record_repair`.
 
-The repair SHA is not accepted merely because focused tests pass. It starts a
-new EHA campaign and receives fresh SIB0/SIB1/SIB2 evidence for every maturity
-degree claimed.
+The repair branch is not the next SIB integration line. After focused repair
+verification, integrate the repair through the active `dev/release-X.Y.Z`
+stream. The resulting literal release-stream head is the next SIB candidate and
+starts a fresh EHA campaign.
+
+If integration creates a merge commit, that merge commit is the candidate.
+Tree equality with the repair commit does not transfer acceptance evidence.
+
+The repair SHA is not accepted merely because focused tests pass. Neither the
+repair commit nor the resulting release-stream head inherits SIB0/SIB1/SIB2
+PASS from the failed predecessor.
 
 If the repair changes the fundamental capability inventory or authority model,
 record `architecture_reopened` and re-establish SIB0 rather than hiding the
@@ -116,12 +153,22 @@ silently manufacturing the lower maturity claims.
 ## Repair lineage example
 
 ```text
+dev/release-X.Y.Z -> SHA A
+                       |
+                       v
 EHA-001 / SHA A
   SIB0 PASS
   SIB1 FAIL
   SIB2 PENDING
        |
-       | minimum SIB1 repair + regression
+       | minimum SIB1 repair on fix/eha-*
+       v
+repair commit R
+       |
+       | integrate into dev/release-X.Y.Z
+       v
+SHA B = new literal release-stream head
+       |
        v
 EHA-002 / SHA B
   SIB0 PASS
@@ -130,8 +177,8 @@ EHA-002 / SHA B
 ```
 
 The first campaign remains failed forever. The second campaign proves the new
-SHA. This history is exactly what `eha.ndjson` and the Mermaid projection are
-intended to preserve.
+release-stream composition. This history is exactly what `eha.ndjson` and the
+Mermaid projection are intended to preserve.
 
 ## Semantic refit before EHA
 
@@ -141,8 +188,9 @@ before acceptance:
 1. recover still-valid intent/invariants;
 2. preserve current accepted semantics;
 3. classify REAPPLY / SUPERSEDED / REFIT / DROP;
-4. build the minimum current-semantic composition;
-5. identify its exact SHA;
+4. integrate the minimum current-semantic composition into the active release
+   stream;
+5. identify the resulting literal `dev/release-X.Y.Z` head SHA;
 6. start EHA on that resulting SHA.
 
 A stale branch's green CI never transfers to the refitted composition.
@@ -151,9 +199,9 @@ A stale branch's green CI never transfers to the refitted composition.
 
 The structured ledger is machine-readable evidence. `.codesleuth/reports/`
 provides the human-readable account. EHA reports must include campaign ID,
-exact SHA, all three SIB verdicts, claimability, blockers, repair lineage,
-checks actually run, and limitations.
+exact SHA, release-stream selection provenance, all three SIB verdicts,
+claimability, blockers, repair lineage, checks actually run, and limitations.
 
 The practical operating rule is:
 
-> **Test one SHA. Record what is true. Freeze failures. Repair into a new SHA. Test again.**
+> **Compose on the release stream. Select its literal HEAD. Test one SHA. Freeze failures. Repair back through the release stream. Select and test again.**
