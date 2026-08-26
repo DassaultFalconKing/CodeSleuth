@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "repository-deep-review",
+  "description": "Evidence-first whole-repository or PR review with isolated steps and durable bounded outputs.",
+  "steps": [
+    {"id": "capture-target", "execution": "skill", "skill": "exact-target-identity", "depends_on": [], "output": "target_identity", "isolation": "fresh_subagent"},
+    {"id": "inventory-and-scope", "execution": "step", "prompt": "steps/02-inventory-and-scope.md", "skills": ["repository-deep-review"], "depends_on": ["capture-target"], "output": "review_map", "isolation": "fresh_subagent"},
+    {"id": "contract-and-impact", "execution": "step", "prompt": "steps/03-contract-and-impact.md", "skills": ["protected-capability-registry", "contract-triangulation", "dependency-impact-closure"], "depends_on": ["inventory-and-scope"], "output": "contract_impact", "isolation": "fresh_subagent"},
+    {"id": "deep-review", "execution": "step", "prompt": "steps/04-deep-review.md", "skills": ["repository-deep-review", "forbidden-regression-ledger"], "depends_on": ["contract-and-impact"], "output": "verified_findings", "isolation": "fresh_subagent"},
+    {"id": "persist-report", "execution": "skill", "skill": "codesleuth-reports", "depends_on": ["deep-review"], "output": "report_path", "isolation": "fresh_subagent"}
+  ]
+}

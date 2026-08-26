@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "id": "repository-documentation",
+  "description": "Document one repository scope from exact verified implementation/config/test evidence.",
+  "steps": [
+    {"id": "capture-target", "execution": "skill", "skill": "exact-target-identity", "depends_on": [], "output": "target_identity", "isolation": "fresh_subagent"},
+    {"id": "collect-evidence", "execution": "step", "prompt": "steps/02-collect-evidence.md", "skills": ["repository-deep-review", "contract-triangulation"], "depends_on": ["capture-target"], "output": "documentation_evidence", "isolation": "fresh_subagent"},
+    {"id": "draft-document", "execution": "skill", "skill": "documentation-draft", "depends_on": ["collect-evidence"], "output": "document_delta", "isolation": "fresh_subagent"},
+    {"id": "persist-report", "execution": "skill", "skill": "codesleuth-reports", "depends_on": ["draft-document"], "output": "report_path", "isolation": "fresh_subagent"}
+  ]
+}
