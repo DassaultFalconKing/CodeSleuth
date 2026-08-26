@@ -39,3 +39,17 @@ def test_acceptance_has_dedicated_tui_visual_regression_job_and_artifact_upload(
         assert token in workflow
     assert "ref: ${{ env.CODESLEUTH_ACCEPTANCE_SHA }}" in workflow
     assert "Verify exact checked-out commit" in workflow
+
+
+def test_visual_regression_contract_is_documented_as_sib2_evidence() -> None:
+    contract = text(ROOT / "docs" / "TUI-VISUAL-REGRESSION.md")
+    for token in (
+        "screen.svg",
+        "ui.log",
+        "events.log",
+        "analysis.json",
+        "exact tested SHA",
+        "SIB2",
+        "EHA repair loop",
+    ):
+        assert token in contract
