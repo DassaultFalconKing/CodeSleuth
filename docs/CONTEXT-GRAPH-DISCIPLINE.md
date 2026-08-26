@@ -183,3 +183,28 @@ This slice introduces no independent model runtime, no agent loop, no tool-call
 router, no replacement review engine, no renderer daemon, no interactive graph
 UI, no TUI feature, and no new source-of-truth database. State lives under the
 existing ignored `.opencode/state/` boundary and stays rebuildable.
+
+## Roadmap boundary
+
+The accepted slice above remains the production contract. Further Mermaid/context-graph
+growth is now explicitly gated through
+[`MERMAID-GRAPHIFY-AUDIT.md`](MERMAID-GRAPHIFY-AUDIT.md).
+
+The near-term roadmap is deliberately narrow:
+
+1. improve Mermaid selection so it can render an explicit bounded neighborhood rather
+   than only a deterministic projection prefix;
+2. spike an optional deterministic structural graph provider using Graphify's Python
+   library without installing Graphify's host Skill, hooks, MCP server, global graph,
+   semantic backend, or tracked `graphify-out/` state;
+3. normalize any provider output back through this CodeSleuth projection contract,
+   including tracked-path checks and CodeSleuth-side Git/blob capture before anything
+   can become `verified_source`;
+4. benchmark the provider on representative repositories before exposing it behind
+   `/repo-map`;
+5. keep SVG/interactive rendering and other renderer runtimes deferred unless a later
+   architecture decision supplies a concrete need.
+
+Graphify is therefore a roadmap candidate/provider implementation detail, not a new
+layer in the authority chain. No external provider may become authoritative above or
+beside `RepositoryContextProjection`.
