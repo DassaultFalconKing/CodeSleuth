@@ -21,6 +21,40 @@ Do not push an unreviewed implementation change directly to `main`. An emergency
 
 The repository currently has historical branches that predate this policy. They are not release authority.
 
+## SIB candidate selection
+
+The active `dev/release-X.Y.Z` branch is also the **canonical candidate stream**
+for future SIB0/SIB1/SIB2 selection. See
+[`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md).
+
+The branch itself is mutable and is never accepted in the abstract. When
+maintainers decide to test a future SIB, they capture the literal exact SHA at
+the head of `dev/release-X.Y.Z` and bind the EHA campaign to that SHA.
+
+For the current line:
+
+```text
+dev/release-0.4.0 -> literal exact HEAD -> EHA target
+```
+
+A PR head, repair-branch head, synthetic PR merge ref, tree-equivalent commit,
+or convenience EHA branch is not substituted for the literal release-stream
+head selected at that moment.
+
+If EHA fails, repair work begins from the failing SHA but must be integrated
+back through `dev/release-X.Y.Z`. The resulting exact release-stream head is the
+next candidate and receives a new EHA campaign. A repair branch does not become
+a parallel SIB integration line.
+
+This gives one composition path and one proof identity:
+
+```text
+feature/fix -> dev/release-X.Y.Z -> select exact HEAD -> EHA
+                                      ^                 |
+                                      |                 | FAIL
+                                      +-- integrate repair branch
+```
+
 ## Version authority
 
 Source-distribution version authority is the repository-root:
