@@ -32,8 +32,9 @@ Current version: **0.3.0**.
 Current implementation baseline:
 
 - source-checkout **Update** explicitly fetches current `origin/main` and only fast-forwards a clean local `main`, ignoring stale branch-tracking metadata;
-- the active TUI surface stays at the top of the content area; the large brand block and bottom Footer can be hidden independently;
-- the left navigation can collapse/restore, while the right Keys/Help panel can collapse/restore or be closed for the current TUI session;
+- the active TUI surface stays at the top of the content area; the bottom Footer can be hidden independently;
+- the left navigation stays pinned while the main panel scrolls, and can collapse/restore; the right Keys/Help panel collapses/restores without a session-dismiss X;
+- host-tracked repositories are remembered for install targeting (`codesleuth-project --list`); self-install into the CodeSleuth source checkout requires `--self-install`;
 - the external MCP evidence adapter is repository-bound, bounded and hardened as a read-only evidence surface rather than an alternate agent runtime.
 
 | Surface | Status |
@@ -451,7 +452,19 @@ For the CodeSleuth source checkout itself, **Update does not trust local branch 
 
 ### Recent activity
 
-`Recent activity` contains output from control-shell actions such as Verify, update and uninstall. On a fresh TUI session it states that no CodeSleuth control action has run yet. Treat this as an operator log, not a repository analysis report.
+`Recent activity` is a dedicated panel under the repository/status controls. It contains output from control-shell actions such as Verify, update and uninstall. On a fresh TUI session it states that no CodeSleuth control action has run yet. Treat this as an operator log, not a repository analysis report.
+
+### Tracked repositories
+
+The Repository field accepts a Git path. **Remember** adds the current path to the host-local tracked-repository registry. The Tracked repositories select lists those paths so you can point install/configure at a previously used repo without retyping it.
+
+List the same registry from the CLI:
+
+```bash
+.opencode/bin/codesleuth-project --list
+```
+
+Override the registry location with `CODESLEUTH_HOST_STATE_DIR` when needed (tests/isolated hosts). Default storage is `%LOCALAPPDATA%/CodeSleuth` on Windows and `$XDG_DATA_HOME/codesleuth` (or `~/.local/share/codesleuth`) elsewhere.
 
 ### Panels and keyboard controls
 
@@ -464,15 +477,13 @@ For the CodeSleuth source checkout itself, **Update does not trust local branch 
 | `v` | Verify |
 | `k` | Check Updates |
 | `u` | Uninstall |
-| `b` | show/hide the large CodeSleuth brand block |
 | `F2` | show/hide the bottom Footer |
 | `F3` | collapse/restore the left navigation panel |
 | `F4` | collapse/restore the right Keys/Help panel |
 | left-panel `<` / `>` | collapse/restore left navigation |
 | right-panel `<` / `>` | collapse/restore the right Keys/Help panel |
-| right-panel `X` | close the right Keys/Help panel for the rest of the current TUI session |
 
-Closing the right panel is deliberately different from collapsing it: collapse is reversible; `X` is a session-level dismissal.
+The left navigation stays fixed while the main content scrolls. The right panel only collapses; there is no session-level dismiss control.
 
 ### Configure screen
 
@@ -534,13 +545,25 @@ Important installer options:
 | `--settings-file <path>` | load validated settings JSON, normally produced by the TUI |
 | `--update` | update an existing versioned installation |
 | `--adopt-existing-pack` | adopt an older unversioned review-pack installation with backups |
-| `--bind-dependency` | pin the current CodeSleuth source as `tools/codesleuth` |
+| `--self-install` | required when the target is the CodeSleuth source checkout; installs/updates the runtime into itself |
+| `--bind-dependency` | pin the current CodeSleuth source as `tools/codesleuth` (invalid with `--self-install`) |
 | `--dependency-path <path>` | override the dependency path |
 | `--force-pack-files` | replace locally modified CodeSleuth-managed files; use deliberately |
 | `--uninstall` | uninstall through the installer entry point |
 | `--purge-traces` | with uninstall, remove ordinary local CodeSleuth traces/backups instead of archiving |
 | `--keep-dependency` | with uninstall, keep the CodeSleuth gitlink/submodule |
 | `--source-remote`, `--source-ref`, `--source-subdir`, `--source-commit` | advanced explicit source identity/update metadata |
+
+#### Self-install
+
+Installing CodeSleuth into its own source checkout is supported and requires an explicit flag:
+
+```bash
+./install.sh . --self-install
+./install.sh . --self-install --update
+```
+
+Self-install materializes the runtime under `.opencode/` in the CodeSleuth repository. It cannot be combined with `--bind-dependency` (recursive `tools/codesleuth` self-submodule binding is rejected). The TUI passes `--self-install` automatically when the selected target is the source checkout.
 
 ### Runtime/dependency lifecycle CLI
 
@@ -559,9 +582,16 @@ PowerShell:
 Actions are mutually exclusive:
 
 ```text
+--list
 --bind
 --unbind
 --uninstall
+```
+
+List host-tracked repositories (paths remembered after install/Remember):
+
+```bash
+.opencode/bin/codesleuth-project --list
 ```
 
 Useful combinations:
@@ -895,7 +925,7 @@ TUI changes should be tested with Textual's headless `App.run_test()`/Pilot cove
 
 Documentation is text-first and terminal-native.
 
-- Copy the canonical ASCII brand from `CODESLEUTH_ART`; do not redraw it repeatedly.
+- Keep the live TUI free of decorative brand chrome; copy `CODESLEUTH_ART` only for documentation identity when needed.
 - UI manuals should describe exact implemented labels and use real terminal snapshots when a snapshot is needed.
 - Do not maintain PNG/JPEG/WebP/SVG UI mockups or reference boards.
 - Mermaid is the allowed diagram format when encoded relationships are useful; generated Mermaid remains presentation, not repository truth.

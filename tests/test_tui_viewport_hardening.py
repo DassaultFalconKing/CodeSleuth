@@ -11,6 +11,7 @@ pytest.importorskip("textual")
 BIN = Path(__file__).resolve().parents[1] / "pack" / ".opencode" / "bin"
 sys.path.insert(0, str(BIN))
 from codesleuth_tui import CodeSleuthApp, CodeSleuthHelpPanel, NAV_SURFACES  # noqa: E402
+from textual.containers import VerticalScroll  # noqa: E402
 from textual.widgets import Footer, Static  # noqa: E402
 
 
@@ -34,29 +35,16 @@ def init_committed_repo(path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_logo_and_keys_can_be_collapsed_and_restored(tmp_path: Path) -> None:
+async def test_footer_can_be_collapsed_and_restored(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
     repo = tmp_path / "target"
     init_committed_repo(repo)
     app = CodeSleuthApp(repo, None)
 
     async with app.run_test(size=(120, 35)) as pilot:
         await pilot.pause()
-        brand = app.query_one("#brand", Static)
-        tagline = app.query_one("#tagline", Static)
         keys = app.query_one("#keys", Footer)
-        assert brand.display
-        assert tagline.display
         assert keys.display
-
-        await pilot.press("b")
-        await pilot.pause()
-        assert not brand.display
-        assert not tagline.display
-
-        await pilot.press("b")
-        await pilot.pause()
-        assert brand.display
-        assert tagline.display
 
         await pilot.press("f2")
         await pilot.pause()
@@ -67,7 +55,8 @@ async def test_logo_and_keys_can_be_collapsed_and_restored(tmp_path: Path) -> No
 
 
 @pytest.mark.asyncio
-async def test_left_navigation_can_collapse_and_restore(tmp_path: Path) -> None:
+async def test_left_navigation_can_collapse_and_restore(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
     repo = tmp_path / "target"
     init_committed_repo(repo)
     app = CodeSleuthApp(repo, None)
@@ -78,13 +67,13 @@ async def test_left_navigation_can_collapse_and_restore(tmp_path: Path) -> None:
         collapse = app.query_one("#nav-collapse")
         assert not nav.has_class("collapsed")
 
-        await pilot.click("#nav-collapse")
+        assert await pilot.click("#nav-collapse")
         await pilot.pause()
         assert nav.has_class("collapsed")
         assert str(collapse.label) == ">"
         assert all(not button.display for button in app.query("#wide-nav .nav-button"))
 
-        await pilot.click("#nav-collapse")
+        assert await pilot.click("#nav-collapse")
         await pilot.pause()
         assert not nav.has_class("collapsed")
         assert str(collapse.label) == "<"
@@ -92,7 +81,8 @@ async def test_left_navigation_can_collapse_and_restore(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_right_key_panel_can_collapse_restore_and_close_for_session(tmp_path: Path) -> None:
+async def test_right_key_panel_can_collapse_and_restore(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
     repo = tmp_path / "target"
     init_committed_repo(repo)
     app = CodeSleuthApp(repo, None)
@@ -103,30 +93,46 @@ async def test_right_key_panel_can_collapse_restore_and_close_for_session(tmp_pa
         await pilot.pause()
         panel = app.query_one(CodeSleuthHelpPanel)
         assert not panel.has_class("collapsed")
+        assert not panel.query("#right-close")
 
-        await pilot.click("#right-collapse")
+        assert await pilot.click("#right-collapse")
         await pilot.pause()
         assert panel.has_class("collapsed")
         assert str(panel.query_one("#right-collapse").label) == ">"
 
-        await pilot.click("#right-collapse")
+        assert await pilot.click("#right-collapse")
         await pilot.pause()
         assert not panel.has_class("collapsed")
         assert str(panel.query_one("#right-collapse").label) == "<"
 
-        await pilot.click("#right-close")
+        app.action_toggle_right_panel()
         await pilot.pause()
-        assert not app.query(CodeSleuthHelpPanel)
-        assert app.right_panel_closed
+        assert panel.has_class("collapsed")
+        app.action_toggle_right_panel()
+        await pilot.pause()
+        assert not panel.has_class("collapsed")
+        assert app.query(CodeSleuthHelpPanel)
 
-        app.action_show_help_panel()
+
+@pytest.mark.asyncio
+async def test_left_nav_stays_outside_main_scroll(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
+    repo = tmp_path / "target"
+    init_committed_repo(repo)
+    app = CodeSleuthApp(repo, None)
+
+    async with app.run_test(size=(120, 35)) as pilot:
         await pilot.pause()
-        assert not app.query(CodeSleuthHelpPanel)
+        assert app.query_one("#main-scroll", VerticalScroll)
+        assert app.query_one("#wide-nav").parent.id == "workspace"
+        assert app.query_one("#activity-panel")
+        assert not app.query("#brand")
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("size", [(48, 20), (80, 24), (120, 35)])
-async def test_active_navigation_surface_is_brought_to_top_of_viewport(tmp_path: Path, size: tuple[int, int]) -> None:
+async def test_active_navigation_surface_is_brought_to_top_of_viewport(tmp_path: Path, size: tuple[int, int], monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
     repo = tmp_path / "target"
     init_committed_repo(repo)
     app = CodeSleuthApp(repo, None)
@@ -143,7 +149,8 @@ async def test_active_navigation_surface_is_brought_to_top_of_viewport(tmp_path:
 
 
 @pytest.mark.asyncio
-async def test_source_checkout_update_fetches_origin_main_without_branch_tracking(tmp_path: Path) -> None:
+async def test_source_checkout_update_fetches_origin_main_without_branch_tracking(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
     source = tmp_path / "source"
     remote = tmp_path / "remote.git"
     writer = tmp_path / "writer"
@@ -176,7 +183,7 @@ async def test_source_checkout_update_fetches_origin_main_without_branch_trackin
         update = app.query_one("#update")
         assert update.display
         assert not update.disabled
-        await pilot.click("#update")
+        assert await pilot.click("#update")
         for _ in range(80):
             await pilot.pause(0.1)
             if git(source, "rev-parse", "HEAD").stdout.strip() == remote_head:

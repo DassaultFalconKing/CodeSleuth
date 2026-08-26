@@ -420,6 +420,8 @@ class ConfigScreen(AbortableModalScreen[bool]):
                         command.append("--adopt-existing-pack")
                     if bind_dependency:
                         command.append("--bind-dependency")
+                    if project_lifecycle.is_self_target(self.repo, source_root=self.distribution_root):
+                        command.append("--self-install")
                     result = subprocess.run(command, text=True, capture_output=True)
                     if result.returncode != 0:
                         raise RuntimeError((result.stderr or result.stdout or "installer failed").strip())
@@ -428,6 +430,7 @@ class ConfigScreen(AbortableModalScreen[bool]):
                     settings_path.unlink(missing_ok=True)
                 if not bind_dependency and project_lifecycle.dependency_status(self.repo)["bound"]:
                     project_lifecycle.remove_dependency(self.repo)
+            project_lifecycle.record_tracked_repository(self.repo)
             self.app.call_from_thread(self.notify, output[-1200:] or "Applied", severity="information")
             self.app.call_from_thread(self.dismiss, True)
         except Exception as exc:

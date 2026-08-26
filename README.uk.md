@@ -3,7 +3,7 @@
   <a href="./README.md">English</a> · <a href="./README.ru.md">Русский</a> · Українська
 </p>
 
-<!-- README-SOURCE-BLOB: 6ac73280f626752b8d52a30da5f35883525bb21d -->
+<!-- README-SOURCE-BLOB: d15a8b442b1d08cfbe1a17dcef797ab2fd34e4fb -->
 
 # CodeSleuth
 

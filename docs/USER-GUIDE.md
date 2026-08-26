@@ -78,7 +78,19 @@ Install and pin CodeSleuth in the target repository:
 
 The bind operation stages `.gitmodules` and `tools/codesleuth`. It does not commit or push the target repository.
 
-If the target repository is the CodeSleuth source checkout itself, `--bind-dependency` is invalid. Self-install is supported; recursive self-submodule binding is rejected before any `tools/codesleuth` gitlink is created.
+If the target repository is the CodeSleuth source checkout itself, pass `--self-install`:
+
+```bash
+./install.sh . --self-install
+```
+
+`--bind-dependency` is invalid for that case. Self-install is supported; recursive self-submodule binding is rejected before any `tools/codesleuth` gitlink is created.
+
+List repositories remembered on this host after install or TUI **Remember**:
+
+```bash
+.opencode/bin/codesleuth-project --list
+```
 
 Passing a nested project directory is safe: CLI entrypoints normalize it to the containing Git repository root before writing `.opencode` or `.codesleuth`.
 

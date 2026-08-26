@@ -105,16 +105,18 @@ async def test_pilot_can_unbind_dependency_without_uninstalling_runtime(tmp_path
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("size", [(48, 20), (80, 24), (120, 35)])
-async def test_branded_console_is_operable_at_supported_sizes(tmp_path: Path, size: tuple[int, int]) -> None:
+async def test_console_is_operable_at_supported_sizes(tmp_path: Path, size: tuple[int, int], monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
     repo = tmp_path / "target"
     init_repo(repo)
     app = CodeSleuthApp(repo, None)
     async with app.run_test(size=size) as pilot:
         await pilot.pause()
-        assert app.query_one("#brand")
-        assert app.query_one("#compact-brand")
-        assert app.query_one("#security")
+        assert app.query_one("#activity-panel")
         assert app.query_one("#activity-title")
+        assert app.query_one("#tracked-repos", Select)
+        assert app.query_one("#track-repo", Button)
+        assert app.query_one("#security")
         assert {button.id.removeprefix("nav-") for button in app.query(".nav-button")} == set(NAV_SURFACES)
         compact = size[0] < 100 or size[1] < 30
         assert app.query_one("#compact-nav", Select).display is compact
@@ -136,10 +138,13 @@ async def test_branded_console_is_operable_at_supported_sizes(tmp_path: Path, si
         assert "control panel" in help_text
         assert "OpenCode executes them" in help_text
         assert "codesleuth-project --uninstall" in help_text
+        assert "--self-install" in help_text
+        assert "codesleuth-project --list" in help_text
 
 
 @pytest.mark.asyncio
-async def test_navigation_surfaces_expose_existing_opencode_owned_capabilities(tmp_path: Path) -> None:
+async def test_navigation_surfaces_expose_existing_opencode_owned_capabilities(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
     repo = tmp_path / "target"
     init_repo(repo)
     oc = repo / ".opencode"
@@ -195,7 +200,8 @@ async def test_navigation_surfaces_expose_existing_opencode_owned_capabilities(t
 
 
 @pytest.mark.asyncio
-async def test_branded_configuration_keeps_dependency_control_and_runtime_ownership(tmp_path: Path) -> None:
+async def test_branded_configuration_keeps_dependency_control_and_runtime_ownership(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
     repo = tmp_path / "target"
     init_repo(repo)
     app = CodeSleuthApp(repo, None)
@@ -211,12 +217,13 @@ async def test_branded_configuration_keeps_dependency_control_and_runtime_owners
 
 
 @pytest.mark.asyncio
-async def test_branded_configuration_is_operable_at_mobile_size(tmp_path: Path) -> None:
+async def test_branded_configuration_is_operable_at_mobile_size(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
     repo = tmp_path / "target"
     init_repo(repo)
     app = CodeSleuthApp(repo, None)
     async with app.run_test(size=(48, 20)) as pilot:
-        app.query_one("#body").scroll_to_widget(app.query_one("#configure"), animate=False)
+        app.query_one("#main-scroll").scroll_to_widget(app.query_one("#configure"), animate=False)
         await pilot.pause()
         await pilot.pause()
         await pilot.click("#configure")
@@ -249,7 +256,8 @@ def _assert_visible_within(widget: Button, width: int, height: int) -> None:
 
 
 @pytest.mark.asyncio
-async def test_config_back_and_escape_abort_without_applying(tmp_path: Path) -> None:
+async def test_config_back_and_escape_abort_without_applying(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
     repo = tmp_path / "target"
     init_repo(repo)
     settings_path = repo / ".opencode" / "review-pack-user.json"
@@ -287,7 +295,8 @@ async def test_config_back_and_escape_abort_without_applying(tmp_path: Path) -> 
 
 
 @pytest.mark.asyncio
-async def test_help_playbooks_and_uninstall_abort_without_performing(tmp_path: Path) -> None:
+async def test_help_playbooks_and_uninstall_abort_without_performing(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
     repo = tmp_path / "target"
     init_repo(repo)
     app = CodeSleuthApp(repo, None)
@@ -312,7 +321,7 @@ async def test_help_playbooks_and_uninstall_abort_without_performing(tmp_path: P
 
         await pilot.click("#nav-settings")
         await pilot.pause()
-        app.query_one("#body").scroll_to_widget(app.query_one("#uninstall"), animate=False)
+        app.query_one("#main-scroll").scroll_to_widget(app.query_one("#uninstall"), animate=False)
         await pilot.pause()
         await pilot.click("#uninstall")
         await pilot.pause()

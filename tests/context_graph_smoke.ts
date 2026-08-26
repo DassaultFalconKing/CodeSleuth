@@ -579,6 +579,370 @@ async function main() {
     await primary.cleanup()
   }
 
+  // --- scoped Mermaid rendering (M1) -------------------------------------------
+  const scoping = await makeFixture("scoping", "graph-session-scoped")
+  try {
+    const scopeNodes = [
+      ...baseNodes(),
+      { kind: "component" as const, key: "mod-a", origin: "verified_source" as const, path: "README.md" },
+      {
+        kind: "component" as const,
+        key: "mod-b",
+        origin: "verified_source" as const,
+        path: "README.md",
+        label: 'x" <img src=x> %% forged',
+      },
+      { kind: "component" as const, key: "mod-c", origin: "verified_source" as const, path: "README.md" },
+      { kind: "component" as const, key: "loner", origin: "verified_source" as const, path: "README.md" },
+      { kind: "component" as const, key: "idea-x", origin: "review_inference" as const, note: "suspected abstraction" },
+      { kind: "component" as const, key: "idea-y", origin: "review_inference" as const, note: "suspected implementation" },
+    ]
+    const scopeEdges = [
+      ...baseEdges(),
+      {
+        relation: "depends_on" as const,
+        origin: "verified_source" as const,
+        sourceKind: "component" as const,
+        sourceKey: "mod-a",
+        targetKind: "component" as const,
+        targetKey: "mod-b",
+        path: "README.md",
+      },
+      {
+        relation: "depends_on" as const,
+        origin: "verified_source" as const,
+        sourceKind: "component" as const,
+        sourceKey: "mod-c",
+        targetKind: "component" as const,
+        targetKey: "mod-b",
+        path: "README.md",
+      },
+      {
+        relation: "review_inference" as const,
+        origin: "review_inference" as const,
+        sourceKind: "component" as const,
+        sourceKey: "idea-x",
+        targetKind: "component" as const,
+        targetKey: "idea-y",
+        note: "scout suspects idea-x abstracts idea-y",
+      },
+    ]
+    const scopeSaved = JSON.parse(
+      await save.execute({ scopePrefix: "src", nodes: scopeNodes, edges: scopeEdges, complete: true }, scoping.context),
+    )
+    assert(scopeSaved.nodeCount === 9 && scopeSaved.edgeCount === 5, "scoping fixture saves its full topology")
+    assert(scopeSaved.truncated === false, "scoping fixture asserts completeness so view bounds are isolated")
+
+    const unscoped = JSON.parse(await mermaid.execute({}, scoping.context))
+    assert(unscoped.scoped === false, "unscoped requests report themselves as unscoped")
+    assert(unscoped.truncated === false && unscoped.aliasCount === 9, "complete maps render fully without truncation")
+    assert(!unscoped.mermaidSource.includes("%% selection"), "unscoped output does not claim a scoped selection")
+    assert(unscoped.mermaidSource.includes("class n"), "inference styling survives in unscoped rendering")
+
+    // current no-filter behavior stays compatible: identical request twice and a
+    // pinned exact rendering for a tiny synthetic projection.
+    const unscopedAgain = JSON.parse(await mermaid.execute({}, scoping.context))
+    assert(unscoped.mermaidSource === unscopedAgain.mermaidSource, "unscoped rendering stays deterministic")
+    const legacyPinned = renderContextGraphMermaid(
+      {
+        schemaVersion: CONTEXT_GRAPH_SCHEMA_VERSION,
+        projectionId: "sha256:" + "0".repeat(64),
+        headSha: "b".repeat(40),
+        createdAt: "",
+        updatedAt: "",
+        scope: {},
+        nodes: [
+          { nodeId: contextNodeId("file", "a.ts"), kind: "file" as const, key: "a.ts", origin: "verified_source" as const },
+          { nodeId: contextNodeId("file", "b.ts"), kind: "file" as const, key: "b.ts", origin: "verified_source" as const },
+        ],
+        edges: [
+          {
+            edgeId: contextEdgeId("imports", "file", "a.ts", "file", "b.ts"),
+            relation: "imports" as const,
+            sourceNodeId: contextNodeId("file", "a.ts"),
+            targetNodeId: contextNodeId("file", "b.ts"),
+            origin: "verified_source" as const,
+          },
+        ],
+        bounds: { nodeLimit: 500, edgeLimit: 800, truncated: false },
+      },
+      {},
+    )
+    assert(
+      legacyPinned.mermaid ===
+        `%% CodeSleuth repository context graph (derived, bounded presentation; not evidence)\n` +
+        `%% projectionId: sha256:${"0".repeat(64)}\n` +
+        `%% headSha: ${"b".repeat(40)}\n` +
+        `%% scope: .\n` +
+        `flowchart LR\n` +
+        `  classDef csInference stroke-dasharray: 4 4\n` +
+        `  n0["file:a.ts"]\n` +
+        `  n1["file:b.ts"]\n` +
+        `  n0 -->|"imports"| n1\n` +
+        `  %% Legend: solid = verified_source linkage; dashed = review_inference (not verified evidence).\n`,
+      "no-filter Mermaid output remains byte-compatible with the historical prefix rendering",
+    )
+
+    // explicit root + hops semantics
+    const rootHops0 = JSON.parse(
+      await mermaid.execute({ roots: [{ kind: "file", key: "src/app.ts" }], hops: 0 }, scoping.context),
+    )
+    assert(rootHops0.selection.scoped === true && rootHops0.selection.hops === 0, "scoped requests echo their selection")
+    assert(rootHops0.aliasCount === 1 && !rootHops0.mermaidSource.includes("-->|"), "hops=0 renders only the roots")
+    assert(!rootHops0.truncated, "an exact root-only view is not truncated")
+    assert(rootHops0.mermaidSource.includes("selectionRoots: file:src/app.ts"), "roots are declared in diagram metadata")
+
+    const rootHops1 = JSON.parse(
+      await mermaid.execute({ roots: [{ kind: "file", key: "src/app.ts" }], hops: 1 }, scoping.context),
+    )
+    assert(rootHops1.selection.totals.nodes === 3 && rootHops1.selection.totals.edges === 2, "hop expansion matches query neighborhood totals")
+    assert(rootHops1.aliasCount === 3, "root plus one-hop neighbors are rendered")
+    assert(rootHops1.mermaidSource.includes('selectionHops: 1'), "hop depth is declared in diagram metadata")
+    assert(
+      rootHops1.mermaidSource.includes("linkStyle") && rootHops1.mermaidSource.includes("csInference"),
+      "review-inference styling survives scoped filtering",
+    )
+
+    // multiple roots and duplicate roots
+    const multiRoot = JSON.parse(
+      await mermaid.execute(
+        {
+          roots: [
+            { kind: "file", key: "src/app.ts" },
+            { kind: "file", key: "src/util.ts" },
+          ],
+          hops: 0,
+        },
+        scoping.context,
+      ),
+    )
+    assert(multiRoot.aliasCount === 2, "multiple roots render together")
+    const dupRoot = JSON.parse(
+      await mermaid.execute(
+        {
+          roots: [
+            { kind: "file", key: "src/app.ts" },
+            { kind: "file", key: "src/app.ts" },
+          ],
+          hops: 0,
+        },
+        scoping.context,
+      ),
+    )
+    assert(dupRoot.aliasCount === 1, "duplicate roots deduplicate deterministically")
+
+    // relation filter agrees with query traversal semantics
+    const relFiltered = JSON.parse(
+      await mermaid.execute(
+        { roots: [{ kind: "component", key: "mod-a" }], hops: 1, relation: "depends_on" },
+        scoping.context,
+      ),
+    )
+    assert(relFiltered.selection.totals.nodes === 2 && relFiltered.selection.totals.edges === 1, "relation filtering narrows traversal edges only")
+    assert(relFiltered.mermaidSource.includes('-->|"depends_on"|'), "filtered relation is rendered")
+    assert(!relFiltered.mermaidSource.includes('"imports"') && !relFiltered.mermaidSource.includes('"review_inference"'), "non-matching relations are excluded")
+    assert(relFiltered.mermaidSource.includes("selectionRelation: depends_on"), "relation scope is declared in metadata")
+    assert(!/linkStyle \d/.test(relFiltered.mermaidSource), "verified-only scoped views carry no dashed links")
+
+    // origin filter, both directions
+    const inferenceOnly = JSON.parse(
+      await mermaid.execute({ roots: [{ kind: "component", key: "idea-x" }], hops: 1, origin: "review_inference" }, scoping.context),
+    )
+    assert(inferenceOnly.selection.totals.nodes === 2 && inferenceOnly.selection.totals.edges === 1, "inference-only neighborhoods stay renderable")
+    assert(inferenceOnly.mermaidSource.includes("stroke-dasharray: 6 6"), "dashed link styling applied to filtered inference edges")
+    const verifiedOnly = JSON.parse(
+      await mermaid.execute({ origin: "verified_source", hops: 1 }, scoping.context),
+    )
+    assert(verifiedOnly.selection.totals.edges === 3, "origin filtering walks only verified linkage from every node")
+    assert(!/linkStyle \d/.test(verifiedOnly.mermaidSource), "no dashed links remain in verified-only views")
+
+    // missing root fails closed with the query-tool error contract
+    await expectFailure(
+      async () => mermaid.execute({ roots: [{ kind: "file", key: "ghost.ts" }] }, scoping.context),
+      "roots absent from the saved projection must fail closed",
+    )
+
+    // deterministic repeated scoped invocation
+    const scopedOnce = JSON.parse(
+      await mermaid.execute({ roots: [{ kind: "symbol", key: "helper@src/util.ts" }], hops: 1 }, scoping.context),
+    )
+    const scopedTwice = JSON.parse(
+      await mermaid.execute({ roots: [{ kind: "symbol", key: "helper@src/util.ts" }], hops: 1 }, scoping.context),
+    )
+    assert(scopedOnce.mermaidSource === scopedTwice.mermaidSource, "scoped Mermaid output is deterministic across invocations")
+
+    // node/edge bounds + truthful truncation marker + dangling-edge exclusion
+    const boundedNodes = JSON.parse(
+      await mermaid.execute({ relation: "depends_on", nodeLimit: 2, edgeLimit: 50 }, scoping.context),
+    )
+    assert(boundedNodes.truncated === true, "selection larger than the node limit reports truncation")
+    assert(
+      boundedNodes.mermaidSource.includes("bounded subset: showing 2 of 9 nodes"),
+      "node-bound marker states the true selection size (relation filters narrow edges, not the walk frontier)",
+    )
+    const boundedEdges = JSON.parse(
+      await mermaid.execute({ roots: [{ kind: "component", key: "mod-c" }], hops: 2, edgeLimit: 1 }, scoping.context),
+    )
+    assert(boundedEdges.truncated === true, "selection larger than the edge limit reports truncation")
+    assert(boundedEdges.mermaidSource.includes("and 1 of 2 links"), "edge-bound marker states the true link count")
+    const declaredAliases = new Set<string>()
+    const scopedEdgeAliases: string[] = []
+    for (const line of boundedEdges.mermaidSource.split("\n")) {
+      const nodeMatch = /^  (n\d+)\["/.exec(line)
+      if (nodeMatch) declaredAliases.add(nodeMatch[1])
+      const edgeMatch = /^  (n\d+) -->\|"([^"]*)"\| (n\d+)$/.exec(line)
+      if (edgeMatch) scopedEdgeAliases.push(edgeMatch[1], edgeMatch[3])
+    }
+    assert(
+      declaredAliases.size > 0 && scopedEdgeAliases.length > 0 && scopedEdgeAliases.every((alias) => declaredAliases.has(alias)),
+      "rendered edges never reference omitted nodes",
+    )
+
+    // saved-map author truncation propagates into scoped views
+    const partialSaved = JSON.parse(
+      await save.execute(
+        { scopePrefix: "src", nodes: scopeNodes.slice(0, 4), edges: scopeEdges.slice(0, 1), reviewId: "20260825T000000Z-fixture0002-sessio" },
+        scoping.context,
+      ),
+    )
+    assert(partialSaved.truncated === true, "fixture saves an author-truncated map")
+    const scopedOnPartial = JSON.parse(
+      await mermaid.execute(
+        { reviewId: "20260825T000000Z-fixture0002-sessio", roots: [{ kind: "file", key: "src/app.ts" }], hops: 1 },
+        scoping.context,
+      ),
+    )
+    assert(scopedOnPartial.savedMapTruncatedByAuthor === true, "author truncation stays visible through scoped rendering")
+    assert(scopedOnPartial.truncated === true, "scoped views of author-truncated maps remain marked truncated")
+
+    // hostile labels stay escaped under scoped rendering
+    const hostileScoped = JSON.parse(
+      await mermaid.execute(
+        { projectionId: scopeSaved.projectionId, roots: [{ kind: "component", key: "mod-a" }], hops: 1 },
+        scoping.context,
+      ),
+    )
+    const hostileSource = hostileScoped.mermaidSource
+    assert(!hostileSource.includes("<img"), "scoped rendering never emits raw HTML from labels")
+    assert(hostileSource.includes("#lt;img") && hostileSource.includes("#quot;"), "scoped rendering escapes markup-sensitive label content")
+    assert(
+      !hostileSource.split("\n").some((line: string) => line.trimStart().startsWith("%%") && line.includes("img")),
+      "hostile label content cannot forge scoped diagram comments",
+    )
+
+    // hostile KEYS are legal identity inputs and must stay inert in the scoped
+    // selection metadata comments (they reach %% selectionRoots verbatim-ish).
+    const hostileKey = 'k"x<img src=javascript:>y%%z`w'
+    const hostileKeySaved = JSON.parse(
+      await save.execute(
+        {
+          scopePrefix: "src",
+          scopeDescription: 'scope note with %% percents, "quotes", <b>markup</b> and `backticks`',
+          complete: true,
+          nodes: [{ kind: "symbol", key: hostileKey, origin: "review_inference", note: "hostile key holder" }],
+          edges: [],
+        },
+        scoping.context,
+      ),
+    )
+    const hostileKeyScoped = JSON.parse(
+      await mermaid.execute(
+        { projectionId: hostileKeySaved.projectionId, roots: [{ kind: "symbol", key: hostileKey }], hops: 0 },
+        scoping.context,
+      ),
+    )
+    const hostileKeySource = hostileKeyScoped.mermaidSource
+    for (const line of hostileKeySource.split("\n")) {
+      if (!line.trimStart().startsWith("%%")) continue
+      const body = line.trimStart().slice(2)
+      assert(!body.includes("%"), "scoped selection comments contain no % after the marker")
+      assert(!body.includes("<") && !body.includes(">"), "scoped selection comments never carry raw angle brackets")
+      assert(!body.includes("`") && !body.includes('"'), "scoped selection comments never carry quotes or backticks")
+    }
+    assert(hostileKeySource.includes("#lt;img"), "hostile root keys remain recognizable in escaped selection metadata")
+    assert(!hostileKeySource.includes("<img"), "hostile root keys cannot emit raw markup anywhere")
+    const hostileKeyUnscoped = JSON.parse(await mermaid.execute({ projectionId: hostileKeySaved.projectionId }, scoping.context))
+    for (const line of hostileKeyUnscoped.mermaidSource.split("\n")) {
+      if (!line.trimStart().startsWith("%%")) continue
+      const body = line.trimStart().slice(2)
+      assert(!body.includes("<") && !body.includes(">") && !body.includes("`") && !body.includes('"') && !body.includes("%"),
+        "unscoped scope/description comments get the same comment hardening")
+    }
+
+    // query and Mermaid selection semantics agree for the same request
+    const agreementQuery = JSON.parse(
+      await query.execute(
+        {
+          projectionId: scopeSaved.projectionId,
+          roots: [{ kind: "symbol", key: "helper@src/util.ts" }],
+          hops: 1,
+          nodeLimit: 200,
+          edgeLimit: 300,
+        },
+        scoping.context,
+      ),
+    )
+    const agreementMermaid = JSON.parse(
+      await mermaid.execute(
+        { projectionId: scopeSaved.projectionId, roots: [{ kind: "symbol", key: "helper@src/util.ts" }], hops: 1 },
+        scoping.context,
+      ),
+    )
+    assert(
+      agreementMermaid.selection.totals.nodes === agreementQuery.totalsForSelection.nodes &&
+        agreementMermaid.selection.totals.edges === agreementQuery.totalsForSelection.edges,
+      "query and Mermaid report identical neighborhood totals for one request",
+    )
+    assert(agreementMermaid.aliasCount === agreementQuery.returnedNodes.length, "query and Mermaid expose the same node set size")
+
+    // compactNode format: `kind:key (label)? [inference]?`; diagram display is
+    // `kind: label` for labeled nodes and `kind:key` otherwise.
+    function expectedDisplay(compact: string): string {
+      const colon = compact.indexOf(":")
+      const kind = compact.slice(0, colon)
+      let rest = compact.slice(colon + 1)
+      const inference = rest.endsWith(" [inference]")
+      if (inference) rest = rest.slice(0, -" [inference]".length)
+      let label: string | undefined
+      const labelMatch = / \((.*)\)$/.exec(rest)
+      if (labelMatch) {
+        label = labelMatch[1]
+        rest = rest.slice(0, rest.length - labelMatch[0].length)
+      }
+      return label ? `${kind}: ${label}` : `${kind}:${rest}`
+    }
+    const aliasByDisplay = new Map<string, string>()
+    for (const line of agreementMermaid.mermaidSource.split("\n")) {
+      const decl = /^  (n\d+)\["(.*)"\]$/.exec(line)
+      if (decl) aliasByDisplay.set(decl[2], decl[1])
+    }
+    assert(aliasByDisplay.size === agreementQuery.returnedNodes.length, "diagram declares exactly the queried node set")
+    for (const compact of agreementQuery.returnedNodes) {
+      assert(aliasByDisplay.has(expectedDisplay(compact)), `every queried node appears in the scoped diagram: ${compact}`)
+    }
+    const renderedEdgeLines = new Set(
+      agreementMermaid.mermaidSource
+        .split("\n")
+        .map((line: string) => /^  (n\d+) -->\|"([^"]*)"\| (n\d+)$/.exec(line))
+        .filter(Boolean)
+        .map((m: any) => `${m[1]}|${m[2]}|${m[3]}`),
+    )
+    for (const compactEdge of agreementQuery.returnedEdges) {
+      const match = /^(.*) -\[(.*)\]-> (.*)$/.exec(compactEdge)
+      assert(match, "query edges parse for agreement comparison")
+      const [, src, rel, dst] = match!
+      const srcAlias = aliasByDisplay.get(expectedDisplay(src))
+      const dstAlias = aliasByDisplay.get(expectedDisplay(dst))
+      assert(srcAlias && dstAlias, "agreement edge endpoints resolve to diagram aliases")
+      assert(
+        renderedEdgeLines.has(`${srcAlias}|${rel}|${dstAlias}`),
+        `every queried edge appears in the scoped diagram: ${compactEdge}`,
+      )
+    }
+  } finally {
+    await scoping.cleanup()
+  }
+
   console.log("CONTEXT GRAPH SMOKE PASS")
 }
 

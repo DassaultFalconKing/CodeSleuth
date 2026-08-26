@@ -50,8 +50,11 @@ authoritative for anything upstream:
   - `repo_context_graph_query`: bounded neighborhood queries with strict
     node/edge limits, explicit truncation, and continuation cursors.
   - `repo_context_graph_mermaid`: deterministic Mermaid flowchart SOURCE
-    derived from the projection. No mmdc/Puppeteer/Chromium/SVG: rendering is
-    explicitly deferred (see below).
+    derived from the projection. Accepts an optional bounded neighborhood
+    selection (`roots`/`hops`/`relation`/`origin`) using exactly the same
+    semantics as `repo_context_graph_query`; requests without selection
+    arguments keep the historical deterministic prefix rendering. No
+    mmdc/Puppeteer/Chromium/SVG: rendering is explicitly deferred (see below).
 - `/repo-map` command routing to this capability.
 - Minimal integration notes in the `repository-deep-review` skill,
   `repo-reviewer`, and `repo-documenter`.
@@ -147,6 +150,17 @@ Mermaid source is generated FROM the projection only:
 - truncated views render an explicit "bounded subset" marker;
 - review-inference nodes/edges are styled dashed and visually distinct from
   verified source linkage, with a static legend comment.
+
+Scoped rendering: `repo_context_graph_mermaid` may render an explicitly selected
+bounded neighborhood (`roots`, `hops`, `relation`, `origin`) instead of the
+default deterministic prefix. The selection reuses the exact
+`repo_context_graph_query` traversal semantics — no second selection algorithm.
+A scoped diagram declares its selection in header comments (roots, hops,
+filters, pre-limit totals) so it can never silently claim to represent the whole
+projection; truncation markers state the true selection size. Scoped views order
+displayed nodes by semantic `kind:key` (presentation only; identity is never
+affected). Edges are window-filtered to displayed nodes before any edge limit,
+so a rendered link can never reference an omitted node.
 
 Rendering to SVG (mmdc/Chromium/Puppeteer), interactive graph UIs, and TUI
 features are out of scope for this slice and remain deferred, consistent with

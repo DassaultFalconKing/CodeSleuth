@@ -51,18 +51,23 @@ def main():
         branded_tui = oc / "bin" / "codesleuth_tui.py"
         assert branded_tui.is_file()
         branded_source = branded_tui.read_text(encoding="utf-8")
-        assert "CodeSleuth · Evidence Console" in branded_source
+        assert 'TITLE = "CodeSleuth"' in branded_source
         assert "CODESLEUTH_ART" in branded_source
-        assert "EVIDENCE : LIVE" in branded_source
+        assert "DOC_TAGLINE" in branded_source
         assert "Evidence-first repository intelligence" in branded_source
+        assert "EVIDENCE : LIVE" in branded_source
+        assert 'id="brand"' not in branded_source
+        assert "activity-panel" in branded_source
+        assert "tracked-repos" in branded_source
+        assert "right-close" not in branded_source
         assert "CodeSleuthHelpScreen" in branded_source
         assert '("h", "help", "Help")' in branded_source
         assert "CodeSleuth Playbooks" in branded_source
-        assert "Playbooks are prompts, not OpenCode Skills." in branded_source
+        assert "Playbooks are prompts, not OpenCode Skills" in branded_source
         assert "codesleuth-project --uninstall" in branded_source
         assert "There is no automated uninstaller yet." not in branded_source
         assert "CodeSleuth Review Prompts" not in branded_source
-        assert "APP = HERE / \"codesleuth_tui.py\"" in (oc / "bin" / "review_pack_tui_bootstrap.py").read_text(encoding="utf-8")
+        assert "from codesleuth_tui import CodeSleuthApp" in (oc / "bin" / "review_pack_tui_bootstrap.py").read_text(encoding="utf-8")
 
         tui_cfg = load(oc / "tui.json")
         assert tui_cfg["$schema"] == "https://opencode.ai/tui.json"

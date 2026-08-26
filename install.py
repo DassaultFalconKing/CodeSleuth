@@ -13,17 +13,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 PACK = ROOT / "pack" / ".opencode"
-VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip() if (ROOT / "VERSION").exists() else "0.3.0"
 META_NAME = "review-pack.json"
 SETTINGS_NAME = "review-pack-user.json"
 sys.path.insert(0, str(PACK / "bin"))
+from codesleuth_version import source_version  # noqa: E402
 import codesleuth_project as project_lifecycle  # noqa: E402
 import review_pack_tui_core as tui_core  # noqa: E402
+
+VERSION = source_version(ROOT)
 
 
 def run_git(args, cwd=None, check=True):
     return subprocess.run(["git", *args], cwd=cwd, text=True, capture_output=True, check=check)
-
 
 
 MIN_GIT_VERSION = (2, 35, 0)
@@ -304,7 +305,26 @@ def preserve_merged_config_settings(repo: Path, settings: dict, profiles: list[s
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Install, update, bind, or uninstall CodeSleuth for a Git repository.")
+    parser = argparse.ArgumentParser(
+        description="Install, update, bind, or uninstall CodeSleuth for a Git repository.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Self-install (CodeSleuth source checkout as the target):\n"
+            "  python install.py . --self-install\n"
+            "  python install.py . --self-install --update\n"
+            "\n"
+            "Self-install installs/updates the runtime into this repository. It is incompatible\n"
+            "with --bind-dependency (recursive self-submodule binding is rejected).\n"
+            "\n"
+            "Ordinary project install:\n"
+            "  python install.py /path/to/project\n"
+            "  python install.py /path/to/project --bind-dependency\n"
+            "\n"
+            "List host-tracked repositories:\n"
+            "  python -m codesleuth_project --list\n"
+            "  .opencode/bin/codesleuth-project --list\n"
+        ),
+    )
     parser.add_argument("--version", action="version", version=VERSION)
     parser.add_argument("repo", nargs="?", default=".")
     parser.add_argument("--profile", action="append", choices=["generic", "rust", "python", "node", "typescript"])
@@ -312,6 +332,11 @@ def parse_args():
     parser.add_argument("--force-pack-files", action="store_true", help="overwrite CodeSleuth-owned files, including locally modified ones")
     parser.add_argument("--update", action="store_true", help="update an existing versioned installation")
     parser.add_argument("--adopt-existing-pack", action="store_true", help="adopt an older unversioned installation with backups")
+    parser.add_argument(
+        "--self-install",
+        action="store_true",
+        help="required when the target is the CodeSleuth source checkout; installs into itself without binding a submodule",
+    )
     parser.add_argument("--bind-dependency", action="store_true", help="pin this exact CodeSleuth commit as tools/codesleuth Git submodule")
     parser.add_argument("--dependency-path", default=project_lifecycle.DEFAULT_DEPENDENCY_PATH)
     parser.add_argument("--uninstall", action="store_true", help="restore pre-CodeSleuth configuration and remove CodeSleuth runtime")
@@ -324,19 +349,45 @@ def parse_args():
     return parser.parse_args()
 
 
+def _enforce_self_install_flags(args, repo: Path) -> None:
+    """Require an explicit --self-install flag for the CodeSleuth source checkout."""
+    self_target = project_lifecycle.is_self_target(repo, source_root=ROOT)
+    if args.self_install and not self_target:
+        raise SystemExit(
+            "--self-install is only valid when the target Git root is the CodeSleuth source checkout"
+        )
+    if args.self_install and args.bind_dependency:
+        raise SystemExit(
+            "--self-install cannot be combined with --bind-dependency; "
+            "self-install supports the runtime only, not a recursive tools/codesleuth submodule"
+        )
+    if self_target and args.bind_dependency:
+        raise SystemExit(
+            "cannot --bind-dependency into the CodeSleuth source checkout; "
+            "use --self-install for a local runtime install without a submodule"
+        )
+    if self_target and not args.self_install and not args.uninstall:
+        raise SystemExit(
+            "target is the CodeSleuth source checkout; pass --self-install to install or update "
+            "CodeSleuth into itself (do not use --bind-dependency)"
+        )
+
+
 def main():
     args = parse_args()
     repo = project_lifecycle.git_root(Path(args.repo))
+    _enforce_self_install_flags(args, repo)
 
     if args.uninstall:
-        if args.update or args.adopt_existing_pack or args.bind_dependency:
-            raise SystemExit("--uninstall is mutually exclusive with install/update/bind operations")
+        if args.update or args.adopt_existing_pack or args.bind_dependency or args.self_install:
+            raise SystemExit("--uninstall is mutually exclusive with install/update/bind/self-install operations")
         result = project_lifecycle.uninstall_project(
             repo,
             preserve_traces=not args.purge_traces,
             remove_bound_dependency=not args.keep_dependency,
             dependency_path=args.dependency_path,
         )
+        project_lifecycle.record_tracked_repository(repo)
         print(json.dumps(result, indent=2))
         print("CodeSleuth uninstalled. Review staged Git changes before committing.")
         return
@@ -384,6 +435,7 @@ def main():
         "preInstallBackup": f"{project_lifecycle.LOCAL_ROOT}/preinstall.json",
         "conflicts": conflicts,
         "adoptedLegacy": bool(args.adopt_existing_pack),
+        "selfInstall": bool(args.self_install),
     }
     meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
 
@@ -400,9 +452,12 @@ def main():
     project_lifecycle.record_postinstall_snapshot(repo)
     project_lifecycle.ensure_reports_workspace(repo)
     project_lifecycle.ensure_agents_reports_pointer(repo)
+    project_lifecycle.record_tracked_repository(repo)
 
     print("profiles:", ", ".join(profiles))
     print(("updated" if args.update else "installed"), f"CodeSleuth {VERSION} into", repo)
+    if args.self_install:
+        print("mode: self-install (runtime in the CodeSleuth source checkout; no tools/codesleuth bind)")
     if args.adopt_existing_pack:
         print("legacy installation adopted; backups are under .opencode/state/installer-backups/legacy-adoption")
     if conflicts:
@@ -412,6 +467,7 @@ def main():
     print("pre-install backup: .codesleuth/backups/pre-install/")
     print("analytical reports: .codesleuth/reports/ (INDEX.md + markdown; OpenCode build writes them)")
     print("control TUI: .opencode/bin/codesleuth")
+    print("tracked repos: .opencode/bin/codesleuth-project --list")
     print("smoke: python3 .opencode/bin/review-pack-smoke.py . (compatibility filename)")
     print("uninstall preserving traces: .opencode/bin/codesleuth-project --uninstall .")
     print("SECURITY: review evidence may contain development credentials; local reports/state are gitignored by default.")

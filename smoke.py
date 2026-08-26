@@ -100,9 +100,11 @@ else:
     print("warning: preserving user-owned codesleuth theme file; pack palette is not forced")
 
 branding = (oc / "bin" / "codesleuth_tui.py").read_text(encoding="utf-8")
-for marker in ("CodeSleuth", "Evidence Console", "Evidence-first repository intelligence", "CODESLEUTH_ART"):
+for marker in ("CodeSleuth", "DOC_TAGLINE", "Evidence-first repository intelligence", "CODESLEUTH_ART", "activity-panel"):
     if marker not in branding:
-        raise SystemExit(f"CodeSleuth TUI branding marker missing: {marker}")
+        raise SystemExit(f"CodeSleuth TUI identity marker missing: {marker}")
+if 'id="brand"' in branding or "right-close" in branding:
+    raise SystemExit("CodeSleuth TUI unexpectedly still renders brand chrome or session-close X")
 for launcher_name in ("opencode-review", "opencode-review.ps1"):
     if "OPENCODE_TUI_CONFIG" not in (oc / "bin" / launcher_name).read_text(encoding="utf-8"):
         raise SystemExit(f"{launcher_name} does not activate the project-local CodeSleuth TUI config")

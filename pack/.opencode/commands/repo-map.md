@@ -28,8 +28,11 @@ Route:
    relation. Never dump an unbounded graph into context.
 4. Return a compact bounded summary via `repo_context_graph_query`.
 5. Only when a diagram was requested (or materially helps), derive Mermaid
-   source with `repo_context_graph_mermaid`. Mermaid is derived presentation,
-   not evidence and not a second architecture authority.
+   source with `repo_context_graph_mermaid`. Prefer an explicitly scoped view
+   (`roots`/`hops`/`relation`/`origin`, same semantics as
+   `repo_context_graph_query`) over the unbounded default prefix; scoped
+   diagrams declare their selection and truncation state explicitly. Mermaid is
+   derived presentation, not evidence and not a second architecture authority.
 
 Stay read-only for application source; the only writes are the ignored
 `.opencode/state/` boundary used by these tools. Graph relations are

@@ -12,6 +12,8 @@ import venv
 from dataclasses import dataclass
 from pathlib import Path
 
+from codesleuth_version import VersionMetadataError, resolve_version
+
 TEXTUAL_VERSION = "8.2.8"
 HERE = Path(__file__).resolve().parent
 REQ = HERE / "requirements-tui.txt"
@@ -49,14 +51,14 @@ def venv_python(root: Path) -> Path:
     return root / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
-def ensure_runtime() -> Path:
+def ensure_runtime(version: str) -> Path:
     root = runtime_root()
     python = venv_python(root)
     marker = root / ".textual-version"
     if python.is_file() and marker.is_file() and marker.read_text(encoding="utf-8").strip() == TEXTUAL_VERSION:
         return python
     root.mkdir(parents=True, exist_ok=True)
-    print(f"Preparing isolated CodeSleuth TUI runtime in {root}", file=sys.stderr)
+    print(f"Preparing isolated CodeSleuth {version} TUI runtime in {root}", file=sys.stderr)
     venv.EnvBuilder(with_pip=True, clear=python.exists()).create(root)
     python = venv_python(root)
     subprocess.run(
@@ -146,17 +148,20 @@ def parse_app_args(argv: list[str]) -> tuple[Path, Path | None]:
     return Path(target), Path(distribution) if distribution else None
 
 
-def ensure_textual_runtime(argv: list[str]) -> int | None:
-    if sys.version_info < (3, 9):
-        print("CodeSleuth TUI requires Python 3.9+", file=sys.stderr)
+def ensure_textual_runtime(argv: list[str], version: str) -> int | None:
+    if sys.version_info < (3, 10):
+        print("CodeSleuth requires Python 3.10+", file=sys.stderr)
         return 2
     if usable_current_python():
         return None
     try:
-        python = ensure_runtime()
+        python = ensure_runtime(version)
     except Exception as exc:
-        print(f"Unable to prepare the isolated CodeSleuth Textual runtime: {exc}", file=sys.stderr)
-        print("Install textual==8.2.8 in an isolated environment or retry with network access.", file=sys.stderr)
+        print(f"Unable to prepare the isolated CodeSleuth {version} Textual runtime: {exc}", file=sys.stderr)
+        print(
+            f"Install textual=={TEXTUAL_VERSION} in an isolated environment or retry with network access.",
+            file=sys.stderr,
+        )
         return 2
     if python.resolve() != Path(sys.executable).resolve():
         sys.stdout.flush()
@@ -207,7 +212,17 @@ def supervise_app(target: Path, distribution_root: Path | None, argv: list[str])
 
 def main() -> int:
     argv = sys.argv[1:]
-    runtime_error = ensure_textual_runtime(argv)
+    try:
+        version = resolve_version()
+    except VersionMetadataError as exc:
+        print(f"Unable to resolve CodeSleuth version metadata: {exc}", file=sys.stderr)
+        return 2
+
+    if argv == ["--version"]:
+        print(version)
+        return 0
+
+    runtime_error = ensure_textual_runtime(argv, version)
     if runtime_error is not None:
         return runtime_error
     target, distribution_root = parse_app_args(argv)

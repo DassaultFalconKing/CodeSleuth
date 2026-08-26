@@ -24,7 +24,7 @@ The active host owns:
 - permissions and execution policy;
 - reasoning/orchestration behavior provided by the selected model/runtime.
 
-For the installed OpenCode integration this means OpenCode owns `build`, its native provider-specific prompt, native `explore` / `general` Task subagents, OpenCode commands, Skills, tools and long-running repository review.
+For the installed OpenCode integration this means OpenCode owns `build`, its native provider-specific prompt, native `explore` / `general` Task subagents, OpenCode commands, Skills, tools and long-running repository review. The canonical public controller description is [`OpenCode build controller`](../README.md#opencode-build-controller); this contract links to it instead of duplicating the controller diagram.
 
 For an external host, that host owns the equivalent runtime responsibilities. The current MCP server owns only deterministic bounded repository evidence and never replaces the host controller.
 
@@ -169,7 +169,7 @@ Clarity is a product feature. Owning more runtime is not.
 
 CodeSleuth documentation is terminal-native and text-first.
 
-- The canonical ASCII brand is implemented in `pack/.opencode/bin/codesleuth_tui.py` as `CODESLEUTH_ART` and may be copied verbatim to the top-level README.
+- The canonical ASCII brand is implemented in `pack/.opencode/bin/codesleuth_tui.py` as `CODESLEUTH_ART` (documentation identity; not rendered by the live TUI) and may be copied verbatim to the top-level README.
 - UI documentation uses text/terminal snapshots captured from the real application. Do not maintain synthetic PNG/JPEG/WebP/SVG UI mockups or reference boards.
 - Mermaid is the only general diagram format allowed in maintained documentation because it encodes understandable, reviewable structure as text. It is for relationships/context/architecture, not branding or decorative UI art.
 - Generated Mermaid remains presentation of verified structure, never a second source of repository truth.

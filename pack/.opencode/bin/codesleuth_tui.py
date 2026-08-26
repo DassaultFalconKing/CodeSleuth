@@ -62,6 +62,9 @@ CODESLEUTH_ART = r'''
                    [ EVIDENCE : LIVE ]
 '''.strip("\n")
 
+# Documentation identity only; the live TUI does not render brand chrome.
+DOC_TAGLINE = "Evidence-first repository intelligence"
+
 EVIDENCE_MARK = r"""+-- source --+     +-- evidence --+
 | repository | --> | inspect     |
 +------------+     +--------------+"""
@@ -105,6 +108,18 @@ OPEN_CODE_COMMANDS = (
     "/repo-review-resume",
 )
 
+
+def _rail_toggle_button(label: str, button_id: str, **kwargs) -> Button:
+    """Collapse/restore controls must accept a second click immediately.
+
+    Textual Button swallows clicks while the default 0.2s ``-active`` effect is
+    applied, which makes a toggle appear stuck after a fast collapse->restore.
+    """
+
+    button = Button(label, id=button_id, compact=True, **kwargs)
+    button.active_effect_duration = 0
+    return button
+
 HELP_SECTIONS = [
     (
         "What CodeSleuth is",
@@ -113,11 +128,18 @@ HELP_SECTIONS = [
     ),
     (
         "Quick start",
-        "1. Select a Git repository.\n"
-        "2. Configure or install CodeSleuth.\n"
+        "1. Point the Repository field at a Git root, or pick a host-tracked path.\n"
+        "2. Configure or install CodeSleuth (self-install of this source checkout uses --self-install automatically).\n"
         "3. Run Verify after install/update.\n"
         "4. Open CodeSleuth to launch normal OpenCode execution with managed project-local defaults when applicable.\n"
-        "5. Start with /repo-prompts for advice or /repo-review for a deep evidence-first review.",
+        "5. Start with /repo-prompts for advice or /repo-review for a deep evidence-first review.\n"
+        "6. List host-tracked repos anytime with codesleuth-project --list.",
+    ),
+    (
+        "Self-install",
+        "When the target is the CodeSleuth source checkout, install/update requires an explicit --self-install flag. "
+        "The console passes that flag for you. --bind-dependency is invalid for self-install because it would create a "
+        "recursive tools/codesleuth submodule. Ordinary project installs continue to use install.py <repo> with optional --bind-dependency.",
     ),
     (
         "Skills, Playbooks, Tools, and Profiles",
@@ -251,7 +273,7 @@ class CodeSleuthHelpPanel(HelpPanel):
         layout: vertical;
     }
     #right-panel-controls { height: 3; align-horizontal: right; }
-    #right-panel-controls Button { min-width: 3; width: 4; margin-left: 1; }
+    #right-panel-controls Button { min-width: 5; width: 5; margin-left: 1; }
     CodeSleuthHelpPanel #widget-help {
         height: auto;
         max-height: 50%;
@@ -271,22 +293,21 @@ class CodeSleuthHelpPanel(HelpPanel):
         padding: 0;
     }
     CodeSleuthHelpPanel.collapsed {
-        width: 5;
-        min-width: 5;
-        max-width: 5;
+        width: 8;
+        min-width: 8;
+        max-width: 8;
         padding: 0;
+        overflow: hidden;
     }
     CodeSleuthHelpPanel.collapsed #widget-help,
-    CodeSleuthHelpPanel.collapsed #keys-help,
-    CodeSleuthHelpPanel.collapsed #right-close { display: none; }
+    CodeSleuthHelpPanel.collapsed #keys-help { display: none; }
     CodeSleuthHelpPanel.collapsed #right-panel-controls { width: 100%; align-horizontal: center; }
-    CodeSleuthHelpPanel.collapsed #right-collapse { width: 4; margin: 0; }
+    CodeSleuthHelpPanel.collapsed #right-collapse { width: 5; min-width: 5; max-width: 5; margin: 0; }
     """
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="right-panel-controls"):
-            yield Button("<", id="right-collapse")
-            yield Button("X", id="right-close", variant="error")
+            yield _rail_toggle_button("<", "right-collapse")
         yield Markdown(id="widget-help")
         yield KeyPanel(id="keys-help")
 
@@ -294,9 +315,6 @@ class CodeSleuthHelpPanel(HelpPanel):
         if event.button.id == "right-collapse":
             event.stop()
             self.app.action_toggle_right_panel()
-        elif event.button.id == "right-close":
-            event.stop()
-            self.app.action_close_right_panel()
 
 
 class CodeSleuthConfigScreen(ConfigScreen):
@@ -336,6 +354,10 @@ class CodeSleuthConfigScreen(ConfigScreen):
     def on_mount(self) -> None:
         super().on_mount()
         self._apply_responsive_layout()
+        if project_lifecycle.is_self_target(self.repo, source_root=self.distribution_root):
+            bind = self.query_one("#bind-dependency", Switch)
+            bind.value = False
+            bind.disabled = True
 
     def on_resize(self) -> None:
         if self.is_mounted:
@@ -358,6 +380,11 @@ class CodeSleuthConfigScreen(ConfigScreen):
                 yield Static(
                     "CodeSleuth currently targets OpenCode V1 stable. OpenCode V2 is beta and uses a different plugin API; "
                     "this control center will not silently migrate V1 plugins/configuration.",
+                    classes="hint",
+                )
+                yield Static(
+                    "Self-install: if this target is the CodeSleuth source checkout, Apply passes --self-install and "
+                    "rejects --bind-dependency. Ordinary projects may bind tools/codesleuth independently of the runtime.",
                     classes="hint",
                 )
                 yield Select(ops, value=selected_op, allow_blank=False, id="operation")
@@ -442,39 +469,42 @@ class CodeSleuthConfigScreen(ConfigScreen):
 
 
 class CodeSleuthApp(ReviewPackApp):
-    TITLE = "CodeSleuth · Evidence Console"
+    TITLE = "CodeSleuth"
     CSS = """
     Screen { background: #081018; color: #d8e3eb; }
     Header { background: #0e1822; color: #63d5f4; }
     Footer { background: #0e1822; color: #8aa7b8; }
-    #body { padding: 1 2; }
     .hint { color: #71879a; }
-    #workspace { height: auto; }
-    #wide-nav { width: 18; min-width: 18; height: auto; margin-right: 2; padding: 1; border: round #29404f; background: #0e1822; }
+    #workspace { height: 1fr; width: 100%; }
+    #wide-nav { width: 18; min-width: 18; height: 1fr; margin: 1 0 1 2; padding: 1; border: round #29404f; background: #0e1822; }
     #nav-chrome { height: 3; width: 100%; }
     #nav-title { width: 1fr; }
-    #nav-collapse { min-width: 3; width: 3; margin-left: 1; }
+    #nav-collapse { min-width: 5; width: 5; margin-left: 1; }
     #wide-nav .nav-button { width: 100%; margin-bottom: 1; }
-    #wide-nav.collapsed { width: 5; min-width: 5; max-width: 5; padding: 1 0; margin-right: 1; }
+    #wide-nav.collapsed { width: 8; min-width: 8; max-width: 8; padding: 1 1; margin-right: 1; overflow: hidden; }
     #wide-nav.collapsed #nav-title,
     #wide-nav.collapsed .nav-button { display: none; }
-    #wide-nav.collapsed #nav-chrome { width: 100%; }
-    #wide-nav.collapsed #nav-collapse { width: 100%; margin: 0; }
+    #wide-nav.collapsed #nav-chrome { width: 100%; align-horizontal: center; }
+    #wide-nav.collapsed #nav-collapse { width: 5; min-width: 5; max-width: 5; margin: 0; }
+    #main-scroll { width: 1fr; height: 1fr; padding: 1 2; }
     #compact-nav { display: none; width: 100%; margin-bottom: 1; }
     #main-panel { width: 1fr; height: auto; }
-    #brand { color: #63d5f4; height: 15; text-style: bold; }
-    #compact-brand { display: none; color: #63d5f4; height: 1; text-style: bold; }
-    #tagline { color: #8aa7b8; margin-bottom: 1; }
-    #target { width: 100%; }
+    #operation { height: auto; }
+    #repo-row { height: auto; margin-bottom: 1; }
+    #repo-row #target { width: 1fr; }
+    #track-repo { min-width: 10; margin-left: 1; }
+    #tracked-repos { width: 100%; margin-bottom: 1; }
     #security { color: #f0c36a; margin: 1 0; }
     #surface { border-left: thick #3e718a; padding-left: 1; margin: 0 0 1 0; color: #d8e3eb; }
     #status { border: round #29404f; padding: 1; margin: 1 0; background: #0e1822; }
-    #actions { grid-size: 5 1; grid-gutter: 0 1; height: 3; }
+    #actions { grid-size: 5 1; grid-gutter: 0 1; height: 3; margin-bottom: 1; }
     #actions Button { width: 100%; min-width: 0; }
-    #activity-title { color: #63d5f4; margin-top: 1; text-style: bold; }
-    #log { height: 6; border: solid #29404f; background: #081018; }
-    #workspace.compact { layout: vertical; }
+    #activity-panel { border: round #29404f; background: #0e1822; padding: 1; margin: 1 0; }
+    #activity-title { color: #63d5f4; text-style: bold; margin-bottom: 1; }
+    #log { height: 8; border: solid #29404f; background: #081018; }
+    #workspace.compact { layout: vertical; height: auto; }
     #workspace.compact #wide-nav { display: none; }
+    #workspace.compact #main-scroll { height: auto; max-height: 1fr; }
     #workspace.compact #compact-nav { display: block; }
     #workspace.compact #actions { grid-size: 2 3; height: 9; }
     """
@@ -486,7 +516,6 @@ class CodeSleuthApp(ReviewPackApp):
         ("v", "verify", "Verify"),
         ("k", "check_updates", "Check Updates"),
         ("u", "uninstall", "Uninstall"),
-        ("b", "toggle_brand", "Logo"),
         ("f2", "toggle_keys", "Footer"),
         ("f3", "toggle_left_nav", "Left panel"),
         ("f4", "toggle_right_panel", "Right panel"),
@@ -495,22 +524,20 @@ class CodeSleuthApp(ReviewPackApp):
     def __init__(self, target: Path, distribution_root: Path | None) -> None:
         super().__init__(target, distribution_root)
         self.current_surface = "home"
-        self.brand_visible = True
         self.keys_visible = True
         self.left_nav_collapsed = False
         self.right_panel_collapsed = False
-        self.right_panel_closed = False
 
     def compose(self) -> ComposeResult:
         yield Header()
-        with VerticalScroll(id="body"):
-            with Horizontal(id="workspace"):
-                with Vertical(id="wide-nav"):
-                    with Horizontal(id="nav-chrome"):
-                        yield Static("CodeSleuth\nEvidence Console", id="nav-title", classes="hint")
-                        yield Button("<", id="nav-collapse")
-                    for route in NAV_SURFACES:
-                        yield Button(route.title(), id=f"nav-{route}", classes="nav-button")
+        with Horizontal(id="workspace"):
+            with Vertical(id="wide-nav"):
+                with Horizontal(id="nav-chrome"):
+                    yield Static("Surfaces", id="nav-title", classes="hint")
+                    yield _rail_toggle_button("<", "nav-collapse")
+                for route in NAV_SURFACES:
+                    yield Button(route.title(), id=f"nav-{route}", classes="nav-button")
+            with VerticalScroll(id="main-scroll"):
                 with Vertical(id="main-panel"):
                     yield Select(
                         [(name.title(), name) for name in NAV_SURFACES],
@@ -518,25 +545,33 @@ class CodeSleuthApp(ReviewPackApp):
                         allow_blank=False,
                         id="compact-nav",
                     )
-                    # Active navigation context is first so Review/Evidence/Tools/Settings stays visible.
-                    yield Static("", id="surface")
-                    yield Static(CODESLEUTH_ART, id="brand")
-                    yield Static("CODE:SLEUTH // EVIDENCE CONSOLE", id="compact-brand")
-                    yield Static("Evidence-first repository intelligence", id="tagline")
+                    # Surface copy and the actions for that surface stay together so Tools/Review
+                    # controls are reachable without scrolling past status.
+                    with Vertical(id="operation"):
+                        yield Static("", id="surface")
+                        with Grid(id="actions"):
+                            yield Button("Configure", id="configure", variant="primary")
+                            yield Button("Verify", id="smoke")
+                            yield Button("Check Updates", id="check-update")
+                            yield Button("Update", id="update")
+                            yield Button("Playbooks", id="playbooks")
+                            yield Button("Help", id="help")
+                            yield Button("Uninstall", id="uninstall", variant="error")
+                            yield Button("Open CodeSleuth", id="launch", variant="primary")
                     yield Label("Repository")
-                    yield Input(str(self.target), id="target")
+                    with Horizontal(id="repo-row"):
+                        yield Input(str(self.target), id="target")
+                        yield Button("Remember", id="track-repo")
+                    yield Select(
+                        [],
+                        id="tracked-repos",
+                        prompt="Tracked repositories on this host…",
+                        allow_blank=True,
+                    )
                     yield Static("", id="status")
-                    with Grid(id="actions"):
-                        yield Button("Configure", id="configure", variant="primary")
-                        yield Button("Verify", id="smoke")
-                        yield Button("Check Updates", id="check-update")
-                        yield Button("Update", id="update")
-                        yield Button("Playbooks", id="playbooks")
-                        yield Button("Help", id="help")
-                        yield Button("Uninstall", id="uninstall", variant="error")
-                        yield Button("Open CodeSleuth", id="launch", variant="primary")
-                    yield Static("Recent activity", id="activity-title")
-                    yield RichLog(id="log", wrap=True, markup=True)
+                    with Vertical(id="activity-panel"):
+                        yield Static("Recent activity", id="activity-title")
+                        yield RichLog(id="log", wrap=True, markup=True)
                     yield Static(
                         "Evidence may contain developer credentials visible to authorized tests/services. "
                         "Local state is ignored by default; inspect reports before sharing or committing them.",
@@ -547,6 +582,7 @@ class CodeSleuthApp(ReviewPackApp):
     def on_mount(self) -> None:
         super().on_mount()
         self._apply_responsive_layout()
+        self._refresh_tracked_repos()
         self.show_surface("home")
         self.write_ui_log("[dim]Console opened. No CodeSleuth control action has run in this session yet.[/dim]")
 
@@ -557,15 +593,30 @@ class CodeSleuthApp(ReviewPackApp):
     def _apply_responsive_layout(self) -> None:
         compact = self.size.width < 100 or self.size.height < 30
         self.query_one("#workspace").set_class(compact, "compact")
-        self.query_one("#brand", Static).display = self.brand_visible and not compact
-        self.query_one("#compact-brand", Static).display = self.brand_visible and compact
-        self.query_one("#tagline", Static).display = self.brand_visible
 
-    def action_toggle_brand(self) -> None:
-        self.brand_visible = not self.brand_visible
-        self._apply_responsive_layout()
-        state = "shown" if self.brand_visible else "hidden"
-        self.notify(f"Logo {state}")
+    def _tracked_select_options(self) -> list[tuple[str, str]]:
+        options: list[tuple[str, str]] = []
+        for entry in project_lifecycle.list_tracked_repositories(refresh=True):
+            path = str(entry.get("path") or "")
+            if not path:
+                continue
+            name = Path(path).name or path
+            lifecycle = entry.get("lifecycle") or "unknown"
+            version = entry.get("version") or "n/a"
+            mark = "" if entry.get("reachable") else " (missing)"
+            options.append((f"{name} · {lifecycle} · {version}{mark}", path))
+        return options
+
+    def _refresh_tracked_repos(self) -> None:
+        selector = self.query_one("#tracked-repos", Select)
+        options = self._tracked_select_options()
+        selector.set_options(options)
+        current = Path(self.query_one("#target", Input).value or ".").expanduser().resolve()
+        matched = next((value for _, value in options if Path(value).resolve() == current), None)
+        if matched is not None:
+            selector.value = matched
+        else:
+            selector.clear()
 
     def action_toggle_keys(self) -> None:
         self.keys_visible = not self.keys_visible
@@ -580,9 +631,6 @@ class CodeSleuthApp(ReviewPackApp):
         self.query_one("#nav-collapse", Button).label = ">" if self.left_nav_collapsed else "<"
 
     def action_show_help_panel(self) -> None:
-        if self.right_panel_closed:
-            self.notify("Right key/help panel is closed for this session", severity="warning")
-            return
         try:
             panel = self.screen.query_one(CodeSleuthHelpPanel)
         except NoMatches:
@@ -596,8 +644,6 @@ class CodeSleuthApp(ReviewPackApp):
 
     def action_hide_help_panel(self) -> None:
         """Textual's normal hide action becomes a reversible collapse in CodeSleuth."""
-        if self.right_panel_closed:
-            return
         try:
             panel = self.screen.query_one(CodeSleuthHelpPanel)
         except NoMatches:
@@ -607,9 +653,6 @@ class CodeSleuthApp(ReviewPackApp):
         panel.query_one("#right-collapse", Button).label = ">"
 
     def action_toggle_right_panel(self) -> None:
-        if self.right_panel_closed:
-            self.notify("Right key/help panel is closed for this session", severity="warning")
-            return
         try:
             panel = self.screen.query_one(CodeSleuthHelpPanel)
         except NoMatches:
@@ -620,13 +663,16 @@ class CodeSleuthApp(ReviewPackApp):
         panel.set_class(self.right_panel_collapsed, "collapsed")
         panel.query_one("#right-collapse", Button).label = ">" if self.right_panel_collapsed else "<"
 
-    def action_close_right_panel(self) -> None:
-        self.right_panel_closed = True
-        self.right_panel_collapsed = False
-        panels = self.screen.query(CodeSleuthHelpPanel)
-        if panels:
-            panels.remove()
-        self.notify("Right key/help panel closed for this session")
+    def action_track_repository(self) -> None:
+        try:
+            repo = self.validate_target()
+        except Exception as exc:
+            self.notify(str(exc), severity="error")
+            return
+        entry = project_lifecycle.record_tracked_repository(repo)
+        self._refresh_tracked_repos()
+        self.write_ui_log(f"[green]Tracked repository:[/green] {entry['path']}")
+        self.notify("Repository remembered on this host")
 
     @staticmethod
     def _catalog_entries(root: Path, subdir: str) -> list[str]:
@@ -753,7 +799,9 @@ class CodeSleuthApp(ReviewPackApp):
         selector = self.query_one("#compact-nav", Select)
         if selector.value != route:
             selector.value = route
-        self.query_one("#body", VerticalScroll).scroll_to_widget(surface, animate=False)
+        self.query_one("#main-scroll", VerticalScroll).scroll_to_widget(
+            self.query_one("#operation"), animate=False
+        )
 
     def _source_checkout_root(self, repo: Path) -> Path | None:
         if self.distribution_root is None:
@@ -985,6 +1033,9 @@ class CodeSleuthApp(ReviewPackApp):
         elif event.button.id and event.button.id.startswith("nav-"):
             event.stop()
             self.show_surface(event.button.id.removeprefix("nav-"))
+        elif event.button.id == "track-repo":
+            event.stop()
+            self.action_track_repository()
         elif event.button.id == "playbooks":
             event.stop()
             self.action_playbooks()
@@ -1003,10 +1054,14 @@ class CodeSleuthApp(ReviewPackApp):
     def on_select_changed(self, event: Select.Changed) -> None:
         if event.select.id == "compact-nav" and isinstance(event.value, str):
             self.show_surface(event.value)
+        elif event.select.id == "tracked-repos" and isinstance(event.value, str):
+            self.query_one("#target", Input).value = event.value
+            self.refresh_status()
 
     def _configured(self, changed: bool) -> None:
         if changed:
             self.refresh_status()
+            self._refresh_tracked_repos()
             self.write_ui_log("[green]CodeSleuth configuration applied.[/green]")
 
 

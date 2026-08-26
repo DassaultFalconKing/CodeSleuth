@@ -1,0 +1,45 @@
+---
+description: TUI viewport, collapse controls, and acceptance-test discipline for CodeSleuth
+globs: pack/.opencode/bin/codesleuth_tui.py,tests/test_tui*.py,docs/CODESLEUTH-*.md,docs/LESSONS-LEARNED-VIEWPORT-HARDENING.md
+alwaysApply: false
+---
+
+# TUI viewport & acceptance discipline
+
+Derived from [docs/LESSONS-LEARNED-VIEWPORT-HARDENING.md](../../docs/LESSONS-LEARNED-VIEWPORT-HARDENING.md).
+
+## Never weaken the contract
+
+- Do **not** skip, xfail, or rewrite viewport/collapse/Tools-action tests to accommodate broken layout or click behavior.
+- Keyboard bindings (F3/F4) are parallel affordances, not replacements for mouse restore on `#nav-collapse` / `#right-collapse`.
+- Do **not** call `scroll_to_widget(#update)` (or similar) only inside a test to hide off-screen actions.
+
+## Collapse / restore controls
+
+- One physical click → exactly one state transition (`left_nav_collapsed` / `right_panel_collapsed`, CSS `collapsed`, button label, nav-button display must agree).
+- Toggle buttons must remain clickable after collapse. Enlarge the rail if needed; there is no product requirement that a collapsed rail be exactly five columns.
+- Textual `Button` ignores clicks while class `-active` is set. For toggle rails set `active_effect_duration = 0` (and prefer `compact=True`) so a fast restore click still calls `press()`.
+
+```python
+# ✅ toggle control
+button = Button("<", id="nav-collapse", compact=True)
+button.active_effect_duration = 0
+```
+
+## Surface navigation
+
+- `#surface` and the route’s `#actions` belong on one operational block (e.g. `#operation`).
+- `show_surface(route)` must scroll that operational block into view so Tools actions (Verify, Check Updates, Update, Open CodeSleuth) are clickable at `120x35` without test-specific scrolling.
+- Branding/status must not push the navigated-to actions below the fold.
+
+## Docs controller contract
+
+- Canonical section: README `### OpenCode \`build\` controller` → `#opencode-build-controller`.
+- Product/branding/maintainer docs link with `../README.md#opencode-build-controller`.
+- Do not copy the controller diagram (`native provider-specific controller prompt`) into those docs.
+
+## Acceptance before claiming done
+
+- Run the focused viewport/docs tests, then full `pytest`, `ruff check .`, and Bun smokes.
+- Manually exercise collapse↔restore and Tools actions at least at `80x24`, `120x35`, `140x40`.
+- If Pilot says the click hit the widget but state did not change, check `-active` / Pressed handlers before blaming geometry.

@@ -18,7 +18,7 @@ CodeSleuth = Skills / control surface / evidence discipline / lifecycle
 Host       = controller / model / agents / tools / execution
 ```
 
-OpenCode is the current full installed host. NovaClaw is the first tested external MCP host. Other host integrations may reuse the same Skills, evidence discipline and narrow tools without moving execution authority into CodeSleuth.
+OpenCode is the current full installed host. NovaClaw is the first tested external MCP host. Other host integrations may reuse the same Skills, evidence discipline and narrow tools without moving execution authority into CodeSleuth. The canonical installed-host controller description is [OpenCode `build` controller](../README.md#opencode-build-controller); this UI contract does not duplicate that controller diagram.
 
 ## Visual direction
 
@@ -40,13 +40,13 @@ The visual design is considered settled. Do not repeatedly regenerate interface 
 
 ### Canonical brand
 
-The only canonical ASCII brand is the implemented `CODESLEUTH_ART` constant in:
+Product identity ASCII art remains available as the `CODESLEUTH_ART` / `DOC_TAGLINE` constants in:
 
 ```text
 pack/.opencode/bin/codesleuth_tui.py
 ```
 
-The top-level README may copy that block verbatim. Other documentation should reference the implementation instead of maintaining another hand-edited copy.
+The live TUI does **not** render that brand chrome. The console is an operator control surface: navigation, repository targeting, status, Recent activity, and Keys/Help. The top-level README may still copy the ASCII block for documentation identity. Other documentation should reference the implementation instead of maintaining another hand-edited copy.
 
 ### UI documentation
 
