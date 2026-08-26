@@ -13,6 +13,7 @@
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — normative SIB acceptance identity: SIB degree defines what is proven; exact-head acceptance binds that proof to one exact commit SHA.
 - [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) — post-SIB2 protection model: protected capabilities, contract-owned forbidden regressions, Mermaid dependency/impact graphs, dependency-aware development gates, and full-suite SIB2/RC/release preservation.
 - [`protected-capabilities.json`](protected-capabilities.json) — machine-readable Protected Capability Registry with code/docs/test provenance, contract fingerprints, dependency/impact metadata, and each contract's own forbidden-regression ledger.
+- [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md) — normative composition model for Playbook/Step/Skill/Command/Tool feature population inside `CC-PACK`; the docs-only contract does not claim that the Playbook implementation has landed.
 - [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — integration discipline for recovering still-valid intent from stale PRs without overwriting newer accepted semantics.
 
 ## Engineering articles
@@ -75,6 +76,7 @@ CodeSleuth documentation is text-first and terminal-native.
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — required acceptance identity contract for SIB promotion, accepted integration states, RCs, and releases.
 - [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) — required preservation discipline for accepted capabilities and their contract-owned forbidden regressions during release feature population.
 - [`protected-capabilities.json`](protected-capabilities.json) — queryable machine contract/forbidden-regression registry used for impact selection and preservation review.
+- [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md) — composition contract for future atomic-Skill and step-isolated-Playbook implementation inside `CC-PACK`.
 - [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — required method when useful stale work overlaps newer accepted contracts.
 - [`LESSONS-LEARNED-VIEWPORT-HARDENING.md`](LESSONS-LEARNED-VIEWPORT-HARDENING.md) — TUI collapse/Tools viewport acceptance lessons and anti-patterns (paired with `.cursor/rules/tui-viewport-acceptance.mdc`).
 
@@ -92,6 +94,7 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         +--> NOVACLAW-MCP.md                              (external host seam)
         +--> ../AGENTS.md                                 (compact cross-agent entry point)
         +--> LLM-OPERATOR.md                              (task-specific operator surface)
+        +--> PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md      (CC-PACK composition; implementation separate)
         +--> STABLE-INTEGRATION-BASELINE.md               (SIB0 -> SIB1 -> SIB2)
         |       +--> SIB0-CAPABILITY-INVENTORY.md         (frozen capability-class inventory)
         |       +--> EXACT-HEAD-ACCEPTANCE.md             (what is proven -> exact SHA carrying the proof)
