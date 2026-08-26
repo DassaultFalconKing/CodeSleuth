@@ -45,7 +45,10 @@
       "target-ownership-map": "allow",
       "acceptance-matrix-design": "allow",
       "documentation-draft": "allow",
-      "codesleuth-reports": "allow"
+      "codesleuth-reports": "allow",
+      "eha-candidate-selection": "allow",
+      "eha-campaign-evidence": "allow",
+      "eha-repair-protocol": "allow"
     },
     "question": "allow",
     "doom_loop": "ask"

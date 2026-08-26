@@ -2,9 +2,10 @@
   "name": "codesleuth-development-gates",
   "private": true,
   "scripts": {
-    "test": "bun tests/review_state_smoke.ts && bun tests/context_graph_smoke.ts",
+    "test": "bun tests/review_state_smoke.ts && bun tests/context_graph_smoke.ts && bun tests/eha_state_smoke.ts",
     "test:review-state": "bun tests/review_state_smoke.ts",
-    "test:context-graph": "bun tests/context_graph_smoke.ts"
+    "test:context-graph": "bun tests/context_graph_smoke.ts",
+    "test:eha-state": "bun tests/eha_state_smoke.ts"
   },
   "devDependencies": {
     "@opencode-ai/plugin": "^1.14.48"

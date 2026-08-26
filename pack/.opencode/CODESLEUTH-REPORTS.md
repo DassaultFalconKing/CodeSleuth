@@ -4,7 +4,7 @@ OpenCode's primary `build` agent writes durable markdown reports so later
 CodeSleuth sessions and other coding assistants in the same worktree can reuse
 analysis instead of starting from zero.
 
-Live store (target repository worktree):
+Live report store (target repository worktree):
 
 ```text
 .codesleuth/reports/
@@ -13,14 +13,42 @@ Live store (target repository worktree):
 Do not set `prompt` on `build`. This file is discovery and format, not a
 replacement controller.
 
+For the underlying structured evidence authority and mutation rules, follow
+`docs/DURABLE-EVIDENCE-STORE.md`.
+
 ## Who writes, who reads
 
 - **Writer:** OpenCode `build` via `/repo-review`, `/repo-docs`, `/repo-report`,
-  and the `codesleuth-reports` skill.
+  `/eha-test`, `/eha-repair`, and the relevant CodeSleuth skills.
 - **Readers:** CodeSleuth, Cursor, Claude, Codex, Copilot, humans working in the
   current worktree by default.
 - Before repeating a review in that worktree, read `INDEX.md` then the latest
   matching report.
+
+## Structured evidence versus reports
+
+Markdown reports are human-readable derived views. They are not the structured
+evidence authority and must never become a competing state store.
+
+Repository-review findings and EHA campaigns are stored under the existing
+ignored review-state boundary:
+
+```text
+.opencode/state/reviews/<reviewId>/
+  state.json          # mutable atomic checkpoint snapshot
+  findings.ndjson     # append-only finding history
+  eha.ndjson          # append-only EHA/SIB/repair history
+```
+
+For EHA work, `eha.ndjson` is the structured append-only ledger for exact target
+SHAs, SIB0/SIB1/SIB2 verdicts, and repair-loop decisions. A report must summarize
+that ledger truthfully; it must not replace, rewrite, truncate, delete, or
+silently contradict it.
+
+Use `review_state_*` / `eha_state_*` to load or change structured evidence. Raw
+`cat`/`grep` is permitted for read-only audit, debugging, recovery, or locating
+an ID, but it is not a semantic API and cannot by itself establish freshness,
+blob validity, exact-head identity, or SIB claimability.
 
 ## Git and cross-clone reuse
 
@@ -47,7 +75,7 @@ YYYY-MM-DDTHHMMZ-<slug>.md
 Example: `20260825T031200Z-architecture.md`
 
 Use UTC. Slug is lowercase kebab-case from the scope (`architecture`,
-`pr-main`, `auth-subsystem`).
+`pr-main`, `auth-subsystem`, `eha-sib`).
 
 ## Report template
 
@@ -60,10 +88,35 @@ Use UTC. Slug is lowercase kebab-case from the scope (`architecture`,
 - scope: <paths / ref / question>
 - agent: OpenCode build
 - reviewId: <.opencode/state/reviews/<id> or none>
+- ehaCampaignId: <campaign id or none>
 
 ## Summary
 
 <one short paragraph>
+
+## EHA / SIB status
+
+- exact target SHA: <full SHA or not an EHA report>
+- SIB0: <PASS | FAIL | PENDING> — claimable: <yes/no> — <profile/evidence summary>
+- SIB1: <PASS | FAIL | PENDING> — claimable: <yes/no> — <profile/evidence summary>
+- SIB2: <PASS | FAIL | PENDING> — claimable: <yes/no> — <profile/evidence summary>
+- blocker finding IDs: <ids or none>
+- predecessor campaign: <id or none>
+- successor campaign: <id or none>
+
+If an EHA repair loop was entered, also record:
+
+- failing SHA and SIB level;
+- defect classification;
+- failing test/path and reproduction;
+- repair decision and branch;
+- new candidate SHA, if known;
+- regression tests added;
+- focused repair tests actually run and their results.
+
+Do not mark a repaired descendant as inheriting PASS from its predecessor. Each
+new exact SHA receives its own EHA campaign and fresh evidence for every SIB
+degree claimed.
 
 ## Findings
 
@@ -89,10 +142,14 @@ Use UTC. Slug is lowercase kebab-case from the scope (`architecture`,
 - <what was not reviewed>
 ```
 
+For non-EHA work the EHA section may be omitted or explicitly marked not
+applicable.
+
 ## INDEX.md
 
 Keep newest first:
 
 ```text
 - `20260825T031200Z-architecture.md` — 2026-08-25T03:12Z — Architecture — HEAD abc1234 — 2 high
+- `20260826T140500Z-eha-sib.md` — 2026-08-26T14:05Z — EHA — HEAD def4567 — SIB0 PASS / SIB1 FAIL / SIB2 PENDING
 ```

@@ -14,7 +14,7 @@ required = [
     "commands/repo-map.md",
     "skills/repository-deep-review/SKILL.md", "skills/codesleuth-reports/SKILL.md",
     "tools/repo_inventory.ts",
-    "tools/review_state.ts", "tools/repo_profile.ts", "tools/repo_context_graph.ts", "plugins/review-compaction.ts",
+    "tools/review_state.ts", "tools/eha_state.ts", "tools/repo_profile.ts", "tools/repo_context_graph.ts", "plugins/review-compaction.ts",
     "profiles/builtin/generic.json", "profiles/builtin/rust.json", "profiles/builtin/python.json",
     "profiles/builtin/node.json", "profiles/builtin/typescript.json",
     "bin/opencode-review", "bin/opencode-review.ps1",

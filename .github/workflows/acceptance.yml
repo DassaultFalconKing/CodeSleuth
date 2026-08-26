@@ -8,6 +8,7 @@ on:
       - "feature/**"
       - "chore/**"
       - "fix/**"
+      - "test/**"
   pull_request:
 
 permissions:
@@ -47,6 +48,41 @@ jobs:
         run: python -m ruff check .
       - name: Test
         run: python -m pytest -q
+
+  tui-visual:
+    name: TUI visual regression / Ubuntu
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CODESLEUTH_ACCEPTANCE_SHA }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Verify exact checked-out commit
+        run: >-
+          python -c "import os, subprocess; expected=os.environ['CODESLEUTH_ACCEPTANCE_SHA']; actual=subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(); assert actual == expected, f'acceptance checkout mismatch: expected {expected}, got {actual}'; print(f'EXACT HEAD {actual}')"
+      - name: Install acceptance dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Prepare TUI visual artifacts
+        run: mkdir -p artifacts/tui-regression
+      - name: Run screenshot and log regression analysis
+        env:
+          CODESLEUTH_UI_VISUAL_REGRESSION: "1"
+          CODESLEUTH_UI_ARTIFACT_DIR: artifacts/tui-regression
+          TEXTUAL_LOG: artifacts/tui-regression/textual.log
+          TEXTUAL_ANIMATIONS: none
+        run: python -m pytest -q tests/test_tui_visual_regression.py
+      - name: Upload TUI visual regression artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tui-visual-regression-${{ env.CODESLEUTH_ACCEPTANCE_SHA }}
+          path: artifacts/tui-regression/
+          if-no-files-found: warn
+          retention-days: 14
 
   bun:
     name: Durable state / context graph

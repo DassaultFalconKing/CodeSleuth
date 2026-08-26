@@ -11,6 +11,11 @@
 - [`STABLE-INTEGRATION-BASELINE.md`](STABLE-INTEGRATION-BASELINE.md) — SIB0/SIB1/SIB2 architecture-recovery model: initialization freeze, implementation completeness, integration completeness, and release construction from SIB2.
 - [`SIB0-CAPABILITY-INVENTORY.md`](SIB0-CAPABILITY-INVENTORY.md) — frozen fundamental capability-class inventory, ownership/dependency map, and must-never-become boundaries for the current architectural generation.
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — normative SIB acceptance identity: SIB degree defines what is proven; exact-head acceptance binds that proof to one exact commit SHA.
+- [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — normative repair discipline when an EHA target fails: freeze, classify, repair, and start a new campaign on a new SHA.
+- [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — operator-facing EHA workflow wiring for release-stream candidate selection, testing, repair, and reporting.
+- [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — normative contract for selecting future SIB candidates from literal `dev/release-X.Y.Z` heads.
+- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — accepted durable review/evidence authority: mutable checkpoint snapshots, append-only finding/EHA ledgers, and derived views.
+- [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — canonical SIB2 TUI visual-regression acceptance gate and artifact contract.
 - [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) — post-SIB2 protection model: protected capabilities, contract-owned forbidden regressions, Mermaid dependency/impact graphs, dependency-aware development gates, and full-suite SIB2/RC/release preservation.
 - [`protected-capabilities.json`](protected-capabilities.json) — machine-readable Protected Capability Registry with code/docs/test provenance, contract fingerprints, dependency/impact metadata, and each contract's own forbidden-regression ledger.
 - [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md) — reusable-instruction model: atomic on-demand Skills, isolated Playbook Steps, Playbooks as orchestration, Commands as user entry points, and Tools as bounded execution primitives.
@@ -76,6 +81,11 @@ CodeSleuth documentation is text-first and terminal-native.
 - [`RELEASE-PROCESS.md`](RELEASE-PROCESS.md) — numbered release branch policy and acceptance gates.
 - [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — product-namespace inventory; runtime rename remains post-0.4.0 work.
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — required acceptance identity contract for SIB promotion, accepted integration states, RCs, and releases.
+- [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — required repair discipline when exact-head acceptance fails.
+- [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — required operator workflow for EHA campaigns on the release stream.
+- [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — required candidate-selection contract for future SIB promotion.
+- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — required durable evidence authority and append-only ledger semantics.
+- [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — required SIB2 TUI visual-regression gate and artifact contract.
 - [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) — required preservation discipline for accepted capabilities and their contract-owned forbidden regressions during release feature population.
 - [`protected-capabilities.json`](protected-capabilities.json) — queryable machine contract/forbidden-regression registry used for impact selection and preservation review.
 - [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md) — required design contract for atomic Skills and step-isolated Playbooks.
@@ -100,6 +110,11 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         +--> STABLE-INTEGRATION-BASELINE.md               (SIB0 -> SIB1 -> SIB2)
         |       +--> SIB0-CAPABILITY-INVENTORY.md         (frozen capability-class inventory)
         |       +--> EXACT-HEAD-ACCEPTANCE.md             (what is proven -> exact SHA carrying the proof)
+        |       +--> EHA-REPAIR-LOOP.md                     (failed EHA target -> repair -> new campaign)
+        |       +--> EHA-OPERATING-PLAYBOOK.md              (release-stream EHA operator workflow)
+        |       +--> SIB-CANDIDATE-SELECTION.md             (literal release-stream head -> EHA target)
+        |       +--> DURABLE-EVIDENCE-STORE.md              (checkpoint + append-only ledgers + derived views)
+        |       +--> TUI-VISUAL-REGRESSION.md               (canonical SIB2 interface evidence)
         |       +--> PROTECTED-CAPABILITY-CONTRACTS.md    (accepted behavior -> preservation obligations)
         |               +--> protected-capabilities.json  (contracts + impact graph + per-contract FR registry)
         +--> SEMANTIC-REFIT.md                            (stale intent -> current semantics -> accepted refit)
@@ -108,6 +123,7 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         +--> pack/.opencode/CODESLEUTH-REPORTS.md
         +--> pack/.opencode/playbooks/                    (stored workflow manifests + isolated Steps)
         +--> pack/.opencode/skills/                       (atomic on-demand competencies)
+        +--> .opencode/state/reviews/<reviewId>/eha.ndjson (append-only EHA/SIB/repair ledger)
         +--> host runtime / commands / tools
         +--> .codesleuth/reports/                         (host-written analysis where supported)
 ```

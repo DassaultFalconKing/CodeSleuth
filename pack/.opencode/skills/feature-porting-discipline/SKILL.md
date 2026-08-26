@@ -16,8 +16,8 @@ slash: true
 
 **Stop:** source or target identity is unproven, the source implementation/tests cannot substantiate the claimed behavior, or the target authority required to judge portability is missing.
 
-**Must not:** copy files, design the whole target implementation, create branches, or silently import source ownership/runtime/state assumptions.
+**Must not:** copy files, design the whole target implementation, create branches, silently import source ownership/runtime/state assumptions, or introduce duplicate evidence authority outside `review_state` and its append-only ledgers.
 
-Inspect source implementation, contracts, consumers, and tests. Read current target product/architecture authority. Port behavior, not filenames. Model summaries and old handoffs are discovery leads only.
+Inspect source implementation, contracts, consumers, and tests. Read current target product/architecture authority. Port behavior, not filenames. Model summaries and old handoffs are discovery leads only. No duplicate authority: the durable evidence ledger remains `review_state` plus append-only finding/EHA history.
 
 Whole source-to-target migration sequencing belongs to the `feature-port` Playbook.

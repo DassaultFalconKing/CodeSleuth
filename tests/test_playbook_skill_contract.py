@@ -124,6 +124,8 @@ def test_product_commands_route_broad_work_to_playbooks() -> None:
         "repo-docs.md": "repository-documentation",
         "repo-map.md": "repository-map",
         "repo-port.md": "feature-port",
+        "eha-test.md": "eha-sib-acceptance",
+        "eha-repair.md": "eha-repair",
     }
     for command, playbook_id in expected.items():
         path = COMMANDS / command
