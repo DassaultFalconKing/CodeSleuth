@@ -21,6 +21,7 @@ Read the installed copies of:
 - `docs/STABLE-INTEGRATION-BASELINE.md`;
 - `docs/EXACT-HEAD-ACCEPTANCE.md`;
 - `docs/EHA-REPAIR-LOOP.md`;
+- `docs/DURABLE-EVIDENCE-STORE.md`;
 - `docs/SEMANTIC-REFIT.md` when stale/divergent work is involved.
 
 The compact rule is:
@@ -50,6 +51,14 @@ the same durable review evidence boundary under:
 .opencode/state/reviews/<reviewId>/eha.ndjson
 ```
 
+The storage semantics are inherited from `docs/DURABLE-EVIDENCE-STORE.md`:
+
+- `state.json` is a mutable atomic checkpoint snapshot;
+- `findings.ndjson` is append-only finding history;
+- `eha.ndjson` is append-only EHA/SIB/repair history;
+- reports and Mermaid are derived views;
+- raw state-file rewrites are forbidden.
+
 Use the tools exported from `eha_state`:
 
 - `eha_state_start_campaign` — bind a new campaign to literal current HEAD;
@@ -60,6 +69,13 @@ Use the tools exported from `eha_state`:
 
 The NDJSON ledger is acceptance evidence state. Mermaid is only a human-readable
 projection of it and never becomes authority by itself.
+
+Do not raw-rewrite, truncate, delete, or edit old `eha.ndjson` lines to make a
+later campaign look cleaner. Later events may change the current read model, but
+historical events remain recorded. Raw `cat`/`grep` is allowed only for read-only
+audit/debug/recovery/discovery; reload through `eha_state_load` before making a
+material acceptance claim because raw text search does not enforce exact-head,
+claimability, classification, or schema semantics.
 
 ## Starting an EHA campaign
 
@@ -211,7 +227,7 @@ SHA B | SIB0 PASS | SIB1 PASS | SIB2 PASS
 ```
 
 Do not manually edit the diagram to make history look cleaner. Regenerate it
-from the ledger.
+from the ledger. Never parse edited Mermaid back into EHA evidence.
 
 ## Reporting contract
 

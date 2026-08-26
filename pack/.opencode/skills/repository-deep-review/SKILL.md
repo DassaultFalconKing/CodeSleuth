@@ -25,6 +25,8 @@ supervisor or replace that controller. Use OpenCode tools, native `explore` /
    project truth.
 6. Never claim a command/test/check passed unless it actually ran successfully.
 7. Review the real target (commit/range/worktree), not a stale summary of it.
+8. Follow `docs/DURABLE-EVIDENCE-STORE.md`: checkpoint state is mutable, verified
+   finding/EHA history is append-only, and reports/context/Mermaid remain derived.
 
 ## Phase 0: establish authority
 
@@ -35,6 +37,8 @@ Before broad reading:
 - identify the requested ref/range/scope;
 - locate project instruction/authority files (`AGENTS.md`, `README*`, ADRs,
   architecture docs, manifests, CI, build/test scripts);
+- read `docs/DURABLE-EVIDENCE-STORE.md` when the task will create or consume
+  durable review evidence;
 - read `.codesleuth/reports/INDEX.md` and any matching prior report;
 - start or load `review_state_*`.
 
@@ -117,6 +121,18 @@ Before accepting a material defect, reopen the exact source and call
 `review_state_record_finding` with its line range. The tool captures the actual
 excerpt plus blob/worktree identity.
 
+The durable store has intentionally different mutation semantics:
+
+- `state.json` is the atomically replaced resumable checkpoint snapshot;
+- `findings.ndjson` is append-only verified finding history;
+- `eha.ndjson`, when present, is append-only EHA/SIB/repair history.
+
+Do not raw-edit or rewrite those files from the Skill. Use `review_state_*` and
+`eha_state_*` domain operations. Raw `cat`/`grep` is acceptable for read-only
+audit, debugging, recovery, or locating an ID, but a grep hit is only a lead;
+reload the exact record through the relevant tool before making a material
+claim so blob/staleness/exact-head semantics are applied.
+
 Do not record:
 
 - style-only preferences unless requested;
@@ -198,5 +214,6 @@ Load `codesleuth-reports` and write a markdown report under
 `.codesleuth/reports/` following `.opencode/CODESLEUTH-REPORTS.md`. Update
 `INDEX.md`. This is for later sessions in this worktree; reports stay
 local-only by default and are not automatically shared with fresh clones.
+Reports are derived from durable evidence and never replace the evidence store.
 It is not a second supervisor. The only required write during a read-only
 review is that reports folder.

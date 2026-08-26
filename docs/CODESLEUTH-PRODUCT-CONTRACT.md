@@ -11,6 +11,8 @@
 
 OpenCode is the current full installed integration. For an external host, CodeSleuth exposes only the capabilities that integration deliberately supports, such as the bounded read-only MCP repository-evidence adapter. In every mode the host remains the execution authority.
 
+The canonical durable evidence storage semantics are defined in [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md).
+
 ## 2. Runtime ownership
 
 The active host owns:
@@ -38,7 +40,7 @@ CodeSleuth owns the surrounding discipline and operator experience:
 - safe install/adopt/update/remove lifecycle;
 - Verify/smoke presentation;
 - Playbook discovery;
-- evidence/state conventions and analytical report-folder conventions;
+- evidence/state conventions and analytical report-folder conventions, governed by `DURABLE-EVIDENCE-STORE.md`;
 - Help/documentation;
 - extension and integration discovery/catalog/install/update/remove UX;
 - small bounded evidence/helper tools where a host needs them;
@@ -49,6 +51,12 @@ CodeSleuth owns the surrounding discipline and operator experience:
 If the active host can already run a tool, Skill, command, model workflow, or orchestration primitive, CodeSleuth must **invoke, expose, configure, document, or package it**, not reimplement it.
 
 A CodeSleuth menu action or adapter endpoint may be a friendly route to host-native functionality. That route is not evidence that CodeSleuth owns the underlying execution.
+
+The same rule applies internally to durable evidence. `review_state` plus its
+append-only finding/EHA ledgers form one evidence authority. New caches,
+indexes, graph stores, SQL databases, vector stores or report formats must be
+rebuildable derivatives unless an explicit architecture decision replaces that
+authority.
 
 ## 4. Integration model
 
@@ -123,7 +131,9 @@ Specifically prohibited:
 - independent general-purpose tool-call router;
 - replacement review engine that bypasses the host;
 - duplicate copies of host capabilities hidden behind CodeSleuth-specific implementations;
-- state formats that become a second source of truth for host tool/model execution.
+- state formats that become a second source of truth for host tool/model execution;
+- a second independently writable evidence database/ledger for facts already owned by `review_state` / EHA evidence;
+- destructive generic CRUD that can rewrite verified finding or EHA acceptance history.
 
 The MCP adapter is not an exception: it is read-only, repository-bound, and exposes no independent model runtime, controller, router, or durable execution state.
 
@@ -172,7 +182,7 @@ CodeSleuth documentation is terminal-native and text-first.
 - The canonical ASCII brand is implemented in `pack/.opencode/bin/codesleuth_tui.py` as `CODESLEUTH_ART` (documentation identity; not rendered by the live TUI) and may be copied verbatim to the top-level README.
 - UI documentation uses text/terminal snapshots captured from the real application. Do not maintain synthetic PNG/JPEG/WebP/SVG UI mockups or reference boards.
 - Mermaid is the only general diagram format allowed in maintained documentation because it encodes understandable, reviewable structure as text. It is for relationships/context/architecture, not branding or decorative UI art.
-- Generated Mermaid remains presentation of verified structure, never a second source of repository truth.
+- Generated Mermaid remains presentation of verified structure, never a second source of repository truth or durable evidence.
 
 ## 11. Production gate
 
@@ -183,7 +193,8 @@ Before merge/release, prove the gates relevant to the changed surface. For the i
 3. TUI behavior at narrow and wide sizes;
 4. direct OpenCode command/Skill/tool usability after installation;
 5. CodeSleuth launch path still enters normal OpenCode execution;
-6. Verify and lifecycle tests are green.
+6. Verify and lifecycle tests are green;
+7. durable evidence-store authority/write/append-only contracts remain intact when evidence tooling changes.
 
 For external-host adapters, prove the adapter-specific safety/compatibility boundary and that the host retains execution authority. No integration may introduce a new core subsystem outside this contract.
 
@@ -203,3 +214,8 @@ DOCS
 ```
 
 Anything else should explain why it does not violate the feature freeze before implementation begins.
+
+Replacing the current durable evidence authority, making a derived view canonical,
+or introducing another independently writable evidence store is an architecture
+change and normally reopens SIB0 rather than fitting into an ordinary extension
+classification.
