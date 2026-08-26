@@ -1,20 +1,11 @@
 ---
 name: protected-capability-registry
-description: Discover, query, maintain, and regression-check CodeSleuth protected capability contracts by triangulating current code, normative documentation, executable tests, dependency impact, and contract-owned forbidden regressions
+description: Discover, query, maintain, and regression-check CodeSleuth capability contracts by triangulating current code, normative documentation, executable tests, dependency impact, and each contract's own forbidden-regression ledger
 ---
 
 # Protected Capability Registry
 
-Use this skill whenever a task asks to:
-
-- add or change a post-SIB2 feature;
-- determine which accepted contracts a diff can affect;
-- review a PR for regression against previously accepted behavior;
-- extract a contract from current implementation, documentation, and tests;
-- update or query the Protected Capability Registry;
-- answer questions such as “which contracts concern persisted state/restart/controller ownership?”;
-- classify a regression as SIB0-, SIB1-, or SIB2-origin;
-- prepare an SIB/EHA, RC, or release acceptance plan.
+Use this skill for post-SIB2 feature work, PR/regression review, contract extraction, Protected Capability Registry maintenance, impact/gate selection, or SIB/EHA/RC/release preparation.
 
 Canonical authority:
 
@@ -24,22 +15,33 @@ Canonical authority:
 - `docs/EXACT-HEAD-ACCEPTANCE.md`
 - `docs/EHA-REPAIR-LOOP.md`
 
-The registry is an index of accepted contracts and proof obligations. It is not a second source of product truth and it is not an excuse to infer semantics from ids or retrieval scores.
+The registry is a queryable contract index. It is not a second product authority and retrieval scores never define semantics.
 
-## 1. Core rule
+## 1. Exact target first
 
-A protected contract must be grounded in three evidence families:
+Before extraction/review:
+
+1. pin exact HEAD or PR head SHA;
+2. record dirty state where applicable;
+3. identify exact base/head diff;
+4. read the registry at that exact revision;
+5. never mix evidence from moving heads.
+
+Historical `protected_at` evidence does not transfer EHA to descendants.
+
+## 2. Three-source rule
+
+Derive contract meaning from:
 
 ```text
 current code/config
 + normative/public documentation
 + executable acceptance/regression tests
-= contract candidate
 ```
 
-Do not promote a statement to `protected` from one evidence family alone.
+No one family is sufficient alone.
 
-If the sources disagree, classify drift instead of inventing a compromise:
+If they disagree, classify drift:
 
 - `CODE_AHEAD`
 - `DOC_AHEAD`
@@ -47,23 +49,11 @@ If the sources disagree, classify drift instead of inventing a compromise:
 - `CONTRADICTED`
 - `UNPROVEN`
 
-The next action is to repair the stale source or make an explicit contract decision. Never silently edit the manifest to whichever source is most convenient.
-
-## 2. Exact target first
-
-Before contract extraction, impact analysis, or regression review:
-
-1. record exact `git rev-parse HEAD` or exact PR head SHA;
-2. record dirty state when working in a worktree;
-3. identify the diff/range being evaluated;
-4. read the exact manifest at that revision;
-5. do not mix evidence from moving heads.
-
-A registry entry may record historical `protected_at` evidence. That does not transfer exact-head acceptance to the current candidate.
+Do not invent a compromise or silently edit the manifest to match the easiest source.
 
 ## 3. Contract lifecycle
 
-Use only these lifecycle states:
+Use only:
 
 ```text
 experimental
@@ -75,193 +65,127 @@ deprecated
 removed
 ```
 
-Promotion discipline:
+Promotion:
 
 ```text
-experimental
-  -> implemented
-  -> SIB1 accepted
-  -> SIB2 integrated
-  -> protected
+experimental -> implemented -> SIB1 accepted -> SIB2 integrated -> protected
 ```
 
-Do not jump a capability to `protected` because its PR merged or its focused tests are green.
-
-A `protected` record must include:
-
-- stable id;
-- capability class;
-- public/architectural contract statements;
-- code evidence;
-- documentation evidence;
-- test evidence;
-- affected paths;
-- dependency relations;
-- exact/historical protection evidence;
-- at least one contract-owned forbidden regression.
+A merge or focused green test does not make a contract protected.
 
 ## 4. Every contract owns forbidden regressions
 
-There is no substitute global bucket.
+**Every contract record, at every lifecycle state, must contain a non-empty `forbidden_regressions` ledger.**
 
-For every protected contract, inspect and maintain:
-
-```text
-forbidden_regressions[]
-```
+Before protection, entries describe candidate/observed negative states associated with the contract and the proof expected to exclude them. As SIB/EHA accepts the relevant behavior, those entries become normative preservation obligations. At `protected`, later release work must keep the accepted forbidden states absent unless an explicit contract change supersedes them.
 
 Each entry must have:
 
 - stable `FR-*` id;
 - `sib_origin` in `SIB0 | SIB1 | SIB2`;
-- a concrete `must_not` statement;
+- concrete `must_not` statement;
 - proof/evidence paths where available.
 
 Interpretation:
 
-- `SIB0` origin = architectural state that must not silently return;
-- `SIB1` origin = capability/basic-contract state that must not return;
-- `SIB2` origin = composition/end-to-end state that must not return.
+- `SIB0`: architectural bad state;
+- `SIB1`: capability/basic-contract bad state;
+- `SIB2`: composition/end-to-end bad state.
 
-A discovered EHA regression that is repaired and later accepted should leave behind both:
+Not every contract needs an entry from every SIB level, but every contract needs its own ledger.
+
+A repaired EHA defect should leave:
 
 ```text
 positive proof: accepted behavior works
-negative proof: the observed bad state is now a forbidden regression
+negative proof: observed bad state must not return
 ```
 
-Removing an `FR-*` entry is a contract change. Require explicit deprecation/removal/supersession rationale.
+Removing or weakening an accepted `FR-*` entry requires explicit deprecation/removal/supersession rationale.
 
-## 5. Querying the registry
+## 5. Querying contracts
 
-The manifest is intentionally file-based.
-
-### Normal/small registry
-
-Prefer simple repository-native retrieval:
+For a normal registry:
 
 ```text
-rg/grep -> candidate ids/phrases -> paged read -> exact entry -> exact evidence
+rg/grep -> candidate record -> paged exact read -> exact evidence
 ```
 
-Search by:
+Search id, capability class, public contract text, fingerprint fields, affected paths, dependency ids, forbidden-regression text, and SIB origin.
 
-- contract id;
-- capability class;
-- `public_contract` terms;
-- `contract_fingerprint` keys/values;
-- affected path;
-- dependency id;
-- `forbidden_regressions.must_not` text;
-- SIB origin.
-
-### Large registry with retrieval components already available
-
-If the registry is genuinely large and the host already exposes suitable local retrieval, use:
+If the registry is genuinely large and host-native retrieval already exists:
 
 ```text
-BM25 candidate retrieval
-  + optional embedding retrieval
-  -> optional reranker
-  -> exact manifest re-read
-  -> exact source/docs/tests re-read
+BM25 candidates
++ optional embedding candidates
+-> optional reranker
+-> exact manifest re-read
+-> exact code/docs/tests re-read
 ```
 
-BM25/embeddings/reranking are navigation only. They do not decide contract meaning.
+Retrieval is navigation only. Do not add a CodeSleuth search daemon/vector database/model runtime just to query this file.
 
-Do not add a new heavyweight CodeSleuth search daemon, vector database, or model runtime merely to search this manifest. If retrieval infrastructure is absent, use grep plus bounded reads.
+## 6. Extract or update a contract
 
-## 6. Contract extraction workflow
+### A. Find the promise
 
-When asked to discover or update a contract:
+Locate the narrowest normative/public statement describing behavior, compatibility, ownership, schema/config, lifecycle, or negative invariant.
 
-### A. Locate the promise
+### B. Find implementation
 
-Read the narrowest normative/public docs that describe what users/maintainers are entitled to rely on.
+Trace it into current code/config. Identify entry point, owner, public surface, dependencies, state/schema, failure behavior, and affected paths.
 
-Capture exact statements, commands, schema keys, ownership rules, lifecycle promises, compatibility promises, or negative invariants.
+### C. Find executable proof
 
-### B. Locate implementation
-
-Trace the promise into current code/config. Identify:
-
-- entry point;
-- owner;
-- public surface;
-- persisted state/schema where relevant;
-- dependencies;
-- failure behavior;
-- affected paths.
-
-Do not infer implementation from docs alone.
-
-### C. Locate executable proof
-
-Find focused acceptance/regression tests that prove the real contract boundary. Prefer black-box or integration coverage when the contract is user-visible or cross-component.
-
-A mock-only unit test is not sufficient evidence for an integration promise merely because it contains the same noun.
+Locate tests that prove the actual boundary. Prefer integration/black-box proof for user-visible or cross-component behavior.
 
 ### D. Triangulate
 
-Classify:
-
 ```text
-AGREE -> record/update contract candidate
-DRIFT -> report CODE_AHEAD/DOC_AHEAD/TEST_AHEAD/CONTRADICTED/UNPROVEN
+AGREE -> create/update record
+DRIFT -> CODE_AHEAD/DOC_AHEAD/TEST_AHEAD/CONTRADICTED/UNPROVEN
 ```
 
-### E. Extract forbidden regressions
+### E. Build the forbidden-regression ledger
 
-Ask separately for each SIB axis:
-
-```text
-SIB0: Which architectural state did acceptance establish must not return?
-SIB1: Which capability failure state did acceptance establish must not return?
-SIB2: Which integration/composition failure state did acceptance establish must not return?
-```
-
-Not every contract needs an entry from all three levels, but every protected contract needs at least one concrete forbidden regression.
-
-### F. Write the manifest
-
-Make the smallest semantic edit to `docs/protected-capabilities.json`.
-
-Preserve stable ids. Do not reorder unrelated records merely for aesthetics.
-
-For new features that have not yet completed SIB1/SIB2 promotion, record them as `implemented` (or the actual lifecycle state) rather than lying with `protected`.
-
-## 7. Impact graph and affected closure
-
-Use `affected_paths` to map the candidate diff to seed contracts.
-
-`depends_on` means the current contract relies on another registered contract. Therefore when a dependency changes, compute the reverse dependency closure to find possible consumers.
-
-Example:
+Ask:
 
 ```text
-runtime.host <- cli <- update
-            <- tui <- menu
-            <- skills <- profiles
+SIB0: which architectural bad state must not return?
+SIB1: which capability bad state must not return?
+SIB2: which integration bad state must not return?
 ```
 
-A runtime change seeds `runtime.host`; affected closure includes its consumers.
+Record every concrete applicable state. The ledger exists immediately, even if the capability has not yet reached protected status.
 
-Do not rely only on path globs when exact code reading shows a semantic dependency missing from the graph. Correct the graph/manifest.
+### F. Write minimally
+
+Edit `docs/protected-capabilities.json` without reordering unrelated records. Preserve stable ids.
+
+Do not mark `protected` without exact SIB1/SIB2 acceptance evidence.
+
+## 7. Impact graph
+
+Use `affected_paths` to map a diff to seed contracts.
+
+`depends_on` means the current contract relies on another registered contract. When a dependency changes, compute the **reverse dependency closure** to identify consumers that may regress.
+
+If exact source reading reveals a missing consumer, the graph is wrong. Correct the registry; do not use an incomplete graph as permission to skip evidence.
 
 ## 8. Gate selection
 
-For ordinary development candidates:
+Ordinary development candidate:
 
 ```text
 candidate gate
 = always-run invariant core
-+ affected protected-capability closure
-+ new feature acceptance
++ affected contract reverse-dependency closure
++ new-feature acceptance
 ```
 
-The always-run core remains small and high value.
+This keeps PR feedback bounded.
 
-For a head being promoted under a claim that requires full acceptance:
+For a claim requiring full acceptance:
 
 ```text
 SIB2 / accepted integration head / RC / release
@@ -269,95 +193,87 @@ SIB2 / accepted integration head / RC / release
 + claim-specific gates
 ```
 
-Dependency-aware selection is an optimization for development. It must never be used to water down full SIB2 EHA or release acceptance.
+Dependency-aware development gates never water down EHA. If HEAD changes, rerun the profile required for the new exact SHA.
 
-If exact HEAD changes, rerun the profile required for the claim on the new exact SHA.
+## 9. Diff/PR review
 
-## 9. PR/review mode
-
-For a diff or PR:
-
-1. pin the exact base/head;
+1. pin base/head;
 2. list changed paths;
-3. query affected contracts;
-4. compute reverse dependency closure;
-5. read every affected contract's `forbidden_regressions`;
-6. inspect unchanged consumers and tests, not only changed lines;
-7. report any path by which a forbidden state can return;
-8. identify missing tests/gates;
-9. distinguish contract change from accidental regression.
-
-A PR is not safe merely because the new feature tests pass.
+3. map seeds;
+4. compute affected reverse dependency closure;
+5. read every matched contract and its own `forbidden_regressions`;
+6. inspect unchanged consumers and tests;
+7. identify paths by which forbidden states can return;
+8. distinguish deliberate contract change from accidental regression;
+9. identify missing manifest edges/tests/gates.
 
 The review question is:
 
-> **Does this exact candidate add the intended behavior while preserving every affected protected contract and keeping its forbidden regressions absent?**
+> **Does this exact candidate add the intended behavior while preserving every affected accepted contract and keeping its applicable forbidden states absent?**
 
-In `repo-review` read-only mode, do not edit source or the registry. Report manifest drift or missing entries as findings. Update the registry only when the user/task explicitly authorizes contract maintenance.
+In `/repo-review` read-only mode, report registry drift rather than modifying source. Update the registry only when contract maintenance is explicitly authorized.
 
-## 10. New feature acceptance
+## 10. New feature discipline
 
-For a post-SIB2 feature, require two proof sets:
+A post-SIB2 feature needs:
 
 ```text
 A. new-feature proof
-B. protected-contract preservation proof
+B. affected-contract preservation proof
 ```
 
-If the feature creates a genuinely new fundamental capability class, stop treating it as ordinary feature population. Architecture has reopened; classify it as SIB0-impacting and establish a new SIB0 lineage.
+If it introduces a genuinely new capability class, architecture has reopened. Stop calling it ordinary feature population and classify it as SIB0-impacting.
 
-If it stays inside an existing capability class, add its contract record at the honest lifecycle state and promote it only through the accepted SIB path.
+If it stays inside the existing architecture, record the contract honestly at its current lifecycle state and promote it through SIB acceptance.
 
-## 11. Contract fingerprint checks
+## 11. Contract fingerprints
 
-For properties that are structurally public, record concise fingerprint keys where useful:
+Record concise fingerprint values when useful for:
 
 - CLI commands/options;
 - config keys;
-- schema/version fields;
+- schemas/version fields;
 - persisted state paths/formats;
 - environment variables;
 - plugin/adapter interfaces;
 - public paths;
 - ownership/authority values.
 
-A fingerprint change is a review trigger, not automatic proof of a breaking change.
-
-Do not semantic-rerank or compare contracts by hash/id. Opaque ids identify records/blobs; meaning comes from exact contract statements and evidence.
+A fingerprint change is a review trigger, not automatic proof of a breaking change. Never semantic-rerank contracts by opaque hash/id.
 
 ## 12. Output format
 
-When answering a contract query, report:
+For queries/reviews report:
 
 ```text
 Target SHA:
-Query:
+Query / diff:
 Matched contracts:
 - id
-  status
+  lifecycle status
   why matched
-  exact public contract
+  public contract
   forbidden regressions
-  evidence: code / docs / tests
-Affected closure (if a diff exists):
+  code/docs/test evidence
+Affected closure:
 Required gate:
-Unproven/drift:
+Drift / unproven areas:
 ```
 
-When updating the registry, additionally report lifecycle/status changes and every added/removed/modified `FR-*` entry.
+For registry maintenance also list every lifecycle change and every added/removed/modified `FR-*` entry.
 
 ## 13. Stop conditions
 
-Stop and escalate instead of silently editing when:
+Stop and surface the problem when:
 
-- code/docs/tests contradict one another materially;
-- an alleged protected contract has no executable proof;
-- a new feature requires a new capability class;
-- a forbidden regression is being removed without an accepted contract decision;
-- the dependency graph would exclude a known affected consumer;
-- a candidate seeks SIB2/RC/release status with only a dependency-selected partial gate;
-- the exact target SHA moved during acceptance.
+- code/docs/tests materially contradict;
+- a protected contract lacks executable proof;
+- a new feature needs a new capability class;
+- an accepted forbidden regression is being removed without contract decision;
+- the dependency graph excludes a known consumer;
+- SIB2/RC/release is proposed with only a dependency-selected partial gate;
+- target SHA moved during acceptance.
 
 ## Canonical rule
 
-> **Find the contract in code, promises, and tests; give every protected contract its own forbidden-regression ledger; use dependency-aware gates to stay efficient; and use full exact-head acceptance whenever the maturity/release claim requires the whole system.**
+> **Find the contract in code, promises, and tests; give every contract its own forbidden-regression ledger from the moment it is recorded; promote those negative obligations through SIB/EHA with the capability; and preserve the accepted ones on every relevant descendant.**
