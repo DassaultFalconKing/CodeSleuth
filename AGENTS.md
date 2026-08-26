@@ -6,6 +6,7 @@ CodeSleuth is a discipline layer and control panel around a host coding agent. T
 
 - Product/manual truth: [`README.md`](README.md).
 - Product ownership and extension boundaries: [`docs/CODESLEUTH-PRODUCT-CONTRACT.md`](docs/CODESLEUTH-PRODUCT-CONTRACT.md).
+- Frozen SIB0 capability-class inventory: [`docs/SIB0-CAPABILITY-INVENTORY.md`](docs/SIB0-CAPABILITY-INVENTORY.md).
 - Protected capability and forbidden-regression semantics: [`docs/PROTECTED-CAPABILITY-CONTRACTS.md`](docs/PROTECTED-CAPABILITY-CONTRACTS.md).
 - Machine-readable Protected Capability Registry: [`docs/protected-capabilities.json`](docs/protected-capabilities.json).
 - Install/bind/unbind/uninstall truth: [`docs/PROJECT-LIFECYCLE.md`](docs/PROJECT-LIFECYCLE.md).

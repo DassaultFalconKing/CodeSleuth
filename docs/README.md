@@ -9,6 +9,7 @@
 - [`NOVACLAW-MCP.md`](NOVACLAW-MCP.md) — first external-host MCP integration and its read-only repository-evidence boundary.
 - [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — naming inventory and staged cutover from historical `review-pack` filenames; 0.4.0 keeps live compatibility names.
 - [`STABLE-INTEGRATION-BASELINE.md`](STABLE-INTEGRATION-BASELINE.md) — SIB0/SIB1/SIB2 architecture-recovery model: initialization freeze, implementation completeness, integration completeness, and release construction from SIB2.
+- [`SIB0-CAPABILITY-INVENTORY.md`](SIB0-CAPABILITY-INVENTORY.md) — frozen fundamental capability-class inventory, ownership/dependency map, and must-never-become boundaries for the current architectural generation.
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — normative SIB acceptance identity: SIB degree defines what is proven; exact-head acceptance binds that proof to one exact commit SHA.
 - [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) — post-SIB2 protection model: protected capabilities, contract-owned forbidden regressions, Mermaid dependency/impact graphs, dependency-aware development gates, and full-suite SIB2/RC/release preservation.
 - [`protected-capabilities.json`](protected-capabilities.json) — machine-readable Protected Capability Registry with code/docs/test provenance, contract fingerprints, dependency/impact metadata, and each contract's own forbidden-regression ledger.
@@ -92,6 +93,7 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         +--> ../AGENTS.md                                 (compact cross-agent entry point)
         +--> LLM-OPERATOR.md                              (task-specific operator surface)
         +--> STABLE-INTEGRATION-BASELINE.md               (SIB0 -> SIB1 -> SIB2)
+        |       +--> SIB0-CAPABILITY-INVENTORY.md         (frozen capability-class inventory)
         |       +--> EXACT-HEAD-ACCEPTANCE.md             (what is proven -> exact SHA carrying the proof)
         |       +--> PROTECTED-CAPABILITY-CONTRACTS.md    (accepted behavior -> preservation obligations)
         |               +--> protected-capabilities.json  (contracts + impact graph + per-contract FR registry)

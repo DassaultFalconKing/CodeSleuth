@@ -7,11 +7,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = ROOT / "docs" / "protected-capabilities.json"
 AUTHORITY = ROOT / "docs" / "PROTECTED-CAPABILITY-CONTRACTS.md"
+SIB0_INVENTORY = ROOT / "docs" / "SIB0-CAPABILITY-INVENTORY.md"
 AGENTS = ROOT / "AGENTS.md"
 REVIEW_COMMAND = ROOT / "pack" / ".opencode" / "commands" / "repo-review.md"
 CONTRACT_COMMAND = ROOT / "pack" / ".opencode" / "commands" / "repo-contracts.md"
 CURSOR_RULE = ROOT / ".cursor" / "rules" / "stable-integration-baseline.mdc"
 DOC_INDEX = ROOT / "docs" / "README.md"
+CONTRIBUTING = ROOT / "CONTRIBUTING.md"
 
 ALLOWED_STATUS = {
     "experimental",
@@ -33,13 +35,49 @@ def test_registry_has_normative_authority_and_query_policy() -> None:
     registry = _load_registry()
     assert registry["schema_version"] == 1
     assert registry["authority"] == "docs/PROTECTED-CAPABILITY-CONTRACTS.md"
+    assert registry["sib0_inventory"] == "docs/SIB0-CAPABILITY-INVENTORY.md"
     assert AUTHORITY.is_file()
+    assert SIB0_INVENTORY.is_file()
 
     policy = registry["query_policy"]
     assert policy["small_registry"] == "grep_or_ripgrep_then_paged_exact_read"
     assert "bm25" in policy["large_registry"]
     assert policy["semantic_retrieval_is_authority"] is False
     assert policy["allow_new_search_runtime"] is False
+
+
+def test_sib0_capability_classes_are_frozen_and_covered_by_contracts() -> None:
+    registry = _load_registry()
+    classes = registry.get("capability_classes")
+    assert isinstance(classes, list) and classes
+    assert len(classes) == len(set(classes)), "capability_classes must be unique"
+
+    inventory = SIB0_INVENTORY.read_text(encoding="utf-8")
+    for class_name in classes:
+        assert class_name in inventory, f"SIB0 inventory missing class {class_name}"
+
+    covered = {contract["capability_class"] for contract in registry["contracts"]}
+    missing = set(classes) - covered
+    assert not missing, f"registry contracts missing capability classes: {sorted(missing)}"
+
+    for contract in registry["contracts"]:
+        assert contract["capability_class"] in classes
+        class_id = contract.get("capability_class_id")
+        assert isinstance(class_id, str) and class_id.startswith("CC-")
+        assert class_id in inventory
+        sib0_entries = [
+            item for item in contract["forbidden_regressions"] if item["sib_origin"] == "SIB0"
+        ]
+        assert sib0_entries, f"{contract['id']} must own at least one SIB0-origin forbidden regression"
+
+
+def test_declared_evidence_paths_exist() -> None:
+    registry = _load_registry()
+    for contract in registry["contracts"]:
+        for key in ("code_evidence", "doc_evidence", "test_evidence"):
+            for rel in contract.get(key, []):
+                path = ROOT / rel
+                assert path.is_file(), f"{contract['id']} {key} missing path: {rel}"
 
 
 def test_contract_ids_and_forbidden_regression_ids_are_unique() -> None:
@@ -110,11 +148,16 @@ def test_contract_discipline_is_wired_into_agent_prompts() -> None:
     contract_command = CONTRACT_COMMAND.read_text(encoding="utf-8")
     cursor = CURSOR_RULE.read_text(encoding="utf-8")
     docs_index = DOC_INDEX.read_text(encoding="utf-8")
+    contributing = CONTRIBUTING.read_text(encoding="utf-8")
 
     assert "PROTECTED-CAPABILITY-CONTRACTS.md" in agents
     assert "protected-capabilities.json" in agents
+    assert "SIB0-CAPABILITY-INVENTORY.md" in agents
     assert "protected-capability-registry" in review
     assert "protected-capability-registry" in contract_command
     assert "forbidden regressions" in cursor.lower()
+    assert "SIB0-CAPABILITY-INVENTORY.md" in cursor
     assert "PROTECTED-CAPABILITY-CONTRACTS.md" in docs_index
     assert "protected-capabilities.json" in docs_index
+    assert "SIB0-CAPABILITY-INVENTORY.md" in docs_index
+    assert "SIB0-CAPABILITY-INVENTORY.md" in contributing

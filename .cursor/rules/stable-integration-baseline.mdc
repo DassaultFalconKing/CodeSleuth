@@ -49,6 +49,7 @@ After SIB2, accepted proof becomes preservation obligation:
 
 ## Required behavior
 
+- The frozen SIB0 inventory lives in `docs/SIB0-CAPABILITY-INVENTORY.md` and is indexed by `docs/protected-capabilities.json`.
 - Do not declare SIB0 until every intended fundamental capability class has an explicit architectural slot and the inventory is deliberately frozen.
 - After SIB0, adding/removing/redefining a fundamental capability class reopens architecture and requires a replacement SIB0 lineage.
 - Do not declare SIB1 until every SIB0 class has a real basic implementation and relevant capability/component acceptance evidence.
@@ -78,4 +79,4 @@ After SIB2, accepted proof becomes preservation obligation:
 - RC is downstream of completed accepted feature population. SIB2 itself is not an RC.
 - Moving a baseline ref is a maintainer promotion decision, never an ordinary feature side effect.
 
-See [`CONTRIBUTING.md`](../../CONTRIBUTING.md), [`docs/STABLE-INTEGRATION-BASELINE.md`](../../docs/STABLE-INTEGRATION-BASELINE.md), [`docs/EXACT-HEAD-ACCEPTANCE.md`](../../docs/EXACT-HEAD-ACCEPTANCE.md), [`docs/PROTECTED-CAPABILITY-CONTRACTS.md`](../../docs/PROTECTED-CAPABILITY-CONTRACTS.md), [`docs/protected-capabilities.json`](../../docs/protected-capabilities.json), and [`docs/SEMANTIC-REFIT.md`](../../docs/SEMANTIC-REFIT.md).
+See [`CONTRIBUTING.md`](../../CONTRIBUTING.md), [`docs/STABLE-INTEGRATION-BASELINE.md`](../../docs/STABLE-INTEGRATION-BASELINE.md), [`docs/SIB0-CAPABILITY-INVENTORY.md`](../../docs/SIB0-CAPABILITY-INVENTORY.md), [`docs/EXACT-HEAD-ACCEPTANCE.md`](../../docs/EXACT-HEAD-ACCEPTANCE.md), [`docs/PROTECTED-CAPABILITY-CONTRACTS.md`](../../docs/PROTECTED-CAPABILITY-CONTRACTS.md), [`docs/protected-capabilities.json`](../../docs/protected-capabilities.json), and [`docs/SEMANTIC-REFIT.md`](../../docs/SEMANTIC-REFIT.md).

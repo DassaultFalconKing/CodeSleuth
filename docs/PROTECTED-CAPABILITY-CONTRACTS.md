@@ -46,7 +46,8 @@ Implementation tests may be rewritten with implementation. Accepted behavior cov
 
 ## Machine-readable registry
 
-The canonical registry is [`protected-capabilities.json`](protected-capabilities.json).
+The machine-readable registry is [`protected-capabilities.json`](protected-capabilities.json).
+The frozen SIB0 capability-class inventory is [`SIB0-CAPABILITY-INVENTORY.md`](SIB0-CAPABILITY-INVENTORY.md).
 
 Every contract record contains at least:
 

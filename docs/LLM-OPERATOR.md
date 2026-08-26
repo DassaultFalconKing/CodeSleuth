@@ -1,6 +1,6 @@
 # CodeSleuth LLM operator README
 
-<!-- README-SOURCE-BLOB: d15a8b442b1d08cfbe1a17dcef797ab2fd34e4fb -->
+<!-- README-SOURCE-BLOB: 7e529e2217d3d59e5e1bbae4d1f5f0c4dd069b71 -->
 
 This is the task-specific operating manual for a coding agent or LLM when a user asks it to install, configure, use, update, remove, or reason about CodeSleuth. Root [`AGENTS.md`](../AGENTS.md) is the compact cross-agent discovery entry point. [`../README.md`](../README.md) remains the canonical product/manual surface. When this guide and current source disagree, verify the source and follow the source.
 

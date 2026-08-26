@@ -27,7 +27,7 @@
 
 CodeSleuth is a small discipline layer for coding agents. It packages reusable review Skills, repository profiles, durable evidence conventions, a terminal control panel, and a few bounded repository tools. The host agent still owns the model, controller, session, permissions, tool routing, and execution loop.
 
-Current version: **0.3.0**.
+Current version: **0.4.0**.
 
 Current implementation baseline:
 
@@ -151,7 +151,7 @@ For the current full OpenCode integration:
 - OpenCode available as `opencode`;
 - optional Bun when running the TypeScript state/context-graph development gates.
 
-The TUI uses `textual==8.2.8` in an isolated runtime when Textual is not already available at that exact version.
+The TUI uses an isolated runtime that installs Textual from `pack/.opencode/bin/requirements-tui.txt` (`textual>=8.2.8,<9`) when the current interpreter does not already provide a compatible Textual 8.x version.
 
 ### Start the TUI from a CodeSleuth checkout
 
