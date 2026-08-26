@@ -18,13 +18,33 @@ def test_normative_eha_repair_loop_is_documented() -> None:
     assert "new EHA" in repair
 
 
-def test_eha_skill_carries_sib_and_exact_head_contract() -> None:
+def test_sib_candidates_are_selected_from_release_stream() -> None:
+    selection = text(ROOT / "docs" / "SIB-CANDIDATE-SELECTION.md")
+    release = text(ROOT / "docs" / "RELEASE-PROCESS.md")
+    playbook = text(ROOT / "docs" / "EHA-OPERATING-PLAYBOOK.md")
+    for token in (
+        "dev/release-X.Y.Z",
+        "literal exact commit SHA",
+        "The release branch supplies candidates; the exact SHA carries the proof",
+        "repair branch",
+        "new EHA campaign",
+    ):
+        assert token in selection
+    assert "canonical candidate stream" in release
+    assert "literal release-stream head" in release
+    assert "Candidate stream" in playbook
+    assert "repair branch is not the next SIB integration line" in playbook
+
+
+def test_eha_skill_carries_sib_exact_head_and_release_stream_contract() -> None:
     skill = text(OPENCODE / "skills" / "eha-sib-acceptance" / "SKILL.md")
     for token in (
         "SIB0",
         "SIB1",
         "SIB2",
         "exact SHA",
+        "dev/release-X.Y.Z",
+        "SIB-CANDIDATE-SELECTION.md",
         "eha_state_start_campaign",
         "eha_state_record_verdict",
         "eha_state_record_repair",
@@ -33,6 +53,8 @@ def test_eha_skill_carries_sib_and_exact_head_contract() -> None:
     ):
         assert token in skill
     assert "A repair commit inherits code history, not acceptance evidence" in skill
+    assert "repair branch is not a parallel SIB integration line" in skill
+    assert "resulting literal release-stream head SHA" in skill
 
 
 def test_eha_playbooks_are_installed_and_route_to_the_skill() -> None:
@@ -46,6 +68,13 @@ def test_eha_playbooks_are_installed_and_route_to_the_skill() -> None:
         assert "agent: build" in command
         assert "eha-sib-acceptance" in command
         assert tool_name in command
+
+    eha_test = text(OPENCODE / "commands" / "eha-test.md")
+    eha_repair = text(OPENCODE / "commands" / "eha-repair.md")
+    assert "dev/release-X.Y.Z" in eha_test
+    assert "selected release-stream head" in eha_test
+    assert "integrate that repair through the active `dev/release-X.Y.Z` branch" in eha_repair
+    assert "merge commit is the new EHA target" in eha_repair
 
 
 def test_structured_eha_evidence_uses_existing_review_state_boundary() -> None:
@@ -67,8 +96,9 @@ def test_eha_state_smoke_is_part_of_the_canonical_bun_gate() -> None:
     assert '"test:eha-state"' in package
 
 
-def test_docs_index_exposes_eha_playbook_and_repair_contract() -> None:
+def test_docs_index_exposes_eha_playbook_repair_and_selection_contracts() -> None:
     docs_index = text(ROOT / "docs" / "README.md")
     assert "EHA-REPAIR-LOOP.md" in docs_index
     assert "EHA-OPERATING-PLAYBOOK.md" in docs_index
+    assert "SIB-CANDIDATE-SELECTION.md" in docs_index
     assert "eha.ndjson" in docs_index
