@@ -25,7 +25,7 @@ The `SIB` branch is semantically the current **SIB2**. At policy introduction it
 
 - **Capability class** = a fundamental architectural type of ability, not an individual feature.
 - **Feature population** = adding variants, operations, workflows, depth, content, or polish inside existing capability classes without changing the fundamental class inventory.
-- **Semantic refit** = recover still-valid intent from stale work by re-implementing its minimal required behavior on the current accepted base while preserving newer accepted semantics.
+- **Semantic refit** = the target condition in which the product's relevant evidenced semantic surface is preserved or explicitly reconciled across implementation/architectural change. Porting, adaptation, reimplementation, no change, defer, or block are delivery outcomes; implementation resemblance is not the success criterion.
 - **Exact-head acceptance** = successful execution of the required acceptance profile against one exact repository commit; tested SHA must equal candidate SHA.
 - **Acceptance profile** = required checks/gates/environments for the maturity or release claim.
 - **Acceptance evidence** = successful result of an acceptance profile attached to one exact SHA.
@@ -72,7 +72,9 @@ After SIB2, accepted proof becomes preservation obligation:
 - Start new release/integration work from SIB2 or an explicitly accepted descendant.
 - Apply feature population incrementally and run full canonical acceptance after each substantial layer promoted as an accepted integration head.
 - A feature green on an old branch/base is not composition evidence for the current candidate.
-- When stale work overlaps changed contracts, perform semantic refit: REAPPLY/SUPERSEDED/REFIT/DROP.
+- When historical or divergent work overlaps changed contracts, pursue semantic refit by recovering evidenced claims and negative knowledge, resolving current normative authority, recording claim status separately from delivery disposition, and implementing only the target-native delta required by surviving claims.
+- `SUPERSEDED` requires positive coverage evidence; `RETIRED` requires an explicit current authority. Never silently convert implementation difficulty into claim retirement.
+- The older `REAPPLY/SUPERSEDED/REFIT/DROP` shorthand is not a substitute for the explicit claim-status/delivery model in `docs/SEMANTIC-REFIT.md`; `DROP` is ambiguous until an authority-backed semantic status is recorded.
 - Never replace a newer file wholesale merely because stale work applies more easily.
 - Never weaken, skip, xfail, or rewrite acceptance tests to promote a change.
 - Record tested SHA, acceptance profile/gate, environment matrix where applicable, and result.
