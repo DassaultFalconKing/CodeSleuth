@@ -169,7 +169,7 @@ Clarity is a product feature. Owning more runtime is not.
 
 CodeSleuth documentation is terminal-native and text-first.
 
-- The canonical ASCII brand is implemented in `pack/.opencode/bin/codesleuth_tui.py` as `CODESLEUTH_ART` and may be copied verbatim to the top-level README.
+- The canonical ASCII brand is implemented in `pack/.opencode/bin/codesleuth_tui.py` as `CODESLEUTH_ART` (documentation identity; not rendered by the live TUI) and may be copied verbatim to the top-level README.
 - UI documentation uses text/terminal snapshots captured from the real application. Do not maintain synthetic PNG/JPEG/WebP/SVG UI mockups or reference boards.
 - Mermaid is the only general diagram format allowed in maintained documentation because it encodes understandable, reviewable structure as text. It is for relationships/context/architecture, not branding or decorative UI art.
 - Generated Mermaid remains presentation of verified structure, never a second source of repository truth.

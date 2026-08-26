@@ -65,10 +65,12 @@ def test_llm_operator_guide_keeps_install_config_and_removal_contracts() -> None
     required = (
         "--settings-file",
         "--bind-dependency",
+        "--self-install",
         "--update",
         "--uninstall",
         "--purge-traces",
         "--keep-dependency",
+        "codesleuth-project --list",
         "permissions.managePolicy",
         "review-safe",
         "balanced",

@@ -1,6 +1,6 @@
 # CodeSleuth LLM operator README
 
-<!-- README-SOURCE-BLOB: 6ac73280f626752b8d52a30da5f35883525bb21d -->
+<!-- README-SOURCE-BLOB: d15a8b442b1d08cfbe1a17dcef797ab2fd34e4fb -->
 
 This is the task-specific operating manual for a coding agent or LLM when a user asks it to install, configure, use, update, remove, or reason about CodeSleuth. Root [`AGENTS.md`](../AGENTS.md) is the compact cross-agent discovery entry point. [`../README.md`](../README.md) remains the canonical product/manual surface. When this guide and current source disagree, verify the source and follow the source.
 
@@ -79,6 +79,26 @@ Use the normal installer without `--bind-dependency`.
 Resulting lifecycle: normally `unbound-active`.
 
 This is the safer default when the user wants CodeSleuth available in a worktree but does not want the CodeSleuth source dependency committed to the project.
+
+### Self-install into the CodeSleuth source checkout
+
+When the target Git root is the CodeSleuth source repository itself, pass `--self-install`:
+
+```bash
+/path/to/codesleuth/install.sh . --self-install
+```
+
+Rules:
+
+- `--self-install` is required for that target and invalid for any other repository;
+- never combine `--self-install` with `--bind-dependency`;
+- the TUI passes `--self-install` automatically when the selected target is the source checkout.
+
+Successful installs upsert the target into the host-local tracked-repository registry. Inspect it with:
+
+```bash
+.opencode/bin/codesleuth-project --list
+```
 
 ### Reproducibly pinned development dependency
 

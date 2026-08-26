@@ -41,7 +41,7 @@ The executable docs contract checks that `AGENTS.md` continues to route operator
 
 CodeSleuth documentation is text-first and terminal-native.
 
-- The canonical ASCII brand lives in `pack/.opencode/bin/codesleuth_tui.py` as `CODESLEUTH_ART`; the root README may copy it verbatim.
+- The canonical ASCII brand lives in `pack/.opencode/bin/codesleuth_tui.py` as `CODESLEUTH_ART` (documentation identity; not rendered by the live TUI); the root README may copy it verbatim.
 - UI manuals use terminal/text snapshots captured from the real application and exact implemented labels.
 - Maintained PNG/JPEG/WebP/SVG UI mockups/reference boards are not part of the documentation contract.
 - Mermaid is the allowed diagram format when relationships are materially clearer as encoded text. Mermaid source is reviewable presentation, not a second source of repository truth.

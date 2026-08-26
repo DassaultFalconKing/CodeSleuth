@@ -38,6 +38,13 @@ from .paths import (
     update_reports_index,
     validate_agents_pointer,
 )
+from .tracked_repos import (
+    forget_tracked_repository,
+    host_state_dir,
+    list_tracked_repositories,
+    record_tracked_repository,
+    registry_path,
+)
 
 DEFAULT_DEPENDENCY_PATH = "tools/codesleuth"
 
@@ -629,21 +636,34 @@ def _metadata_source(repo: Path) -> dict[str, Any] | None:
 
 def main() -> int:
     """CLI entrypoint for project lifecycle operations."""
-    parser = argparse.ArgumentParser(description="Manage CodeSleuth as a project-local dependency and reversible installation.")
+    parser = argparse.ArgumentParser(
+        description="Manage CodeSleuth as a project-local dependency and reversible installation.",
+        epilog=(
+            "Self-install: install CodeSleuth into its own source checkout with "
+            "`install.py . --self-install` (never with --bind-dependency). "
+            "Host registry: --list shows repositories recorded on this machine."
+        ),
+    )
     parser.add_argument("repo", nargs="?", default=".")
     parser.add_argument("--dependency-path", default=DEFAULT_DEPENDENCY_PATH)
     actions = parser.add_mutually_exclusive_group(required=True)
+    actions.add_argument("--list", action="store_true", help="list host-tracked CodeSleuth repositories")
     actions.add_argument("--bind", action="store_true", help="pin CodeSleuth as a Git submodule")
     actions.add_argument("--unbind", action="store_true", help="remove the CodeSleuth dependency while keeping the installed runtime")
     actions.add_argument("--uninstall", action="store_true", help="restore pre-CodeSleuth config and remove CodeSleuth")
     parser.add_argument("--purge-traces", action="store_true", help="delete CodeSleuth reports/settings/backups instead of archiving them")
     parser.add_argument("--keep-dependency", action="store_true", help="uninstall the runtime but leave the CodeSleuth gitlink")
     args = parser.parse_args()
+    if args.list:
+        print(json.dumps(list_tracked_repositories(refresh=True), indent=2))
+        return 0
     repo = git_root(Path(args.repo))
     if args.bind:
         result = bind_dependency(repo, source_metadata=_metadata_source(repo), dependency_path=args.dependency_path)
+        record_tracked_repository(repo)
     elif args.unbind:
         result = remove_dependency(repo, args.dependency_path)
+        record_tracked_repository(repo)
     else:
         result = uninstall_project(
             repo,
@@ -651,6 +671,7 @@ def main() -> int:
             remove_bound_dependency=not args.keep_dependency,
             dependency_path=args.dependency_path,
         )
+        record_tracked_repository(repo)
     print(json.dumps(result, indent=2))
     return 0
 
@@ -676,11 +697,16 @@ __all__ = [
     "ensure_agents_reports_pointer",
     "ensure_local_gitignore",
     "ensure_reports_workspace",
+    "forget_tracked_repository",
     "git_root",
+    "host_state_dir",
     "is_self_target",
     "lifecycle_state",
+    "list_tracked_repositories",
     "main",
     "record_postinstall_snapshot",
+    "record_tracked_repository",
+    "registry_path",
     "remove_agents_reports_pointer",
     "remove_dependency",
     "remove_local_gitignore_block",
