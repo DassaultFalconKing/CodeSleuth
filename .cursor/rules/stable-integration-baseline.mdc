@@ -1,5 +1,5 @@
 ---
-description: SIB0/SIB1/SIB2 architecture recovery and release integration discipline
+description: SIB0/SIB1/SIB2 architecture recovery, protected capability, forbidden-regression, and release integration discipline
 alwaysApply: true
 ---
 
@@ -29,6 +29,9 @@ The `SIB` branch is semantically the current **SIB2**. At policy introduction it
 - **Exact-head acceptance** = successful execution of the required acceptance profile against one exact repository commit; the tested SHA must be identical to the candidate head being accepted.
 - **Acceptance profile** = the required checks, gates, and environments for the maturity or release claim being made.
 - **Acceptance evidence** = the successful result of an acceptance profile attached to one exact commit SHA.
+- **Protected capability** = an SIB2-integrated accepted capability whose contract becomes a preservation obligation for later feature population.
+- **Forbidden regression** = a stable negative acceptance obligation owned by one contract and describing a previously excluded state that must not silently return.
+- **Protected Capability Registry** = `docs/protected-capabilities.json`, the machine-readable index of contracts, code/docs/test provenance, impact/dependency metadata, and each contract's own forbidden-regression ledger.
 
 SIB degree and exact-head acceptance are separate axes:
 
@@ -38,6 +41,14 @@ SIB degree and exact-head acceptance are separate axes:
 
 SIB levels define **what is proven**; exact-head acceptance defines **which repository state the proof applies to**.
 
+After SIB2, the proof is converted into preservation obligations:
+
+- SIB0 contributes architectural invariants and SIB0-origin forbidden regressions;
+- SIB1 contributes capability invariants and SIB1-origin forbidden regressions;
+- SIB2 contributes integration invariants and SIB2-origin forbidden regressions.
+
+Every protected contract owns its own `forbidden_regressions` registry. Do not replace this with one vague global list.
+
 ## Required behavior
 
 - Do not declare SIB0 until every intended fundamental capability class has an explicit architectural slot and the inventory is deliberately frozen.
@@ -46,12 +57,20 @@ SIB levels define **what is proven**; exact-head acceptance defines **which repo
 - **Do not use SIB1 as the normal base for active feature population.** SIB1 work should focus on integration recovery and promotion to SIB2.
 - Do not declare SIB2 until the exact integrated composition passes the repository's full canonical acceptance gate.
 - **SIB2 is the first normal safe base for active feature population and release construction.**
+- After SIB2, treat accepted capabilities as protected contracts. Preserve their public/architectural contract, accepted behavior coverage, and contract-owned forbidden regressions unless an explicit contract change supersedes them.
+- For post-SIB2 feature work or PR review, read `docs/PROTECTED-CAPABILITY-CONTRACTS.md` and query `docs/protected-capabilities.json` before deciding which regression gates are relevant.
+- Derive or update a contract only by triangulating current code/config, normative/public documentation, and executable tests. If they disagree, classify contract drift; do not silently choose one source.
+- Do not remove or weaken a `forbidden_regressions` entry without an explicit deprecation/removal/supersession decision.
+- Do not promote a new capability to `protected` because it merged. It must pass the actual `implemented -> SIB1 accepted -> SIB2 integrated -> protected` lifecycle with exact-head evidence.
+- For an ordinary development candidate, gate at least `always-run invariant core + affected protected-capability reverse dependency closure + new-feature acceptance`.
+- Dependency-aware selection is an optimization for ordinary candidates only. **SIB2, accepted integration heads, RCs, and releases still require the full acceptance profile demanded by that claim on the exact SHA.**
+- If a changed path or exact source reading reveals an affected consumer missing from the manifest graph, treat the manifest as incomplete and repair the impact model; never use a stale graph to skip a known relevant gate.
 - **Acceptance evidence never implicitly propagates to a descendant or divergent commit.** If HEAD changes, the new SHA is a new candidate state and must establish acceptance under the required profile before promotion.
 - Two independently accepted divergent heads do not make their untested combination accepted. The resulting composition must pass acceptance on its own exact SHA.
 - The tested SHA and the SHA promoted as an accepted integration state, SIB state, RC, or release must be identical.
 - Do not implement release-bound feature work directly on the SIB2 ref.
 - Start new release/integration work from SIB2 or from an explicitly accepted descendant.
-- Apply feature population incrementally and run full canonical acceptance after each substantial layer.
+- Apply feature population incrementally and run full canonical acceptance after each substantial layer that is promoted as an accepted integration head.
 - A feature being green on an old branch or old base is not acceptance evidence for the current composition.
 - Only an exact tested commit may be treated as an accepted integration state.
 - When stale work overlaps files or contracts that changed after its source base, perform a **semantic refit**: inventory the source intent, inventory current semantics, classify old behavior as REAPPLY/SUPERSEDED/REFIT/DROP, and re-implement only the still-valid delta.
@@ -61,4 +80,4 @@ SIB levels define **what is proven**; exact-head acceptance defines **which repo
 - RC status is downstream of completed, accepted feature population. SIB2 itself is not an RC.
 - Moving any baseline ref is a separate maintainer promotion decision, never a side effect of ordinary feature work.
 
-See [`CONTRIBUTING.md`](../../CONTRIBUTING.md), [`docs/STABLE-INTEGRATION-BASELINE.md`](../../docs/STABLE-INTEGRATION-BASELINE.md), [`docs/EXACT-HEAD-ACCEPTANCE.md`](../../docs/EXACT-HEAD-ACCEPTANCE.md), and [`docs/SEMANTIC-REFIT.md`](../../docs/SEMANTIC-REFIT.md) for the full contracts and examples.
+See [`CONTRIBUTING.md`](../../CONTRIBUTING.md), [`docs/STABLE-INTEGRATION-BASELINE.md`](../../docs/STABLE-INTEGRATION-BASELINE.md), [`docs/EXACT-HEAD-ACCEPTANCE.md`](../../docs/EXACT-HEAD-ACCEPTANCE.md), [`docs/PROTECTED-CAPABILITY-CONTRACTS.md`](../../docs/PROTECTED-CAPABILITY-CONTRACTS.md), [`docs/protected-capabilities.json`](../../docs/protected-capabilities.json), and [`docs/SEMANTIC-REFIT.md`](../../docs/SEMANTIC-REFIT.md) for the full contracts and examples.

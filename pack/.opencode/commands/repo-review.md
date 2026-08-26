@@ -10,6 +10,13 @@ supervisor agent.
 
 Load the `repository-deep-review` skill and follow it.
 
+For a diff/PR or any post-SIB2 feature/regression review, also load the
+`protected-capability-registry` skill. Pin the exact base/head, query
+`docs/protected-capabilities.json`, map changed paths to protected contracts,
+compute the affected reverse dependency closure, and inspect every matched
+contract's own `forbidden_regressions` ledger. New-feature tests are not enough
+when an accepted behavior can regress.
+
 Stay read-only for application source. The required exception is writing
 `.codesleuth/reports/` so later sessions in this worktree can reuse the analysis.
 Reports stay local-only by default; fresh clones do not receive report bodies unless
@@ -31,5 +38,7 @@ against exact source lines, checkpoint after each component, and finish with
 explicit coverage and limitations.
 
 For a diff/range review, inspect both the changed code and unchanged consumers,
-contracts, tests, migrations, documentation, and CI that can make the change
-incorrect. Do not review only the textual diff.
+contracts, tests, migrations, documentation, CI, Protected Capability Registry
+entries, and forbidden regressions that can make the change incorrect. Do not
+review only the textual diff. If code/docs/tests disagree with a registry entry,
+report contract drift rather than editing the manifest in read-only review mode.

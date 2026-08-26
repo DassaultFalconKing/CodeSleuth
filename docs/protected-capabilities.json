@@ -1,0 +1,301 @@
+{
+  "schema_version": 1,
+  "registry": "codesleuth-protected-capabilities",
+  "authority": "docs/PROTECTED-CAPABILITY-CONTRACTS.md",
+  "bootstrap_note": "This initial registry captures high-confidence contracts visible in current code, documentation and tests. Post-baseline capabilities remain implemented until exact SIB1/SIB2 promotion evidence is attached; do not upgrade status by inference.",
+  "query_policy": {
+    "small_registry": "grep_or_ripgrep_then_paged_exact_read",
+    "large_registry": "bm25_then_optional_embeddings_then_optional_reranker_then_exact_manifest_read",
+    "semantic_retrieval_is_authority": false,
+    "allow_new_search_runtime": false
+  },
+  "status_values": [
+    "experimental",
+    "implemented",
+    "sib1_accepted",
+    "sib2_integrated",
+    "protected",
+    "deprecated",
+    "removed"
+  ],
+  "contracts": [
+    {
+      "id": "codesleuth.host-execution-authority",
+      "capability_class": "controller-tool-execution-boundary",
+      "status": "protected",
+      "introduced": "pre-registry",
+      "protected_at": {
+        "sib_level": "SIB2",
+        "sha": "c5e41a73b84e65645dec5d0a4032b19928291193",
+        "evidence": "docs/STABLE-INTEGRATION-BASELINE.md"
+      },
+      "public_contract": [
+        "The active host owns the model, primary controller, session, tool routing and execution.",
+        "CodeSleuth may configure, expose, package and harden host-native capabilities but must not create a second primary agent runtime or controller."
+      ],
+      "contract_fingerprint": {
+        "execution_owner": "host",
+        "codesleuth_role": "discipline-and-control-surface"
+      },
+      "code_evidence": [
+        "pack/.opencode/commands/repo-review.md",
+        "pack/.opencode/opencode.json"
+      ],
+      "doc_evidence": [
+        "docs/CODESLEUTH-PRODUCT-CONTRACT.md",
+        "AGENTS.md"
+      ],
+      "test_evidence": [
+        "tests/test_docs_contract.py",
+        "tests/test_agents_pointer.py"
+      ],
+      "affected_paths": [
+        "pack/.opencode/agents/**",
+        "pack/.opencode/commands/**",
+        "pack/.opencode/opencode.json",
+        "pack/.opencode/plugins/**",
+        "pack/.opencode/tools/**",
+        "docs/CODESLEUTH-PRODUCT-CONTRACT.md"
+      ],
+      "depends_on": [],
+      "forbidden_regressions": [
+        {
+          "id": "FR-HOST-001",
+          "sib_origin": "SIB0",
+          "must_not": "CodeSleuth becomes or installs a second primary controller, supervisor, agent loop, model runtime, or general-purpose tool router alongside the active host.",
+          "proof": [
+            "docs/CODESLEUTH-PRODUCT-CONTRACT.md",
+            "tests/test_docs_contract.py"
+          ]
+        },
+        {
+          "id": "FR-HOST-002",
+          "sib_origin": "SIB0",
+          "must_not": "A CodeSleuth-specific state format becomes a second source of truth for host model, controller, or tool execution.",
+          "proof": [
+            "docs/CODESLEUTH-PRODUCT-CONTRACT.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codesleuth.context-graph-evidence-boundary",
+      "capability_class": "context-relationship-graph",
+      "status": "protected",
+      "introduced": "pre-registry",
+      "protected_at": {
+        "sib_level": "SIB2",
+        "sha": "c5e41a73b84e65645dec5d0a4032b19928291193",
+        "evidence": "docs/STABLE-INTEGRATION-BASELINE.md"
+      },
+      "public_contract": [
+        "The context graph is a bounded navigation and relationship projection derived from repository evidence.",
+        "Graph or Mermaid output is not stronger finding evidence than exact current source."
+      ],
+      "contract_fingerprint": {
+        "graph_role": "bounded-context-projection",
+        "finding_authority": "exact-current-source"
+      },
+      "code_evidence": [
+        "pack/.opencode/tools/repo_context_graph.ts"
+      ],
+      "doc_evidence": [
+        "docs/CONTEXT-GRAPH-DISCIPLINE.md",
+        "pack/.opencode/skills/repository-deep-review/SKILL.md"
+      ],
+      "test_evidence": [
+        "tests/context_graph_smoke.ts"
+      ],
+      "affected_paths": [
+        "pack/.opencode/tools/repo_context_graph.ts",
+        "tests/context_graph_smoke.ts",
+        "docs/CONTEXT-GRAPH-DISCIPLINE.md"
+      ],
+      "depends_on": [
+        "codesleuth.host-execution-authority"
+      ],
+      "forbidden_regressions": [
+        {
+          "id": "FR-GRAPH-001",
+          "sib_origin": "SIB1",
+          "must_not": "Context graph or Mermaid output becomes an unbounded replacement for exact repository evidence or is treated as sufficient material-finding evidence by itself.",
+          "proof": [
+            "tests/context_graph_smoke.ts",
+            "docs/CONTEXT-GRAPH-DISCIPLINE.md"
+          ]
+        },
+        {
+          "id": "FR-GRAPH-002",
+          "sib_origin": "SIB2",
+          "must_not": "A generated graph silently diverges from its repository/review-state provenance while remaining presented as verified source structure.",
+          "proof": [
+            "tests/context_graph_smoke.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codesleuth.durable-review-state",
+      "capability_class": "persistent-review-state",
+      "status": "protected",
+      "introduced": "pre-registry",
+      "protected_at": {
+        "sib_level": "SIB2",
+        "sha": "c5e41a73b84e65645dec5d0a4032b19928291193",
+        "evidence": "docs/STABLE-INTEGRATION-BASELINE.md"
+      },
+      "public_contract": [
+        "Durable review state survives model-context compaction and records evidence identity independently of chat history.",
+        "Durable analytical state is review evidence/supporting state, not execution authority for the host."
+      ],
+      "contract_fingerprint": {
+        "state_role": "durable-review-evidence",
+        "execution_authority": false
+      },
+      "code_evidence": [
+        "pack/.opencode/tools/review_state.ts"
+      ],
+      "doc_evidence": [
+        "pack/.opencode/skills/repository-deep-review/SKILL.md",
+        "docs/CONTEXT-GRAPH-DISCIPLINE.md"
+      ],
+      "test_evidence": [
+        "tests/review_state_smoke.ts"
+      ],
+      "affected_paths": [
+        "pack/.opencode/tools/review_state.ts",
+        "tests/review_state_smoke.ts",
+        "pack/.opencode/plugins/review-compaction.ts"
+      ],
+      "depends_on": [
+        "codesleuth.host-execution-authority"
+      ],
+      "forbidden_regressions": [
+        {
+          "id": "FR-STATE-001",
+          "sib_origin": "SIB1",
+          "must_not": "Durable review state becomes merely conversational or loses the evidence identity needed to rehydrate a finding after compaction.",
+          "proof": [
+            "tests/review_state_smoke.ts"
+          ]
+        },
+        {
+          "id": "FR-STATE-002",
+          "sib_origin": "SIB0",
+          "must_not": "Durable review state becomes an independent controller or execution-state authority competing with the host.",
+          "proof": [
+            "docs/CODESLEUTH-PRODUCT-CONTRACT.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codesleuth.update-restart",
+      "capability_class": "lifecycle-update-management",
+      "status": "implemented",
+      "introduced": "post-registry-baseline-lineage",
+      "protected_at": null,
+      "public_contract": [
+        "CodeSleuth can check/fetch/apply an allowed update and perform the documented restart/reload path without falsely reporting a transition that did not occur."
+      ],
+      "contract_fingerprint": {
+        "update_requires_post_update_verify": true,
+        "restart_is_part_of_lifecycle": true
+      },
+      "code_evidence": [
+        "pack/.opencode/bin/review-pack-update.py",
+        "pack/.opencode/bin/codesleuth_tui_runtime.py"
+      ],
+      "doc_evidence": [
+        "docs/SELF-UPDATE.md",
+        "docs/PROJECT-LIFECYCLE.md"
+      ],
+      "test_evidence": [
+        "tests/test_update_restart.py",
+        "tests/test_project_lifecycle.py"
+      ],
+      "affected_paths": [
+        "pack/.opencode/bin/review-pack-update*",
+        "pack/.opencode/bin/codesleuth_tui_runtime.py",
+        "install.py",
+        "docs/SELF-UPDATE.md",
+        "docs/PROJECT-LIFECYCLE.md"
+      ],
+      "depends_on": [
+        "codesleuth.host-execution-authority"
+      ],
+      "forbidden_regressions": [
+        {
+          "id": "FR-UPDATE-001",
+          "sib_origin": "SIB2",
+          "must_not": "Update is reported successful while restart/reload continues to execute the previous source or otherwise fails to complete the documented transition.",
+          "proof": [
+            "tests/test_update_restart.py"
+          ]
+        },
+        {
+          "id": "FR-UPDATE-002",
+          "sib_origin": "SIB1",
+          "must_not": "The documented update action degenerates into a no-op or unreachable path while remaining advertised as available.",
+          "proof": [
+            "tests/test_update_restart.py"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codesleuth.tui-control-feedback",
+      "capability_class": "terminal-operator-interface",
+      "status": "implemented",
+      "introduced": "post-registry-baseline-lineage",
+      "protected_at": null,
+      "public_contract": [
+        "TUI control actions expose their result or failure to the operator and responsive navigation remains reversible across supported viewports."
+      ],
+      "contract_fingerprint": {
+        "control_feedback_required": true,
+        "collapse_restore_required": true
+      },
+      "code_evidence": [
+        "pack/.opencode/bin/codesleuth_tui.py",
+        "pack/.opencode/bin/codesleuth_tui_runtime.py",
+        "pack/.opencode/bin/review_pack_tui_bootstrap.py"
+      ],
+      "doc_evidence": [
+        "docs/CODESLEUTH-BRANDING.md",
+        "docs/LESSONS-LEARNED-VIEWPORT-HARDENING.md"
+      ],
+      "test_evidence": [
+        "tests/test_tui_control_feedback.py",
+        "tests/test_tui_viewport_hardening.py",
+        "tests/test_tui.py"
+      ],
+      "affected_paths": [
+        "pack/.opencode/bin/*tui*.py",
+        "tests/test_tui*.py",
+        "docs/CODESLEUTH-BRANDING.md"
+      ],
+      "depends_on": [
+        "codesleuth.host-execution-authority"
+      ],
+      "forbidden_regressions": [
+        {
+          "id": "FR-TUI-001",
+          "sib_origin": "SIB2",
+          "must_not": "A TUI action reaches its runtime path but loses the resulting success/failure feedback before the operator can observe it.",
+          "proof": [
+            "tests/test_tui_control_feedback.py"
+          ]
+        },
+        {
+          "id": "FR-TUI-002",
+          "sib_origin": "SIB2",
+          "must_not": "A collapsible navigation/help surface can collapse but cannot restore in the accepted viewport interaction path.",
+          "proof": [
+            "tests/test_tui_viewport_hardening.py"
+          ]
+        }
+      ]
+    }
+  ]
+}
