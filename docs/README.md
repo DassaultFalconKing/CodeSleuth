@@ -10,7 +10,7 @@
 - [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — naming inventory and staged cutover from historical `review-pack` filenames; 0.4.0 keeps live compatibility names.
 - [`STABLE-INTEGRATION-BASELINE.md`](STABLE-INTEGRATION-BASELINE.md) — SIB0/SIB1/SIB2 architecture-recovery model: initialization freeze, implementation completeness, integration completeness, and release construction from SIB2.
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — normative SIB acceptance identity: SIB degree defines what is proven; exact-head acceptance binds that proof to one exact commit SHA.
-- [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — integration discipline for recovering still-valid intent from stale PRs without overwriting newer accepted semantics.
+- [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — normative semantic-continuity concept: preserve or explicitly reconcile the product's evidenced semantic surface across implementation and architectural change.
 
 ## Engineering articles
 
@@ -68,7 +68,7 @@ CodeSleuth documentation is text-first and terminal-native.
 - [`RELEASE-PROCESS.md`](RELEASE-PROCESS.md) — numbered release branch policy and acceptance gates.
 - [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — product-namespace inventory; runtime rename remains post-0.4.0 work.
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — required acceptance identity contract for SIB promotion, accepted integration states, RCs, and releases.
-- [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — required method when useful stale work overlaps newer accepted contracts.
+- [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — semantic-refit authority and refit-readiness criteria for preserving product claims across future change.
 - [`LESSONS-LEARNED-VIEWPORT-HARDENING.md`](LESSONS-LEARNED-VIEWPORT-HARDENING.md) — TUI collapse/Tools viewport acceptance lessons and anti-patterns (paired with `.cursor/rules/tui-viewport-acceptance.mdc`).
 
 ## Contract map
@@ -87,7 +87,7 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         +--> LLM-OPERATOR.md                              (task-specific operator surface)
         +--> STABLE-INTEGRATION-BASELINE.md               (SIB0 -> SIB1 -> SIB2)
         |       +--> EXACT-HEAD-ACCEPTANCE.md             (what is proven -> exact SHA carrying the proof)
-        +--> SEMANTIC-REFIT.md                            (stale intent -> current semantics -> accepted refit)
+        +--> SEMANTIC-REFIT.md                            (semantic surface -> claim reconciliation -> evidence)
         |
         +--> pack/.opencode/themes/codesleuth.json
         +--> pack/.opencode/CODESLEUTH-REPORTS.md
