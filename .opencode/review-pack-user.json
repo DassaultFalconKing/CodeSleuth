@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "profiles": [
+    "generic",
+    "python",
+    "node",
+    "typescript"
+  ],
+  "profilesMode": "auto",
+  "permissions": {
+    "preset": "review-safe",
+    "websearch": "allow",
+    "webfetch": "allow",
+    "externalDirectory": "allow",
+    "edit": "allow",
+    "question": "allow",
+    "doomLoop": "ask",
+    "managePolicy": true
+  },
+  "runtime": {
+    "exaEnabled": true,
+    "watchdogEnabled": true,
+    "stallSeconds": 480,
+    "maxStallRecoveries": 2,
+    "webStallSeconds": 180,
+    "compactionReserved": 20000,
+    "checkUpdatesOnStart": true
+  },
+  "agent": {
+    "profile": "native",
+    "model": ""
+  }
+}

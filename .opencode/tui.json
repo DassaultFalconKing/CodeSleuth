@@ -1,0 +1,6 @@
+{
+  "$schema": "https://opencode.ai/tui.json",
+  "theme": "codesleuth",
+  "diff_style": "auto",
+  "mouse": true
+}

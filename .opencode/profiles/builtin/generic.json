@@ -1,0 +1,14 @@
+{
+  "profile": "generic",
+  "config": {
+    "compaction": {"auto": true, "prune": true, "reserved": 20000}
+  },
+  "reviewFocus": [
+    "authority boundaries",
+    "error propagation",
+    "state and recovery",
+    "authorization/scope",
+    "tests and CI",
+    "documentation/runtime truth"
+  ]
+}

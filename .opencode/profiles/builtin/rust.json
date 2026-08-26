@@ -1,0 +1,6 @@
+{
+  "profile":"rust",
+  "evidence":["Cargo.toml","Cargo.lock","rust-toolchain.toml","rust-toolchain"],
+  "recommendedVerification":["cargo fmt --all -- --check","cargo test --workspace","cargo clippy --workspace --all-targets -- -D warnings"],
+  "reviewFocus":["unsafe boundaries","Send/Sync and concurrency","Result propagation","serde/schema contracts","migration/runtime compatibility"]
+}

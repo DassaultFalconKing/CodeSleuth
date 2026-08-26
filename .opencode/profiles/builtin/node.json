@@ -1,0 +1,6 @@
+{
+  "profile":"node",
+  "evidence":["package.json","package-lock.json","pnpm-lock.yaml","yarn.lock","bun.lock","bun.lockb"],
+  "recommendedVerification":["derive package manager from lockfile","derive test/lint/build commands from package.json and CI"],
+  "reviewFocus":["runtime/module-system compatibility","async error propagation","API/schema drift","dependency boundaries","build/runtime config divergence"]
+}

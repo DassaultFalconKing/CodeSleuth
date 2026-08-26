@@ -40,3 +40,7 @@ bun tests/context_graph_smoke.ts
 For MCP changes, `python -m pytest` already includes MCP tests after `python -m pip install -r requirements-dev.txt`. Do not skip those tests in release acceptance.
 
 Nested `AGENTS.md` files, if introduced later, may add narrower instructions for their subtree. Direct user instructions still take precedence.
+
+<!-- BEGIN CodeSleuth reports -->
+Analytical reports for this worktree live in `.codesleuth/reports/` (see `INDEX.md`). Format: `.opencode/CODESLEUTH-REPORTS.md`. OpenCode `build` writes them. They are local-only by default because reports may contain source excerpts or credentials; reuse them in this worktree, and only publish sanitized reports or guidance intentionally when cross-clone reuse is desired.
+<!-- END CodeSleuth reports -->

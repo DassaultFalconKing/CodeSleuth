@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 2,
+  "version": "0.4.0",
+  "complete": true,
+  "installedAt": "2026-08-26T11:10:20.347927+00:00",
+  "managedFiles": {
+    "agents/repo-documenter.md": "5df4242c9d84b2ca30ee7bc5bb1bac13ac2fc227f9d89a2d8510078b93f85cf6",
+    "agents/repo-profile-architect.md": "c942e5ace61f3009e7044f33552856eac3f5a04464dbb7e35e1e314571caa588",
+    "agents/repo-prompt-advisor.md": "119fde6131c44c3419171e847161df7b250ab2aa26b885b82ffae58a89e2713c",
+    "agents/repo-reviewer.md": "f19be41541a62b2a33be2b15d7072d56e6f1cf38521fdb854ad2ec845dbe060a",
+    "agents/repo-scout.md": "f3553d5ff31a72af6fedda0756e08983a1f6153f994a4daed2ba9147f3ef45e9",
+    "bin/codesleuth": "c9a97653ce7165c510a7379a2b08a6ee648435944ccf8d76f0d90ac8c309f6b6",
+    "bin/codesleuth-project": "5dc91d5fa925a05a31da090831487dc05fff757997cb6006f8782eba0905126b",
+    "bin/codesleuth-project.ps1": "22d01aee0789aa3f779a50a4fd894edda12a9e7f4259fc4e6dacb470adcbc4b1",
+    "bin/codesleuth.ps1": "49f78beddba209af2500d6b38fe60230ed45da9011e7a0064a8142f823255133",
+    "bin/codesleuth_naming.py": "8d27d11348e2a49ce4ea179068ae9f2103c8612d2c4532297db02a90bf7f9471",
+    "bin/codesleuth_project/__init__.py": "aa155fd44d091efa14dfcaae9db667bc3f960c42ccc63d178a590ed0ce497023",
+    "bin/codesleuth_project/__main__.py": "56e3659944494ee3f0f32a5b2dcd68f37f229326bb30c0ff28563383faa2ff9e",
+    "bin/codesleuth_project/paths.py": "dea49ea81c160e6257fb5218fbfe52a73a0c5d52694c34c2d32d93986045a53e",
+    "bin/codesleuth_project.py": "cf32fcf4492c3c3b032f35d9621f935ba2801b57157b3c22ca5c1c43c40a864c",
+    "bin/codesleuth_tui.py": "ebf0d9c29de97b17f162c386f6c32d735cb143134d4fa4c034a1d2996f6d4c39",
+    "bin/codesleuth_version.py": "dcc41a1b8b7eb4edd1223bc5d002f8009f68143b1b6ccbe411f4f6f0b4c41925",
+    "bin/constants.py": "d174f4274be05e2d07683a66df5621e2ac6740e3d2a69f93cc8293181fb2cbac",
+    "bin/opencode-review": "a3270f7a64736302f4333178a3f0759410681950f5cb39a885a40756e06e22c7",
+    "bin/opencode-review.ps1": "8798a227fda0a3a28ad342113fba4fbd2c0aecae05a6b5b9366893831b70f518",
+    "bin/requirements-tui.txt": "fe775ab8c37f2b735d3d84e7185a546073df3909fc39cea3b20813d037a1f6bc",
+    "bin/review-pack": "c9a97653ce7165c510a7379a2b08a6ee648435944ccf8d76f0d90ac8c309f6b6",
+    "bin/review-pack-smoke.py": "6f26f991ab54daf87f5f1ba0a01a35a3065fca0e7d4d80719dbebd636fcd99a5",
+    "bin/review-pack-update": "fbc53f935bde94068735c0db7b8b04e694783448e847b82c6181311bc18c3b3f",
+    "bin/review-pack-update.ps1": "25a6bd119ae5b71aacd70852e09c6635720cbac7c64a76f115185973cce11cd5",
+    "bin/review-pack-update.py": "9362db154c5f6af42510e396c0f02ae8de1404ebfe77ae115950e715c5ac7a90",
+    "bin/review-pack.ps1": "5739b343ed5488786037b72579fdc85b2d9fb4b9143014cacb2c8161e30cb2ea",
+    "bin/review_pack_tui.py": "69244dff758b9b5868848dddedde3ccd573551de8a8739c88a66b0299ec87700",
+    "bin/review_pack_tui_bootstrap.py": "6c1c51bfc97028e062d6a48007379fcf01817a4f4f254c025f60a0ef5f3c17bf",
+    "bin/review_pack_tui_core.py": "a184a0cf6ab7b451f9f2394cca06d9f6b370f4aa8cf0bd8bcac642095a01363f",
+    "codesleuth-naming.json": "0b5e884cb8e4a8c4d4ea1d6affe639d7ad8d4c30df8c15125a9538527054d433",
+    "CODESLEUTH-REPORTS.md": "ce60c02c69fe603b590a2d6eccd8892d05a9a22aad99c9e0d99e20d460eafded",
+    "commands/repo-docs.md": "f7fe420708d8a2fa9e71ef48833144abd37fc3a7a21214bcf640a75ce54bc105",
+    "commands/repo-map.md": "886c8b627813940c9ab98a57bd4d49e3e24990c229ce0a6335625bef25f84a19",
+    "commands/repo-profile.md": "39a148aa759c03e1fd0e6c5cb7457e49474a4d3d4fcf54892683b5309a045dfd",
+    "commands/repo-prompts.md": "e00c439759bddead93a3b32be571ae24b9fdf738d978ab07faca29ee82723b36",
+    "commands/repo-report.md": "3b578e2e6edb66cb055efa4fe7e0d332a0b9d97f0dc6c7754a50ca0c86594dce",
+    "commands/repo-review-resume.md": "219202c6c93d6ba0307509824a9d4e1549fc6097d8b8c81f29203c281e28fd82",
+    "commands/repo-review.md": "72fff7e484395025d9c4da5ac7e76230b55dd184a363ebadf704db458d0fb708",
+    "plugins/review-compaction.ts": "b87672faf75309574fea0b25bee7727595c9a7f4a21f7f13e4c8156000be671b",
+    "profiles/builtin/generic.json": "2ef8d2e1160aa6f3bca7fd21b3e8ac9465257109c639ac19b151a5e9ee7968ce",
+    "profiles/builtin/node.json": "d8c310c136b15b6b612a403635ff731e9e9eabc48cb49c5c98c2c5864c927914",
+    "profiles/builtin/python.json": "c650025466675d742fe027fa4d90cdf5ce9c5788ce8ddda8c409d0db69869437",
+    "profiles/builtin/rust.json": "bd6285e43de7f9cfff0d7a28c9aa7ede05ad534e865c668d64d778534584b4d7",
+    "profiles/builtin/typescript.json": "e55f9156325fdf2c80ee81b648733ca5142fcbf811c1122911f95289fe218cb0",
+    "skills/codesleuth-reports/SKILL.md": "77e378fd860e5c3b0b800641369da5daa3bcca3ac8424722de16d7037157f8e5",
+    "skills/feature-porting-discipline/SKILL.md": "b9846c0cf4fbe409659a65558997e48e3c3010168f8be91a52aa9c5a5c352de8",
+    "skills/repository-deep-review/SKILL.md": "7de478378537d82cf8825f5522778addcd89ae2b25d1d19d3f5b05bb2efffdcb",
+    "tests_util.py": "a6c60c0f78f3f20ec8c78e3b4a22a705ff3ffcd8a0e42b7bbb1f14391b1f1c7c",
+    "themes/codesleuth.json": "303c13030d3e063286c3b8ea77b6198f050fbd89b027f689feada2b7fffd4364",
+    "tools/repo_context_graph.ts": "d029271da6b1d7822e2754edb71dc8a7b52e557dbea747de5b878fc61525674f",
+    "tools/repo_inventory.ts": "c4cccc7e23ae004bfd1b66d6962830296f69a48837850722b1e01a2d428ecf64",
+    "tools/repo_profile.ts": "21b4180af92ecd5a7dca10562d3b901a1018bd5a29a865971e0ef34e97185f2d",
+    "tools/review_state.ts": "717936d7ccdaed373cf07f7c9bda180d9513ad06a98bfa732e2a5b8a20875df7",
+    "tui.json": "0114ee562cd65d199e3df61ed1f9a04485cf34bae617f3c1b9f43556eeaf2440"
+  },
+  "baseConfig": {
+    "$schema": "https://opencode.ai/config.json",
+    "permission": {
+      "read": {
+        "*": "allow",
+        "*.env": "deny",
+        "*.env.*": "deny",
+        "*.env.example": "allow"
+      },
+      "edit": {
+        "*": "ask",
+        ".codesleuth/reports/**": "allow"
+      },
+      "bash": {
+        "*": "ask",
+        "git status*": "allow",
+        "git diff*": "allow",
+        "git log*": "allow",
+        "git show*": "allow",
+        "git rev-parse*": "allow",
+        "git ls-files*": "allow",
+        "git branch --show-current*": "allow",
+        "git merge-base*": "allow",
+        "git cat-file*": "allow",
+        "git hash-object*": "allow",
+        "git blame*": "allow",
+        "git grep*": "allow",
+        "git push*": "deny",
+        "git reset --hard*": "deny",
+        "git clean*": "deny"
+      },
+      "external_directory": "ask",
+      "websearch": "ask",
+      "webfetch": "ask",
+      "lsp": "allow",
+      "skill": {
+        "*": "ask",
+        "repository-deep-review": "allow",
+        "codesleuth-reports": "allow"
+      },
+      "question": "allow",
+      "doom_loop": "ask"
+    },
+    "compaction": {
+      "auto": true,
+      "prune": true,
+      "reserved": 20000
+    },
+    "watcher": {
+      "ignore": [
+        ".git/**",
+        ".opencode/cache/**",
+        ".opencode/logs/**",
+        ".opencode/state/**",
+        ".codesleuth/reports/**",
+        "node_modules/**",
+        "target/**",
+        "dist/**",
+        "build/**",
+        ".venv/**",
+        "__pycache__/**"
+      ]
+    },
+    "plugin": [
+      [
+        "opencode-keepalive@0.1.0",
+        {
+          "intervalMs": 10000,
+          "stallMs": 480000,
+          "childStallAction": "abort-resume-parent",
+          "maxStallRecoveries": 2,
+          "abortWaitMs": 30000,
+          "toolStallMsByTool": {
+            "glob": 90000,
+            "grep": 90000,
+            "read": 120000,
+            "webfetch": 180000,
+            "websearch": 180000
+          },
+          "bashQuickStallMs": 90000,
+          "output": "file"
+        }
+      ]
+    ]
+  },
+  "source": {
+    "remote": "git@github.com:DassaultFalconKing/CodeSleuth.git",
+    "ref": "dev/release-0.4.0",
+    "subdir": "",
+    "commit": "6edc75e5ca1fae563cfca81cefcdc29915e10988"
+  },
+  "dependency": null,
+  "preInstallBackup": ".codesleuth/preinstall.json",
+  "conflicts": [],
+  "adoptedLegacy": false
+}
