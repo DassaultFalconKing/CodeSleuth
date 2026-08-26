@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BIN = ROOT / "pack" / ".opencode" / "bin"
 sys.path.insert(0, str(BIN))
 
+import review_pack_tui_bootstrap as bootstrap  # noqa: E402
 from codesleuth_tui import CodeSleuthApp  # noqa: E402
 from codesleuth_version import (  # noqa: E402
     VersionMetadataError,
@@ -76,6 +77,22 @@ def test_installed_cli_version_matches_installed_metadata(tmp_path: Path) -> Non
     )
     assert result.stdout.strip() == "1.2.3"
     assert result.stderr == ""
+
+
+def test_textual_soft_pin_is_derived_from_manifest() -> None:
+    requirement = (BIN / "requirements-tui.txt").read_text(encoding="utf-8").strip()
+    assert bootstrap.TEXTUAL_REQUIREMENT == requirement
+    assert bootstrap.textual_compatible("8.2.8")
+    assert bootstrap.textual_compatible("8.9.9")
+    assert not bootstrap.textual_compatible("8.2.7")
+    assert not bootstrap.textual_compatible("9.0.0")
+
+
+def test_bootstrap_records_actual_textual_version() -> None:
+    source = (BIN / "review_pack_tui_bootstrap.py").read_text(encoding="utf-8")
+    assert "actual = installed_textual_version(python)" in source
+    assert 'marker.write_text(actual + "\\n", encoding="utf-8")' in source
+    assert 'marker.write_text("8.2.8' not in source
 
 
 @pytest.mark.asyncio

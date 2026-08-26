@@ -30,7 +30,8 @@ First release prepared under the release-only `main` contract.
 - project-local ignore policy avoids silently rewriting a tracked root `.gitignore`;
 - TUI collapse/restore toggles remain immediately clickable; Tools actions stay on the operational surface at 120x35;
 - dependency binding remains independent from installed runtime state and refuses unsafe/recursive submodule operations;
-- installed version metadata may be read from `codesleuth.json` or `review-pack.json`, and fails closed if both exist and differ.
+- installed version metadata may be read from `codesleuth.json` or `review-pack.json`, and fails closed if both exist and differ;
+- isolated TUI bootstrap derives the compatible Textual range from `requirements-tui.txt`, accepts any installed version inside that range, and records the actual installed Textual version instead of a lower-bound literal.
 
 ### Release-process changes
 

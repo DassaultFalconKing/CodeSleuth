@@ -26,6 +26,17 @@ The `SIB` branch is semantically the current **SIB2**. At policy introduction it
 - **Capability class** = a fundamental architectural type of ability, not an individual feature. Example: CLI is a capability class; `verify`, `update`, and `doctor` are feature population inside it.
 - **Feature population** = adding instances, variants, operations, workflows, depth, content, or polish inside existing capability classes without changing the fundamental class inventory. Example: adding more CodeSleuth profiles through the existing profile mechanism is feature population; adding a second independent execution runtime is not.
 - **Semantic refit** = recover still-valid intent from stale work by re-implementing its minimal required behavior on the current accepted base while preserving newer accepted semantics; the old diff is evidence of intent, not authority over the current tree.
+- **Exact-head acceptance** = successful execution of the required acceptance profile against one exact repository commit; the tested SHA must be identical to the candidate head being accepted.
+- **Acceptance profile** = the required checks, gates, and environments for the maturity or release claim being made.
+- **Acceptance evidence** = the successful result of an acceptance profile attached to one exact commit SHA.
+
+SIB degree and exact-head acceptance are separate axes:
+
+- SIB0 exact-head acceptance proves **architectural completeness** for the exact SHA.
+- SIB1 exact-head acceptance proves **implementation completeness** for the exact SHA.
+- SIB2 exact-head acceptance proves **integration completeness** for the exact SHA.
+
+SIB levels define **what is proven**; exact-head acceptance defines **which repository state the proof applies to**.
 
 ## Required behavior
 
@@ -35,6 +46,9 @@ The `SIB` branch is semantically the current **SIB2**. At policy introduction it
 - **Do not use SIB1 as the normal base for active feature population.** SIB1 work should focus on integration recovery and promotion to SIB2.
 - Do not declare SIB2 until the exact integrated composition passes the repository's full canonical acceptance gate.
 - **SIB2 is the first normal safe base for active feature population and release construction.**
+- **Acceptance evidence never implicitly propagates to a descendant or divergent commit.** If HEAD changes, the new SHA is a new candidate state and must establish acceptance under the required profile before promotion.
+- Two independently accepted divergent heads do not make their untested combination accepted. The resulting composition must pass acceptance on its own exact SHA.
+- The tested SHA and the SHA promoted as an accepted integration state, SIB state, RC, or release must be identical.
 - Do not implement release-bound feature work directly on the SIB2 ref.
 - Start new release/integration work from SIB2 or from an explicitly accepted descendant.
 - Apply feature population incrementally and run full canonical acceptance after each substantial layer.
@@ -43,8 +57,8 @@ The `SIB` branch is semantically the current **SIB2**. At policy introduction it
 - When stale work overlaps files or contracts that changed after its source base, perform a **semantic refit**: inventory the source intent, inventory current semantics, classify old behavior as REAPPLY/SUPERSEDED/REFIT/DROP, and re-implement only the still-valid delta.
 - Preserve current semantics when transplanting stale work. Never replace a newer file wholesale merely because the stale branch version applies more easily.
 - Never weaken, skip, xfail, or rewrite acceptance tests to promote a change.
-- Record the tested commit SHA and gate result appropriate to the claimed baseline level.
+- Record the tested commit SHA, acceptance profile/gate, environment matrix where applicable, and result appropriate to the claimed baseline level.
 - RC status is downstream of completed, accepted feature population. SIB2 itself is not an RC.
 - Moving any baseline ref is a separate maintainer promotion decision, never a side effect of ordinary feature work.
 
-See [`CONTRIBUTING.md`](../../CONTRIBUTING.md), [`docs/STABLE-INTEGRATION-BASELINE.md`](../../docs/STABLE-INTEGRATION-BASELINE.md), and [`docs/SEMANTIC-REFIT.md`](../../docs/SEMANTIC-REFIT.md) for the full contracts and examples.
+See [`CONTRIBUTING.md`](../../CONTRIBUTING.md), [`docs/STABLE-INTEGRATION-BASELINE.md`](../../docs/STABLE-INTEGRATION-BASELINE.md), [`docs/EXACT-HEAD-ACCEPTANCE.md`](../../docs/EXACT-HEAD-ACCEPTANCE.md), and [`docs/SEMANTIC-REFIT.md`](../../docs/SEMANTIC-REFIT.md) for the full contracts and examples.
