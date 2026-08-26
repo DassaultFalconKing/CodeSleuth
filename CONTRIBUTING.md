@@ -2,7 +2,7 @@
 
 CodeSleuth uses a three-level **Stable Baseline** discipline for architectural recovery and release construction.
 
-The full concept, its distinction from MVP and release, capability-class criteria, feature population, and post-refactor use are defined in [`docs/STABLE-INTEGRATION-BASELINE.md`](docs/STABLE-INTEGRATION-BASELINE.md).
+The full concept, its distinction from MVP and release, capability-class criteria, feature population, and post-refactor use are defined in [`docs/STABLE-INTEGRATION-BASELINE.md`](docs/STABLE-INTEGRATION-BASELINE.md). The normative rule that binds acceptance evidence to one exact repository state is defined in [`docs/EXACT-HEAD-ACCEPTANCE.md`](docs/EXACT-HEAD-ACCEPTANCE.md).
 
 The levels are:
 
@@ -80,6 +80,31 @@ SIB2 proves:
 
 Example: once CLI/TUI, state, controller/tool paths, lifecycle operations, and context-graph behavior pass the supported acceptance matrix together, it is safe to populate the architecture with additional profiles, tools, relations, workflows, and UX depth.
 
+## Exact-head acceptance
+
+SIB degree and acceptance identity are separate axes:
+
+- **SIB degree** states **what is proven**.
+- **Exact-head acceptance** states **which exact repository state the proof applies to**.
+
+The maturity claims are:
+
+| Degree | Exact-head acceptance proves |
+| --- | --- |
+| **SIB0** | **Architectural completeness**: capability-class inventory and boundaries are coherent and frozen for the exact SHA. |
+| **SIB1** | **Implementation completeness**: every SIB0 capability class has a real basic implementation satisfying its contract at the exact SHA. |
+| **SIB2** | **Integration completeness**: those implementations work together and the exact composed SHA passes canonical full-system acceptance. |
+
+The core invariant is:
+
+> **Acceptance evidence never implicitly propagates to a descendant or divergent commit.**
+
+If accepted commit `A` changes to candidate commit `B`, `B` requires acceptance evidence under the profile appropriate to the claim being made. A green feature branch, a green ancestor, or two independently green divergent heads are not acceptance evidence for an untested resulting composition.
+
+The tested SHA and the SHA promoted as an accepted integration state, SIB state, RC, or release must be identical.
+
+See [`docs/EXACT-HEAD-ACCEPTANCE.md`](docs/EXACT-HEAD-ACCEPTANCE.md) for the full normative contract.
+
 ## Release construction from SIB2
 
 1. **SIB2 fixes a known-good integrated state.** Its defining property is exact acceptance evidence.
@@ -101,6 +126,7 @@ Example: once CLI/TUI, state, controller/tool paths, lifecycle operations, and c
 - Keep feature deltas narrow enough that their compatibility can be attributed and reviewed.
 - When a change overlaps files that have evolved since the feature branch was created, preserve current semantics and re-apply the intended behavior at the semantic level rather than replacing newer files with stale blobs.
 - Promotion requires exact evidence: tested commit SHA, acceptance command/workflow, and result appropriate to the claimed baseline level.
+- If the candidate head changes after acceptance, treat the new SHA as a new candidate and establish acceptance again under the required profile.
 - Do not advance or repoint baseline refs as a side effect of ordinary feature work. Baseline promotion is a separate maintainer decision.
 
 ## Terms
@@ -115,9 +141,15 @@ Example: once CLI/TUI, state, controller/tool paths, lifecycle operations, and c
 
 **SIB2**: Stable Integration Baseline. The SIB1 implementations are proven to work together and the exact composition passes full canonical acceptance. It is the normal safe base for feature population.
 
+**Exact-head acceptance**: Successful execution of the required acceptance profile against one exact repository commit, where the tested SHA is identical to the candidate head being accepted.
+
+**Acceptance profile**: The required checks, gates, and environments for a particular SIB maturity, integration, RC, or release claim.
+
+**Acceptance evidence**: The successful result of an acceptance profile attached to one exact commit SHA.
+
 **Integration build**: A descendant of SIB2 containing one or more candidate release changes. It is provisional until it passes acceptance.
 
-**Accepted integration state**: An integration build whose exact commit has passed the full canonical acceptance gate. Further features may be layered on top of it.
+**Accepted integration state**: An integration build whose exact commit has passed the full canonical acceptance gate. Further features may be layered on top of it, but those descendants require their own acceptance before promotion.
 
 **RC**: Release candidate. The accepted composition intended to become the release. An RC is downstream of SIB2; SIB2 itself is not an RC.
 
