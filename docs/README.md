@@ -14,6 +14,7 @@
 - [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — normative candidate-stream rule: future SIB candidates are selected from the literal exact head of `dev/release-X.Y.Z`; repairs return through that stream before a new EHA campaign.
 - [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — normative failure/repair discipline: freeze failed SHA, minimally repair into a new SHA, retain failed provenance, and start a new EHA campaign.
 - [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — operational mapping from SIB/EHA theory to CodeSleuth Skills, commands, durable evidence, release-stream selection, repair lineage, and Mermaid status views.
+- [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — canonical interface-regression evidence: real Textual screenshots, UI/event logs, semantic render analysis, and SIB2 visual-gate requirements.
 - [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — integration discipline for recovering still-valid intent from stale PRs without overwriting newer accepted semantics.
 
 ## Engineering articles
@@ -36,7 +37,7 @@ Every semantic change to `README.md` must update both translations in the same c
 
 Root [`../AGENTS.md`](../AGENTS.md) is the compact cross-agent discovery and repository-instruction entry point. Keep it short and broadly applicable so agents do not spend permanent context on task-specific operating detail.
 
-[`LLM-OPERATOR.md`](LLM-OPERATOR.md) is the maintained task-specific cross-agent operator README. It explains how another agent should install, configure unattended, verify, use, bind, unbind, and remove CodeSleuth without violating the product/lifecycle contracts.
+[`LLM-OPERATOR.md`](LLM-OPERATOR.md) is the maintained task-specific LLM/coding-agent operator README. It explains how another agent should install, configure unattended, verify, use, bind, unbind, and remove CodeSleuth without violating the product/lifecycle contracts.
 
 `LLM-OPERATOR.md` records the canonical English `README.md` Git blob identity with `README-SOURCE-BLOB`. A README change therefore requires an explicit operator-guide parity review before that marker can be advanced. The guide only needs textual changes when agent-operational behavior changed, but its marker must not be refreshed without reviewing the current README and relevant implementation contracts.
 
@@ -66,6 +67,7 @@ The same authority rule applies to repository diagrams and analytical reports: t
 - [`SELF-UPDATE.md`](SELF-UPDATE.md) — floating update, post-update Verify, controlled CodeSleuth process restart, source-checkout reload, and pinned-update boundaries.
 - [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — `/eha-test`, `/eha-repair`, `/eha-status`, structured EHA evidence, release-stream candidate selection, and repair history.
 - [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — exact operational rule for selecting a future SIB from `dev/release-X.Y.Z` and returning repairs through the same integration stream.
+- [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — exact-SHA TUI screenshot/log regression evidence and the SIB2 interface-gate contract.
 - [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — evidence storage/read/write/search semantics for review, EHA, reporting and derived views.
 - [`_includes/build-controller-blurb.md`](_includes/build-controller-blurb.md) — canonical OpenCode `build` controller blurb. Public copy: [root README](../README.md#opencode-build-controller).
 
@@ -79,6 +81,7 @@ The same authority rule applies to repository diagrams and analytical reports: t
 - [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — required rule for choosing future SIB candidates from the active release stream rather than PR/repair/EHA side branches.
 - [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — required repair-loop behavior after an EHA FAIL.
 - [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — executable product workflow and evidence topology for EHA campaigns.
+- [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — required interface evidence contract for canonical acceptance and SIB2 EHA.
 - [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — required method when useful stale work overlaps newer accepted contracts.
 - [`LESSONS-LEARNED-VIEWPORT-HARDENING.md`](LESSONS-LEARNED-VIEWPORT-HARDENING.md) — TUI collapse/Tools viewport acceptance lessons and anti-patterns (paired with `.cursor/rules/tui-viewport-acceptance.mdc`).
 
@@ -96,6 +99,7 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         |
         +--> CODESLEUTH-BRANDING.md
         |       +--> CODESLEUTH-COLORMAP.json
+        |       +--> TUI-VISUAL-REGRESSION.md             (render/log interface evidence)
         |       +--> pack/.opencode/bin/codesleuth_tui.py  (canonical ASCII/TUI)
         |
         +--> NOVACLAW-MCP.md                              (external host seam)
@@ -106,6 +110,7 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         |               +--> SIB-CANDIDATE-SELECTION.md   (dev/release -> exact candidate SHA)
         |               +--> EHA-REPAIR-LOOP.md           (FAIL -> frozen SHA -> repair -> release-stream reintegration)
         |               +--> EHA-OPERATING-PLAYBOOK.md    (Skill/commands/eha.ndjson/Mermaid)
+        |               +--> TUI-VISUAL-REGRESSION.md     (SIB2 interface composition evidence)
         +--> SEMANTIC-REFIT.md                            (stale intent -> current semantics -> accepted refit)
         |
         +--> pack/.opencode/themes/codesleuth.json
