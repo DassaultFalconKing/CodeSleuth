@@ -23,6 +23,7 @@ Read the installed copies of:
 - `docs/SIB-CANDIDATE-SELECTION.md`;
 - `docs/EHA-REPAIR-LOOP.md`;
 - `docs/DURABLE-EVIDENCE-STORE.md`;
+- `docs/TUI-VISUAL-REGRESSION.md` for interface acceptance;
 - `docs/SEMANTIC-REFIT.md` when stale/divergent work is involved.
 
 The compact rule is:
@@ -194,6 +195,8 @@ including applicable combinations of:
 - source-checkout and installed-runtime modes;
 - CLI and TUI entry paths;
 - real TUI interaction and visible activity feedback;
+- the canonical `TUI visual regression / Ubuntu` job from
+  `docs/TUI-VISUAL-REGRESSION.md`, including screenshot/log/event artifacts;
 - OpenCode controller/tool execution;
 - durable review state;
 - context graph save/query/Mermaid projection;
@@ -202,6 +205,11 @@ including applicable combinations of:
 - report workspace;
 - supported Python/OS matrix;
 - Bun durable-state/context-graph/EHA gates.
+
+The TUI visual job is required SIB2 interface-composition evidence. Inspect its
+uploaded `screen.svg`, `ui.log`, `events.log`, and `analysis.json` artifacts when
+an interface scenario fails; a green widget-only unit suite does not override a
+failing canonical visual scenario.
 
 The acceptance workflow must verify the literal target SHA. A synthetic PR
 merge SHA is not the target merely because its tree happens to be equivalent.
@@ -297,6 +305,9 @@ Every EHA report must include:
   regression/focused tests when a repair loop was entered;
 - predecessor/successor campaign IDs when applicable;
 - checks actually run and explicit limitations.
+
+For SIB2, include the canonical TUI visual-regression job result and the artifact
+identity/location alongside the other exact-SHA acceptance evidence.
 
 Load `codesleuth-reports` at completion and persist the report. The report is a
 human-readable summary; `eha.ndjson` remains the structured durable ledger.
