@@ -9,7 +9,7 @@ $2
 
 Read `docs/PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`, then resolve `pack/.opencode/playbooks/$1/playbook.json`.
 
-Do not preload every Step prompt. Keep OpenCode `build` as the primary controller. Determine the next runnable Step from the manifest and retained outputs; materialize exactly that Step only. For `execution=skill`, load only the named Skill. For `execution=step`, read only the named Step prompt and load only its declared Skills.
+Do not preload every Step prompt. Keep OpenCode `build` as the primary controller. Determine the next runnable Step from the manifest and retained outputs. Materialize exactly one Step at a time. For `execution=skill`, load only the named Skill. For `execution=step`, read only the named Step prompt and load only its declared Skills.
 
 Prefer a fresh host-native subagent for each Step so the child receives fresh context and the parent retains only the bounded Step result. The child must not launch another orchestration layer. After completion, retain/checkpoint only the declared output and advance to the next Step.
 
