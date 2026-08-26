@@ -42,9 +42,9 @@ or convenience EHA branch is not substituted for the literal release-stream
 head selected at that moment.
 
 If EHA fails, repair work begins from the failing SHA but must be integrated
-back through `dev/release-X.Y.Z`. The resulting exact release-stream head is the
-next candidate and receives a new EHA campaign. A repair branch does not become
-a parallel SIB integration line.
+back through `dev/release-X.Y.Z`. The resulting literal release-stream head is
+the next candidate and receives a new EHA campaign. A repair branch does not
+become a parallel SIB integration line.
 
 This gives one composition path and one proof identity:
 
