@@ -5,6 +5,7 @@
 - [`CODESLEUTH-PRODUCT-CONTRACT.md`](CODESLEUTH-PRODUCT-CONTRACT.md) — host/runtime ownership boundary, integration model, extension seams, and core feature freeze.
 - [`CODESLEUTH-BRANDING.md`](CODESLEUTH-BRANDING.md) — accepted terminal-native UI/interaction runbook, ASCII identity source, documentation graphics rule, and responsive acceptance.
 - [`CODESLEUTH-COLORMAP.json`](CODESLEUTH-COLORMAP.json) — machine-readable semantic colormap.
+- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — canonical filesystem evidence-store authority: mutable review checkpoint, append-only findings/EHA ledgers, tool-mediated writes, read-only grep/audit, and derived report/Mermaid/context views.
 - [`CONTEXT-GRAPH-DISCIPLINE.md`](CONTEXT-GRAPH-DISCIPLINE.md) — Git source -> review state -> bounded RepositoryContextProjection -> compact context/Mermaid authority chain.
 - [`NOVACLAW-MCP.md`](NOVACLAW-MCP.md) — first external-host MCP integration and its read-only repository-evidence boundary.
 - [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — naming inventory and staged cutover from historical `review-pack` filenames; 0.4.0 keeps live compatibility names.
@@ -51,6 +52,8 @@ CodeSleuth documentation is text-first and terminal-native.
 
 For EHA history, `eha_state_mermaid` derives campaign/SIB/repair lineage from the structured `eha.ndjson` ledger. That diagram is a presentation of acceptance evidence, not the evidence authority itself and not part of the repository context-graph authority.
 
+The same authority rule applies to repository diagrams and analytical reports: they are rebuildable/readable projections of structured evidence and verified source, never write-back formats for the durable evidence store.
+
 ## Completed implementation packets
 
 - [`archive/CURSOR-PRODUCTION-HANDOFF.md`](archive/CURSOR-PRODUCTION-HANDOFF.md) — completed PR #2 production-hardening packet, retained for historical evidence only. It is not an active task or branch instruction.
@@ -61,6 +64,7 @@ For EHA history, `eha_state_mermaid` derives campaign/SIB/repair lineage from th
 - [`LLM-OPERATOR.md`](LLM-OPERATOR.md) — task-specific cross-agent operator manual for safe installation, unattended configuration, verification, use, and removal.
 - [`SELF-UPDATE.md`](SELF-UPDATE.md) — floating update, post-update Verify, controlled CodeSleuth process restart, source-checkout reload, and pinned-update boundaries.
 - [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — `/eha-test`, `/eha-repair`, `/eha-status`, structured EHA evidence, and repair history.
+- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — evidence storage/read/write/search semantics for review, EHA, reporting and derived views.
 - [`_includes/build-controller-blurb.md`](_includes/build-controller-blurb.md) — canonical OpenCode `build` controller blurb. Public copy: [root README](../README.md#opencode-build-controller).
 
 ## Maintainers
@@ -68,6 +72,7 @@ For EHA history, `eha_state_mermaid` derives campaign/SIB/repair lineage from th
 - [`MAINTAINER-SUBREPO.md`](MAINTAINER-SUBREPO.md) — standalone/subrepo maintenance and integration guidance.
 - [`RELEASE-PROCESS.md`](RELEASE-PROCESS.md) — numbered release branch policy and acceptance gates.
 - [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — product-namespace inventory; runtime rename remains post-0.4.0 work.
+- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — persistence authority boundary; changing canonical evidence storage or introducing destructive generic CRUD normally reopens SIB0.
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — required acceptance identity contract for SIB promotion, accepted integration states, RCs, and releases.
 - [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — required repair-loop behavior after an EHA FAIL.
 - [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — executable product workflow and evidence topology for EHA campaigns.
@@ -79,11 +84,17 @@ For EHA history, `eha_state_mermaid` derives campaign/SIB/repair lineage from th
 ```text
 CODESLEUTH-PRODUCT-CONTRACT.md
         |
+        +--> DURABLE-EVIDENCE-STORE.md                    (review/evidence persistence authority)
+        |       +--> .opencode/state/reviews/*/state.json
+        |       +--> .opencode/state/reviews/*/findings.ndjson
+        |       +--> .opencode/state/reviews/*/eha.ndjson
+        |       +--> CODESLEUTH-REPORTS.md                (derived human-readable view)
+        |       +--> CONTEXT-GRAPH-DISCIPLINE.md          (derived bounded linkage view)
+        |
         +--> CODESLEUTH-BRANDING.md
         |       +--> CODESLEUTH-COLORMAP.json
         |       +--> pack/.opencode/bin/codesleuth_tui.py  (canonical ASCII/TUI)
         |
-        +--> CONTEXT-GRAPH-DISCIPLINE.md                  (repository linkage + Mermaid when useful)
         +--> NOVACLAW-MCP.md                              (external host seam)
         +--> ../AGENTS.md                                 (compact cross-agent entry point)
         +--> LLM-OPERATOR.md                              (task-specific operator surface)
@@ -94,9 +105,7 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         +--> SEMANTIC-REFIT.md                            (stale intent -> current semantics -> accepted refit)
         |
         +--> pack/.opencode/themes/codesleuth.json
-        +--> pack/.opencode/CODESLEUTH-REPORTS.md
         +--> host runtime / commands / Skills / tools
-        +--> .opencode/state/reviews/*/eha.ndjson         (structured local EHA evidence)
         +--> .codesleuth/reports/                         (human-readable local analysis)
 ```
 

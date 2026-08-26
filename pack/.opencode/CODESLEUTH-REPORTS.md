@@ -4,7 +4,7 @@ OpenCode's primary `build` agent writes durable markdown reports so later
 CodeSleuth sessions and other coding assistants in the same worktree can reuse
 analysis instead of starting from zero.
 
-Live store (target repository worktree):
+Live report store (target repository worktree):
 
 ```text
 .codesleuth/reports/
@@ -12,6 +12,9 @@ Live store (target repository worktree):
 
 Do not set `prompt` on `build`. This file is discovery and format, not a
 replacement controller.
+
+For the underlying structured evidence authority and mutation rules, follow
+`docs/DURABLE-EVIDENCE-STORE.md`.
 
 ## Who writes, who reads
 
@@ -24,22 +27,28 @@ replacement controller.
 
 ## Structured evidence versus reports
 
-Markdown reports are human-readable summaries. They are not the only durable
-evidence authority.
+Markdown reports are human-readable derived views. They are not the structured
+evidence authority and must never become a competing state store.
 
 Repository-review findings and EHA campaigns are stored under the existing
 ignored review-state boundary:
 
 ```text
 .opencode/state/reviews/<reviewId>/
-  state.json
-  findings.ndjson
-  eha.ndjson
+  state.json          # mutable atomic checkpoint snapshot
+  findings.ndjson     # append-only finding history
+  eha.ndjson          # append-only EHA/SIB/repair history
 ```
 
 For EHA work, `eha.ndjson` is the structured append-only ledger for exact target
 SHAs, SIB0/SIB1/SIB2 verdicts, and repair-loop decisions. A report must summarize
-that ledger truthfully; it must not replace, rewrite, or silently contradict it.
+that ledger truthfully; it must not replace, rewrite, truncate, delete, or
+silently contradict it.
+
+Use `review_state_*` / `eha_state_*` to load or change structured evidence. Raw
+`cat`/`grep` is permitted for read-only audit, debugging, recovery, or locating
+an ID, but it is not a semantic API and cannot by itself establish freshness,
+blob validity, exact-head identity, or SIB claimability.
 
 ## Git and cross-clone reuse
 
