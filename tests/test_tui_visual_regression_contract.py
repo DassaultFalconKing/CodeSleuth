@@ -2,6 +2,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+OPENCODE = ROOT / "pack" / ".opencode"
 
 
 def text(path: Path) -> str:
@@ -43,6 +44,7 @@ def test_acceptance_has_dedicated_tui_visual_regression_job_and_artifact_upload(
 
 def test_visual_regression_contract_is_documented_as_sib2_evidence() -> None:
     contract = text(ROOT / "docs" / "TUI-VISUAL-REGRESSION.md")
+    skill = text(OPENCODE / "skills" / "eha-sib-acceptance" / "SKILL.md")
     for token in (
         "screen.svg",
         "ui.log",
@@ -53,3 +55,6 @@ def test_visual_regression_contract_is_documented_as_sib2_evidence() -> None:
         "EHA repair loop",
     ):
         assert token in contract
+    assert "TUI visual regression / Ubuntu" in skill
+    assert "screen.svg" in skill
+    assert "required SIB2 interface-composition evidence" in skill
