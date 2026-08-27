@@ -109,6 +109,7 @@ def validate_inputs(root: Path, requested_files: list[str]) -> tuple[list[Path],
             "workingBlob": working_blob,
             "contentSha256": _sha256_file(absolute),
             "bytes": size,
+            "lineCount": len(absolute.read_bytes().splitlines()),
             "exactIndexMatch": working_blob == index_blob,
         }
     return absolute_files, provenance
@@ -123,6 +124,14 @@ def _source_ref(node: dict[str, Any], provenance: dict[str, dict[str, Any]]) -> 
     except AdapterError:
         return None
     return provenance.get(relative)
+
+
+def _source_line(value: Any, ref: dict[str, Any] | None) -> int | None:
+    """Return a real one-based source line, rejecting bogus or out-of-range locations."""
+    if not ref or not isinstance(value, str) or not value.startswith("L") or not value[1:].isdigit():
+        return None
+    line = int(value[1:])
+    return line if 1 <= line <= ref["lineCount"] else None
 
 
 def normalize_extraction(
@@ -175,11 +184,11 @@ def normalize_extraction(
             "origin": "verified_source" if ref and ref["exactIndexMatch"] else "review_inference",
             "providerMetadata": {"fileType": raw_node.get("file_type"), "origin": raw_node.get("_origin")},
         }
+        source_line = _source_line(raw_node.get("source_location"), ref)
         if candidate["origin"] == "verified_source":
             source_ref: dict[str, Any] = {"path": ref["path"], "blobHash": ref["indexBlob"]}
-            location = raw_node.get("source_location")
-            if isinstance(location, str) and location.startswith("L") and location[1:].isdigit():
-                source_ref["startLine"] = int(location[1:])
+            if source_line is not None:
+                source_ref["startLine"] = source_line
             candidate["projectionInput"] = {
                 "kind": kind,
                 "key": key,
@@ -237,11 +246,10 @@ def normalize_extraction(
         if exact:
             edge_source_file = raw_edge.get("source_file")
             edge_ref = provenance.get(str(edge_source_file).replace("\\", "/"))
-            if edge_ref and edge_ref["exactIndexMatch"]:
+            edge_line = _source_line(raw_edge.get("source_location"), edge_ref)
+            if edge_ref and edge_ref["exactIndexMatch"] and edge_line is not None:
                 projection_edge["path"] = edge_ref["path"]
-                edge_location = raw_edge.get("source_location")
-                if isinstance(edge_location, str) and edge_location.startswith("L") and edge_location[1:].isdigit():
-                    projection_edge["startLine"] = int(edge_location[1:])
+                projection_edge["startLine"] = edge_line
             else:
                 exact = False
                 projection_edge = {
@@ -304,14 +312,30 @@ def _disable_network() -> tuple[Any, Any]:
     return original_connect, original_create_connection
 
 
+def _runtime_distribution_version(runtime: Path) -> str | None:
+    versions = {
+        distribution.version
+        for distribution in importlib.metadata.distributions(path=[str(runtime)])
+        if distribution.metadata.get("Name", "").lower() == PROVIDER_PACKAGE
+    }
+    if len(versions) > 1:
+        raise AdapterError(f"ambiguous {PROVIDER_PACKAGE} distributions in isolated runtime: {sorted(versions)}")
+    return next(iter(versions), None)
+
+
+def _assert_module_in_runtime(module: Any, runtime: Path) -> None:
+    module_file = getattr(module, "__file__", None)
+    if not module_file:
+        raise AdapterError("Graphify module has no inspectable runtime identity")
+    try:
+        Path(module_file).resolve().relative_to(runtime)
+    except ValueError as error:
+        raise AdapterError(f"Graphify code resolved outside isolated runtime: {module_file}") from error
+
+
 def provider_status(runtime: Path = DEFAULT_RUNTIME) -> dict[str, Any]:
     runtime = runtime.resolve()
-    resolved_version: str | None = None
-    if runtime.is_dir():
-        for distribution in importlib.metadata.distributions(path=[str(runtime)]):
-            if distribution.metadata.get("Name", "").lower() == PROVIDER_PACKAGE:
-                resolved_version = distribution.version
-                break
+    resolved_version = _runtime_distribution_version(runtime) if runtime.is_dir() else None
     available = resolved_version == PROVIDER_VERSION
     return {
         "schemaVersion": 1,
@@ -325,7 +349,7 @@ def provider_status(runtime: Path = DEFAULT_RUNTIME) -> dict[str, Any]:
         "permissions": {
             "trackedFilesRead": True,
             "ignoredLocalCacheWrite": "temporary only",
-            "network": False,
+            "socketConnectDeniedDuringProviderLoadAndExecution": True,
             "semanticLlm": False,
             "gitMutation": False,
             "trackedWrite": False,
@@ -350,21 +374,27 @@ def run_provider(
             "optional Graphify runtime unavailable; explicitly install graphifyy==0.9.50 "
             "under .runtime/graphify-provider"
         )
-    sys.path.insert(0, str(runtime))
-    try:
-        version = importlib.metadata.version(PROVIDER_PACKAGE)
-        if version != PROVIDER_VERSION:
-            raise AdapterError(f"expected exact {PROVIDER_PACKAGE} {PROVIDER_VERSION}, found {version}")
-        from graphify.extract import extract  # type: ignore[import-not-found]
-        from graphify.build import build  # type: ignore[import-not-found]
-        from graphify.cluster import cluster  # type: ignore[import-not-found]
-    except (ImportError, importlib.metadata.PackageNotFoundError) as error:
-        raise AdapterError(f"optional Graphify runtime unavailable: {error}") from error
-
+    version = _runtime_distribution_version(runtime)
+    if version != PROVIDER_VERSION:
+        found = version if version is not None else "no scoped distribution"
+        raise AdapterError(f"expected exact {PROVIDER_PACKAGE} {PROVIDER_VERSION}, found {found}")
+    runtime_entry = str(runtime)
+    sys.path.insert(0, runtime_entry)
     original_connect, original_create_connection = _disable_network()
-    captured_stdout = io.StringIO()
-    captured_stderr = io.StringIO()
     try:
+        try:
+            import graphify  # type: ignore[import-not-found]
+            from graphify.extract import extract  # type: ignore[import-not-found]
+            from graphify.build import build  # type: ignore[import-not-found]
+            from graphify.cluster import cluster  # type: ignore[import-not-found]
+            _assert_module_in_runtime(graphify, runtime)
+            _assert_module_in_runtime(sys.modules[extract.__module__], runtime)
+            _assert_module_in_runtime(sys.modules[build.__module__], runtime)
+            _assert_module_in_runtime(sys.modules[cluster.__module__], runtime)
+        except ImportError as error:
+            raise AdapterError(f"optional Graphify runtime unavailable: {error}") from error
+        captured_stdout = io.StringIO()
+        captured_stderr = io.StringIO()
         with tempfile.TemporaryDirectory(prefix="codesleuth-graphify-cache-") as cache_dir:
             with redirect_stdout(captured_stdout), redirect_stderr(captured_stderr):
                 extraction = extract(
@@ -378,6 +408,13 @@ def run_provider(
     finally:
         socket.socket.connect = original_connect  # type: ignore[method-assign]
         socket.create_connection = original_create_connection  # type: ignore[assignment]
+        if sys.path and sys.path[0] == runtime_entry:
+            sys.path.pop(0)
+        else:
+            try:
+                sys.path.remove(runtime_entry)
+            except ValueError:
+                pass
 
     normalized = normalize_extraction(
         extraction,
@@ -406,7 +443,7 @@ def run_provider(
             "version": version,
             "upstreamCommit": PROVIDER_COMMIT,
             "mode": "local_structural_library_only",
-            "network": False,
+            "networkIsolation": "socket connect/create_connection denied during provider import and execution",
             "semanticLlm": False,
         },
         "authority": {

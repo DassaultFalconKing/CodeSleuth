@@ -102,3 +102,27 @@ jobs:
         run: bun install --cwd tools/mermaid-qa --frozen-lockfile
       - name: Run durable-state and context-graph smokes
         run: bun run test
+
+  graphify-enabled:
+    name: Graphify enabled runtime / Python 3.12 / Ubuntu
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CODESLEUTH_ACCEPTANCE_SHA }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Verify exact checked-out commit
+        run: >-
+          python -c "import os, subprocess; expected=os.environ['CODESLEUTH_ACCEPTANCE_SHA']; actual=subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(); assert actual == expected, f'acceptance checkout mismatch: expected {expected}, got {actual}'; print(f'EXACT HEAD {actual}')"
+      - name: Install acceptance dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Install hash-locked Graphify runtime
+        run: python -m pip install --require-hashes --only-binary=:all: --target .runtime/graphify-provider -r tools/graphify-provider/requirements-lock.txt
+      - name: Run enabled provider and semantic corpus acceptance
+        run: |
+          python -m pytest -q tests/test_graphify_adapter.py tests/test_graphify_corpus.py
+          python scripts/graphify_corpus_compare.py --fixtures tests/fixtures/graphify-corpus --check

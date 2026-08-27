@@ -1,6 +1,14 @@
 {
-  "python": { "minNodes": 4, "minMappedEdges": 1 },
-  "typescript": { "minNodes": 4, "minMappedEdges": 1 },
-  "rust": { "minNodes": 3, "minMappedEdges": 0 },
-  "mixed": { "minNodes": 6, "minMappedEdges": 0 }
+  "python": {
+    "minNodes": 4,
+    "minMappedEdges": 1,
+    "expectedEdges": ["app|imports|worker_worker", "app_run|calls|worker_worker"]
+  },
+  "typescript": {
+    "minNodes": 4,
+    "minMappedEdges": 1,
+    "expectedEdges": ["app|imports|worker_work", "app_run|calls|worker_work"]
+  },
+  "rust": { "minNodes": 3, "minMappedEdges": 0, "expectedEdges": [] },
+  "mixed": { "minNodes": 6, "minMappedEdges": 0, "expectedEdges": [] }
 }

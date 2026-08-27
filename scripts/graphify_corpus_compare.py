@@ -54,6 +54,10 @@ def _measure(root: Path, files: list[str], node_limit: int = 200) -> tuple[dict[
     encoded = json.dumps(result, sort_keys=True, separators=(",", ":")).encode("utf-8")
     exact_nodes = sum(node["origin"] == "verified_source" for node in result["nodes"])
     exact_edges = sum(edge["origin"] == "verified_source" for edge in result["edges"])
+    semantic_edges = sorted(
+        f'{edge["sourceProviderId"]}|{edge["relation"]}|{edge["targetProviderId"]}'
+        for edge in result["edges"]
+    )
     return result, {
         "wallMs": wall_ms,
         "pythonPeakBytes": peak,
@@ -62,6 +66,7 @@ def _measure(root: Path, files: list[str], node_limit: int = 200) -> tuple[dict[
         "returnedEdges": result["selection"]["returned"]["edges"],
         "exactNodeRatio": round(exact_nodes / max(1, len(result["nodes"])), 4),
         "exactEdgeRatio": round(exact_edges / max(1, len(result["edges"])), 4),
+        "semanticEdges": semantic_edges,
         "truncated": result["selection"]["truncated"],
         "unmappedRelations": result["diagnostics"]["unmappedRelations"],
     }
@@ -103,6 +108,21 @@ def run(fixtures: Path, *, check: bool) -> dict[str, Any]:
                 failures.append(f"{name}: returned too few useful nodes")
             if metrics["returnedEdges"] < expected.get("minMappedEdges", 0):
                 failures.append(f"{name}: returned too few mapped edges")
+            if "expectedEdges" in expected:
+                actual_edges = set(metrics["semanticEdges"])
+                expected_edges = set(expected["expectedEdges"])
+                false_positives = sorted(actual_edges - expected_edges)
+                false_negatives = sorted(expected_edges - actual_edges)
+                metrics["semanticPrecision"] = 1.0 if not actual_edges else round(
+                    len(actual_edges & expected_edges) / len(actual_edges), 4
+                )
+                metrics["semanticRecall"] = 1.0 if not expected_edges else round(
+                    len(actual_edges & expected_edges) / len(expected_edges), 4
+                )
+                if false_positives:
+                    failures.append(f"{name}: false-positive semantic edges: {false_positives}")
+                if false_negatives:
+                    failures.append(f"{name}: missing golden semantic edges: {false_negatives}")
             if name == "large-over-limit" and not metrics["truncated"]:
                 failures.append("large-over-limit: expected explicit truncation")
             if any(edge["relation"] not in {"imports", "calls"} for edge in result["edges"]):
@@ -122,8 +142,8 @@ def run(fixtures: Path, *, check: bool) -> dict[str, Any]:
             "upstreamCommit": ADAPTER.PROVIDER_COMMIT,
         },
         "measurementScope": {
-            "precisionProxy": "ratio of returned candidates retaining exact Git/blob promotion",
-            "recallProxy": "fixture minimum useful structural nodes/edges; not semantic recall",
+            "provenancePromotionRatio": "ratio of returned candidates retaining exact Git/blob promotion",
+            "semanticPrecisionRecall": "exact comparison with checked-in golden edge sets for Python, TypeScript, Rust, and mixed-language fixtures",
             "memory": "Python tracemalloc peak; native parser allocations may be excluded",
             "tokens": "modelVisibleBytes reported; no unsupported token-savings claim",
         },

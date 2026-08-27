@@ -55,7 +55,7 @@ def test_dirty_input_cannot_promote_extracted_edge(tmp_path: Path) -> None:
             {"id": "b", "label": "other.py", "file_type": "code", "source_file": "other.py"},
         ],
         "edges": [
-            {"source": "b", "target": "a", "relation": "calls", "confidence": "EXTRACTED"}
+            {"source": "b", "target": "a", "relation": "calls", "confidence": "EXTRACTED", "source_file": "other.py", "source_location": "L1"}
         ],
     }
     result = ADAPTER.normalize_extraction(extraction, provenance)
@@ -83,6 +83,35 @@ def test_unknown_and_ambiguous_semantics_fail_closed(tmp_path: Path) -> None:
     assert "AMBIGUOUS" in result["edges"][0]["note"]
 
 
+@pytest.mark.parametrize("location", ["L0", "L999999", "bogus"])
+def test_bogus_source_lines_cannot_promote_extracted_edges(tmp_path: Path, location: str) -> None:
+    root = repository(tmp_path)
+    _, provenance = ADAPTER.validate_inputs(root, ["app.py", "other.py"])
+    extraction = {
+        "nodes": [
+            {"id": "a", "label": "run()", "source_file": "app.py", "source_location": "L1"},
+            {"id": "b", "label": "other.py", "source_file": "other.py", "source_location": "L1"},
+        ],
+        "edges": [{"source": "b", "target": "a", "relation": "calls", "confidence": "EXTRACTED", "source_file": "other.py", "source_location": location}],
+    }
+    result = ADAPTER.normalize_extraction(extraction, provenance)
+    assert result["edges"][0]["origin"] == "review_inference"
+
+
+def test_wrong_source_file_cannot_promote_extracted_edge(tmp_path: Path) -> None:
+    root = repository(tmp_path)
+    _, provenance = ADAPTER.validate_inputs(root, ["app.py", "other.py"])
+    extraction = {
+        "nodes": [
+            {"id": "a", "label": "run()", "source_file": "app.py", "source_location": "L1"},
+            {"id": "b", "label": "other.py", "source_file": "other.py", "source_location": "L1"},
+        ],
+        "edges": [{"source": "b", "target": "a", "relation": "calls", "confidence": "EXTRACTED", "source_file": "missing.py", "source_location": "L1"}],
+    }
+    result = ADAPTER.normalize_extraction(extraction, provenance)
+    assert result["edges"][0]["origin"] == "review_inference"
+
+
 def test_exact_runtime_executes_local_structural_api(tmp_path: Path) -> None:
     runtime = ROOT / ".runtime" / "graphify-provider"
     if not runtime.is_dir():
@@ -91,7 +120,7 @@ def test_exact_runtime_executes_local_structural_api(tmp_path: Path) -> None:
     result = ADAPTER.run_provider(root, ["app.py", "other.py"], runtime=runtime)
     assert result["provider"]["version"] == "0.9.50"
     assert result["provider"]["upstreamCommit"] == ADAPTER.PROVIDER_COMMIT
-    assert result["provider"]["network"] is False
+    assert "socket connect/create_connection denied" in result["provider"]["networkIsolation"]
     assert result["provider"]["semanticLlm"] is False
     assert result["input"]["fileCount"] == 2
     assert result["selection"]["returned"]["nodes"] > 0
@@ -107,6 +136,7 @@ def test_provider_pin_and_verified_profile_lock_are_visible() -> None:
     )
     docs = (ROOT / "docs" / "GRAPHIFY-PROVIDER.md").read_text(encoding="utf-8")
     assert "graphifyy==0.9.50" in top_level and "graphifyy==0.9.50" in lock
+    assert "--hash=sha256:" in lock
     assert ADAPTER.PROVIDER_COMMIT in top_level and ADAPTER.PROVIDER_COMMIT in docs
     assert "builtin repository mapping remains default" in docs
     assert ".runtime/graphify-provider" in docs
