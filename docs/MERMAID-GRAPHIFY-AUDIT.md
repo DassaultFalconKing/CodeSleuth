@@ -484,6 +484,11 @@ Acceptance:
 
 ### M2 — Graphify structural-provider spike
 
+**Feature-branch status:** implemented. The exact-pinned optional adapter accepts only
+an explicit tracked-file manifest, calls the local structural library with networking
+disabled, validates Git/blob identity, maps a closed relation vocabulary, and bounds
+candidate output. It does not install or invoke Graphify host/runtime side effects.
+
 Add a narrow Python adapter/helper that consumes an explicit Git-selected file list and
 returns candidate structural nodes/edges.
 
@@ -502,6 +507,11 @@ Acceptance:
 - bounded output before it reaches model-visible tools.
 
 ### M3 — corpus comparison and hardening
+
+**Feature-branch status:** implemented for deterministic fixtures and the current
+Windows development host. The harness covers the listed language/drift/security shapes
+and reports honest time, Python-memory, size, truncation and unmapped-semantics metrics.
+Linux/macOS execution remains an adoption-gate item, not an inferred PASS.
 
 Test built-in mapping against representative repositories covering at least:
 
@@ -533,6 +543,11 @@ normalization produces too many unverifiable/coerced relations.
 
 ### M4 — optional provider behind `/repo-map`
 
+**Feature-branch status:** implemented. `builtin` remains default in settings/TUI and
+the Playbook. Explicit Graphify status/extraction exposes version, origin, permissions,
+compatibility and removal; candidates still pass consolidated context-graph save
+validation.
+
 Only after M2/M3 pass, expose provider selection without changing the safe default
 silently.
 
@@ -558,6 +573,11 @@ permissions/capabilities
 This belongs naturally to the already-allowed extension-management UX.
 
 ### M5 — topology-assisted Mermaid selection
+
+**Feature-branch status:** implemented as ephemeral, deterministic community/centrality
+root hints. Hints match an existing projection by closed semantic identity and feed the
+same roots into the accepted query/Mermaid traversal; they never alter identity,
+provenance or evidence origin.
 
 Use Graphify communities/centrality only as **selection hints** for which verified
 CodeSleuth nodes to render. They must not become identity or evidence.
@@ -653,7 +673,9 @@ Until then, Graphify remains a roadmap candidate, not a production dependency.
 
 ## 16. Practical recommendation
 
-Proceed with M1 and M2.
+The full M1-M5 feature implementation is now available on its feature branch. Keep
+Graphify classified as incubating until the remaining adoption gates above—especially
+Linux/macOS execution and distribution compatibility—are independently satisfied.
 
 The likely high-value end state is deliberately boring:
 

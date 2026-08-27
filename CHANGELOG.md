@@ -13,6 +13,7 @@ First release prepared under the release-only `main` contract and the `dev/relea
 - thin OpenCode Command entry points that route multi-step work through Playbooks while leaving the host `build` agent as the primary controller;
 - durable review state, exact-source findings, append-only finding-amendment and EHA/SIB/repair evidence, deterministic inventory, and bounded repository context graphs with optional Mermaid projection;
 - bounded scoped Mermaid neighborhood rendering that reuses the context-graph query selection semantics instead of introducing a second traversal implementation;
+- uniform versioned provenance envelopes for all Mermaid views, isolated exact-pinned Mermaid parser/render QA, and an explicitly enabled Graphify structural provider with tracked-input validation, corpus hardening, TUI/provider lifecycle visibility, and topology-assisted bounded root selection;
 - Protected Capability Registry with code/docs/test provenance, dependency/impact metadata, contract fingerprints, contract-owned forbidden-regression ledgers, and dependency-aware assessment tooling;
 - Exact-Head Acceptance discipline for SIB0/SIB1/SIB2, including immutable target identity, failed-target repair lineage, and literal release-stream candidate selection;
 - a GitHub-to-OpenCode EHA bridge: owner-gated remote requests execute the real `/eha-test` on a trusted self-hosted OpenCode runner while the canonical durable `eha.ndjson` ledger remains acceptance authority;

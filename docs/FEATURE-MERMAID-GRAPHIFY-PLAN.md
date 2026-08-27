@@ -171,15 +171,15 @@ python -m pytest -q tests/test_graphify_topology_contract.py
 
 ### D7 — final integration and handoff
 
-- [ ] Every focused gate above is rerun after integration.
-- [ ] Full Python, Bun, Ruff, lifecycle/packaging, documentation-contract, and Mermaid
+- [x] Every focused gate above is rerun after integration.
+- [x] Full Python, Bun, Ruff, lifecycle/packaging, documentation-contract, and Mermaid
       parser QA gates are green.
-- [ ] Optional-dependency-absent and optional-dependency-enabled profiles both pass.
-- [ ] `pack/.opencode` and installed/runtime parity are verified from a disposable
+- [x] Optional-dependency-absent and optional-dependency-enabled profiles both pass.
+- [x] `pack/.opencode` and installed/runtime parity are verified from a disposable
       installation, not by editing the source checkout's `.opencode` mirror.
-- [ ] Exact branch head, ordered logical commits, executed evidence, skipped platform
+- [x] Exact branch head, ordered logical commits, executed evidence, skipped platform
       coverage, and residual limitations are recorded for supervisor transplant.
-- [ ] No merge, baseline promotion, EHA PASS, tag, or release claim is made here.
+- [x] No merge, baseline promotion, EHA PASS, tag, or release claim is made here.
 
 ## Commit and test discipline
 
@@ -199,4 +199,4 @@ the feature delta only; it does not transfer SIB/EHA acceptance to the feature h
 | D4 corpus | deterministic harness/fixtures | corpus check | complete |
 | D5 provider UX | config/playbook/lifecycle integration | provider/lifecycle/parity | complete |
 | D6 topology | bounded hint selection | topology + M1 regression | complete |
-| D7 handoff | exact-head audit | all gates rerun | pending |
+| D7 handoff | exact-head audit | all gates rerun | complete |
