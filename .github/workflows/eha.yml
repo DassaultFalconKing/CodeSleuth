@@ -1,0 +1,92 @@
+name: CodeSleuth EHA
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_branch:
+        description: Literal numbered release stream to select the candidate from
+        required: true
+        default: dev/release-0.4.0
+        type: string
+      expected_sha:
+        description: Full 40-character SHA expected at the literal release-stream head
+        required: true
+        type: string
+      scope:
+        description: Optional EHA scope note passed to the canonical Playbook
+        required: false
+        default: SIB0/SIB1/SIB2 exact-head acceptance
+        type: string
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codesleuth-eha-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  eha:
+    # The self-hosted runner carries model/provider auth and the durable local
+    # evidence store.  On this public repository it is never allocated for an
+    # untrusted commenter: only the repository owner's explicit command or
+    # manual dispatch reaches the job.
+    if: >-
+      github.actor == github.repository_owner &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          startsWith(github.event.comment.body, '/eha-test ')
+        )
+      )
+    runs-on: [self-hosted, codesleuth-eha]
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout trusted bridge source
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          clean: true
+          persist-credentials: false
+
+      - name: Verify trusted OpenCode host
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v python3
+          command -v opencode
+          python3 --version
+          opencode --version
+
+      - name: Run owner issue-command EHA
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          CODESLEUTH_EHA_REQUEST: ${{ github.event.comment.body }}
+        run: |
+          set -euo pipefail
+          persist_root="${CODESLEUTH_EHA_PERSIST_ROOT:-${RUNNER_WORKSPACE}/.codesleuth-eha/${GITHUB_REPOSITORY//\//-}}"
+          python3 scripts/eha_github_bridge.py \
+            --request "$CODESLEUTH_EHA_REQUEST" \
+            --persist-root "$persist_root"
+
+      - name: Run manually dispatched EHA
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          CODESLEUTH_EHA_RELEASE_BRANCH: ${{ inputs.release_branch }}
+          CODESLEUTH_EHA_EXPECTED_SHA: ${{ inputs.expected_sha }}
+          CODESLEUTH_EHA_SCOPE: ${{ inputs.scope }}
+        run: |
+          set -euo pipefail
+          persist_root="${CODESLEUTH_EHA_PERSIST_ROOT:-${RUNNER_WORKSPACE}/.codesleuth-eha/${GITHUB_REPOSITORY//\//-}}"
+          python3 scripts/eha_github_bridge.py \
+            --release-branch "$CODESLEUTH_EHA_RELEASE_BRANCH" \
+            --expected-sha "$CODESLEUTH_EHA_EXPECTED_SHA" \
+            --scope "$CODESLEUTH_EHA_SCOPE" \
+            --persist-root "$persist_root"
