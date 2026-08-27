@@ -57,3 +57,28 @@ and provider cache is confined to a disposable temporary directory. The response
 reports provider version/commit, exact input provenance, selection/truncation and
 bounded diagnostics. It remains a candidate structural projection: CodeSleuth Git/blob
 validation is authority.
+
+## Repository-map integration
+
+`repo_context_provider_status` reports `builtin` (the default) or the optional
+`graphify` runtime, including installed/compatible state, origin, capabilities,
+permissions and removal path. `repo_context_provider_extract` requires an explicit
+provider choice. Its builtin branch delegates to the established source-review flow;
+its Graphify branch accepts only an explicit tracked manifest and returns bounded
+candidate `projectionInput` values.
+
+The repository-map Playbook reviews those candidates and sends selected values through
+`repo_context_graph_save`, which independently revalidates current Git blobs and the
+closed node/edge contract. The provider tool never persists a projection, silently
+installs dependencies, or falls back from an explicitly requested incompatible
+Graphify runtime.
+
+Remove only the ignored optional runtime through the installed lifecycle CLI:
+
+```text
+.opencode/bin/codesleuth-project --remove-graphify-runtime .
+```
+
+This permanently removes `.runtime/graphify-provider` and nothing else; reinstall from
+the exact lock to recover it. Normal CodeSleuth uninstall does not silently broaden its
+scope to this separately installed dependency.

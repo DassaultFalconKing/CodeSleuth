@@ -1,6 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import { extract, status } from "../pack/.opencode/tools/repo_context_provider"
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -41,6 +42,26 @@ try {
   assert(result.input.files.every((file: any) => file.exactIndexMatch), "tracked fixture inputs must retain exact blob identity")
   assert(result.selection.returned.nodes > 0, "provider must return bounded structural candidates")
   assert(result.providerDiagnostics.stdout.length < 4001, "provider diagnostics must remain bounded")
+  const sourceRoot = path.resolve(import.meta.dir, "..")
+  const context = { worktree: sourceRoot, sessionID: "provider-smoke", directory: sourceRoot }
+  const builtinStatus = JSON.parse(await status.execute({}, context))
+  assert(builtinStatus.provider === "builtin" && builtinStatus.defaultProvider === true, "builtin must remain the default provider")
+  const graphifyStatus = JSON.parse(await status.execute({ provider: "graphify" }, context))
+  assert(graphifyStatus.status === "available" && graphifyStatus.compatible === true, "tool must expose exact optional-provider status")
+  const builtin = JSON.parse(await extract.execute({ provider: "builtin" }, context))
+  assert(builtin.status === "delegate_to_existing_repository_map", "builtin extraction must retain the existing map flow")
+  const viaTool = JSON.parse(
+    await extract.execute(
+      { provider: "graphify", files: ["scripts/graphify_adapter.py", "scripts/mermaid_qa.py"], nodeLimit: 50, edgeLimit: 50 },
+      context,
+    ),
+  )
+  assert(viaTool.status === "ok" && viaTool.provider.id === "graphify", "explicit graphify selection must use the isolated adapter")
+  assert(viaTool.nodes.every((node: any) => node.projectionInput), "provider candidates must be ready for consolidated save validation")
+  assert(
+    viaTool.edges.every((edge: any) => edge.projectionInput.origin === "verified_source" || edge.projectionInput.relation === "review_inference"),
+    "non-exact provider edges must use the existing review_inference save contract",
+  )
   console.log("CONTEXT GRAPH PROVIDER SMOKE PASS")
 } finally {
   await rm(root, { recursive: true, force: true })

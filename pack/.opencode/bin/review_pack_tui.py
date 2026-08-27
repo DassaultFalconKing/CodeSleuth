@@ -298,7 +298,19 @@ class ConfigScreen(AbortableModalScreen[bool]):
                         classes="hint",
                     )
 
-                yield Label("7. Planned policy", classes="section")
+                yield Label("7. Context graph provider", classes="section")
+                yield Static(
+                    "Builtin is the safe default. Graphify is optional, local-only and must be installed separately.",
+                    classes="hint",
+                )
+                yield Select(
+                    [("Builtin exact-source mapping", "builtin"), ("Graphify structural candidates", "graphify")],
+                    value=self.settings.get("contextGraph", {}).get("provider") or "builtin",
+                    allow_blank=False,
+                    id="context-graph-provider",
+                )
+
+                yield Label("8. Planned policy", classes="section")
                 yield Static("", id="summary")
             with Horizontal(id="page-actions"):
                 yield Button("Apply", id="apply", variant="success")
@@ -352,6 +364,9 @@ class ConfigScreen(AbortableModalScreen[bool]):
             },
             "policy": {
                 "enforceAgentsMdRules": bool(self.query_one("#enforce-agents", Switch).value),
+            },
+            "contextGraph": {
+                "provider": self._select_value("#context-graph-provider"),
             },
         }
         return coerce_self_install_agents_policy(validate_settings(settings), is_self=self._self_install_target)

@@ -650,6 +650,25 @@ def _metadata_source(repo: Path) -> dict[str, Any] | None:
     return json.loads(meta.read_text(encoding="utf-8")).get("source")
 
 
+def remove_graphify_provider_runtime(repo: Path) -> dict[str, Any]:
+    """Remove only the ignored optional Graphify runtime from *repo*."""
+    root = git_root(repo).resolve()
+    runtime_root = (root / ".runtime").resolve()
+    target = (runtime_root / "graphify-provider").resolve()
+    if target.parent != runtime_root or target.name != "graphify-provider":
+        raise RuntimeError("refusing unsafe Graphify runtime removal target")
+    existed = target.is_dir()
+    if existed:
+        shutil.rmtree(target)
+    return {
+        "action": "remove_graphify_provider_runtime",
+        "path": ".runtime/graphify-provider",
+        "removed": existed,
+        "recoverable": False,
+        "scope": "optional ignored provider dependencies only",
+    }
+
+
 def main() -> int:
     """CLI entrypoint for project lifecycle operations."""
     parser = argparse.ArgumentParser(
@@ -667,6 +686,7 @@ def main() -> int:
     actions.add_argument("--bind", action="store_true", help="pin CodeSleuth as a Git submodule")
     actions.add_argument("--unbind", action="store_true", help="remove the CodeSleuth dependency while keeping the installed runtime")
     actions.add_argument("--uninstall", action="store_true", help="restore pre-CodeSleuth config and remove CodeSleuth")
+    actions.add_argument("--remove-graphify-runtime", action="store_true", help="remove only ignored .runtime/graphify-provider dependencies")
     parser.add_argument("--purge-traces", action="store_true", help="delete CodeSleuth reports/settings/backups instead of archiving them")
     parser.add_argument("--keep-dependency", action="store_true", help="uninstall the runtime but leave the CodeSleuth gitlink")
     args = parser.parse_args()
@@ -679,6 +699,9 @@ def main() -> int:
         record_tracked_repository(repo)
     elif args.unbind:
         result = remove_dependency(repo, args.dependency_path)
+        record_tracked_repository(repo)
+    elif args.remove_graphify_runtime:
+        result = remove_graphify_provider_runtime(repo)
         record_tracked_repository(repo)
     else:
         result = uninstall_project(
@@ -725,6 +748,7 @@ __all__ = [
     "registry_path",
     "remove_agents_reports_pointer",
     "remove_dependency",
+    "remove_graphify_provider_runtime",
     "remove_local_gitignore_block",
     "report_timestamp_key",
     "restore_preinstall_snapshot",

@@ -133,13 +133,13 @@ python scripts/graphify_corpus_compare.py --fixtures tests/fixtures/graphify-cor
 
 ### D5 — optional provider in repository-map flow (M4)
 
-- [ ] Existing builtin behavior remains the default.
-- [ ] Provider selection is explicit: `builtin` or `graphify`.
-- [ ] Status exposes installed/available state, exact version/origin, capabilities,
+- [x] Existing builtin behavior remains the default.
+- [x] Provider selection is explicit: `builtin` or `graphify`.
+- [x] Status exposes installed/available state, exact version/origin, capabilities,
       permission boundary, and compatibility state.
-- [ ] Provider cache is local, ignored, rebuildable, bounded, and removable through
+- [x] Provider cache is local, ignored, rebuildable, bounded, and removable through
       the existing lifecycle.
-- [ ] `/repo-map`, playbook steps, operator docs, packaging and Verify describe and
+- [x] `/repo-map`, playbook steps, operator docs, packaging and Verify describe and
       test the same behavior.
 
 Focused gate:
@@ -147,7 +147,7 @@ Focused gate:
 ```text
 bun tests/context_graph_provider_smoke.ts
 python -m pytest -q tests/test_graphify_lifecycle.py tests/test_smoke_parity.py
-python smoke.py
+python -m pytest -q tests/test_tui.py tests/test_apply_settings.py
 ```
 
 ### D6 — topology-assisted bounded selection (M5)
@@ -197,6 +197,6 @@ the feature delta only; it does not transfer SIB/EHA acceptance to the feature h
 | D2 Mermaid QA | isolated QA helper/tool | parser and hostile-source tests | complete |
 | D3 Graphify adapter | pinned adapter and closed schema | adapter/provider contracts | complete |
 | D4 corpus | deterministic harness/fixtures | corpus check | complete |
-| D5 provider UX | config/playbook/lifecycle integration | provider/lifecycle/parity | pending |
+| D5 provider UX | config/playbook/lifecycle integration | provider/lifecycle/parity | complete |
 | D6 topology | bounded hint selection | topology + M1 regression | pending |
 | D7 handoff | exact-head audit | all gates rerun | pending |

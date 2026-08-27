@@ -9,6 +9,15 @@ $ARGUMENTS
 
 Keep OpenCode `build` as primary controller. Read only the Playbook manifest and current Step. The result is a bounded derived RepositoryContextProjection; it is navigation/context, not repository authority or sufficient finding evidence.
 
+Provider choice must be explicit in the result. Use an explicit request first; otherwise
+read `contextGraph.provider` from `.opencode/review-pack-user.json` when present and
+default to `builtin`. If the selected provider
+names `graphify`, call `repo_context_provider_status`, require the exact compatible
+optional runtime, enumerate a bounded tracked-file manifest, and use
+`repo_context_provider_extract`. Never auto-install or silently fall back after an
+explicit incompatible Graphify request. Provider candidates still pass through exact
+source review and `repo_context_graph_save` validation.
+
 When a Mermaid view is requested, pass explicit roots/hops/relation/origin and
 node/edge bounds when the requested scope supplies them. The Mermaid tool must
 reuse the query selection, disclose selection totals/truncation/projection and

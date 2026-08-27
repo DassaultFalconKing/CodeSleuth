@@ -93,6 +93,9 @@ def default_settings(profiles: list[str] | None = None) -> dict[str, Any]:
         "policy": {
             "enforceAgentsMdRules": False,
         },
+        "contextGraph": {
+            "provider": "builtin",
+        },
     }
 
 
@@ -206,6 +209,11 @@ def validate_settings(settings: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(val, bool):
         raise ValueError("policy.enforceAgentsMdRules must be a boolean")
     policy["enforceAgentsMdRules"] = bool(val)
+    context_graph = merged.get("contextGraph")
+    if not isinstance(context_graph, dict):
+        raise ValueError("contextGraph must be an object")
+    if context_graph.get("provider") not in {"builtin", "graphify"}:
+        raise ValueError("contextGraph.provider must be builtin or graphify")
     return merged
 
 
@@ -476,6 +484,7 @@ def settings_summary(settings: dict[str, Any]) -> str:
     r = settings["runtime"]
     agent = settings["agent"]
     policy = settings.get("policy", {})
+    context_graph = settings["contextGraph"]
     model = agent["model"] or "OpenCode current model"
     return "\n".join([
         f"Profiles: {', '.join(settings['profiles'])} ({settings['profilesMode']})",
@@ -488,6 +497,7 @@ def settings_summary(settings: dict[str, Any]) -> str:
         f"Compaction reserved tokens: {r['compactionReserved']}",
         f"Check updates when TUI opens: {'yes' if r['checkUpdatesOnStart'] else 'no'}",
         f"Agents policy: {'enforced' if policy.get('enforceAgentsMdRules') else 'off'} — Maintain CodeSleuth workflow rules in root AGENTS.md",
+        f"Context graph provider: {context_graph['provider']} (builtin remains safe default; Graphify requires an isolated runtime)",
     ])
 
 
@@ -507,6 +517,7 @@ def config_preview(settings: dict[str, Any]) -> str:
         "policy": {
             "enforceAgentsMdRules": bool(settings.get("policy", {}).get("enforceAgentsMdRules", False)),
         },
+        "contextGraph": {"provider": settings["contextGraph"]["provider"]},
     }
     return json.dumps(preview, indent=2)
 
