@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the canonical CodeSleuth EHA Playbook from a trusted GitHub runner.
 
-This module is deliberately an adapter, not an EHA implementation.  It freezes
+This module is deliberately an adapter, not an EHA implementation. It freezes
 one literal release-stream SHA, wires host-persistent local evidence into the
 checkout, invokes OpenCode `/eha-test`, and then derives a small execution status
 from the authoritative `eha.ndjson` ledger.
@@ -263,7 +263,24 @@ def opencode_environment(root: Path) -> dict[str, str]:
     env["OPENCODE_PERMISSION"] = json.dumps(
         {
             "edit": {"*": "deny", ".codesleuth/reports/**": "allow"},
-            "bash": "allow",
+            "bash": {
+                "*": "allow",
+                "git add*": "deny",
+                "git branch*": "deny",
+                "git checkout*": "deny",
+                "git cherry-pick*": "deny",
+                "git clean*": "deny",
+                "git commit*": "deny",
+                "git merge*": "deny",
+                "git push*": "deny",
+                "git rebase*": "deny",
+                "git reset*": "deny",
+                "git restore*": "deny",
+                "git switch*": "deny",
+                "git tag*": "deny",
+                "git update-ref*": "deny",
+                "git worktree*": "deny"
+            },
             "external_directory": "allow",
             "question": "deny",
             "doom_loop": "deny",
@@ -273,12 +290,31 @@ def opencode_environment(root: Path) -> dict[str, str]:
     return env
 
 
+def bridge_run_key() -> str:
+    run_id = os.environ.get("GITHUB_RUN_ID")
+    attempt = os.environ.get("GITHUB_RUN_ATTEMPT", "1")
+    if run_id:
+        return f"{run_id}-attempt-{attempt}"
+    return datetime.now(timezone.utc).strftime("local-%Y%m%dT%H%M%SZ")
+
+
+def private_transcript_path(persist_root: Path) -> Path:
+    logs = persist_root / "bridge-logs"
+    logs.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path = logs / f"{bridge_run_key()}.log"
+    if path.exists():
+        raise BridgeError(f"refusing to overwrite existing EHA transcript record: {path.name}")
+    path.touch(mode=0o600, exist_ok=False)
+    return path
+
+
 def invoke_opencode(
     root: Path,
     release_branch: str,
     expected_sha: str,
     scope: str,
     model: str | None,
+    transcript_path: Path,
 ) -> tuple[int, str]:
     binary = shutil.which("opencode")
     if not binary:
@@ -309,7 +345,16 @@ def invoke_opencode(
     command.append(message)
     print(f"OPENCODE VERSION {version}", flush=True)
     print(f"EHA EXACT TARGET {expected_sha} FROM {release_branch}", flush=True)
-    completed = subprocess.run(command, cwd=root, env=opencode_environment(root), check=False)
+    with transcript_path.open("w", encoding="utf-8", errors="replace") as transcript:
+        completed = subprocess.run(
+            command,
+            cwd=root,
+            env=opencode_environment(root),
+            check=False,
+            stdout=transcript,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
     return completed.returncode, version
 
 
@@ -324,16 +369,19 @@ def write_bridge_status(
     outcome: str,
     opencode_version: str,
     opencode_returncode: int,
+    transcript_path: Path,
 ) -> Path:
     runs = persist_root / "bridge-runs"
-    runs.mkdir(parents=True, exist_ok=True)
-    run_id = os.environ.get("GITHUB_RUN_ID") or datetime.now(timezone.utc).strftime("local-%Y%m%dT%H%M%SZ")
-    path = runs / f"{run_id}.json"
+    runs.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path = runs / f"{bridge_run_key()}.json"
+    if path.exists():
+        raise BridgeError(f"refusing to overwrite existing EHA bridge record: {path.name}")
     payload = {
         "schemaVersion": 1,
         "adapter": "github-opencode-eha",
         "repository": os.environ.get("GITHUB_REPOSITORY"),
         "githubRunId": os.environ.get("GITHUB_RUN_ID"),
+        "githubRunAttempt": os.environ.get("GITHUB_RUN_ATTEMPT", "1"),
         "reviewId": review_id,
         "campaignId": campaign_id,
         "releaseBranch": release_branch,
@@ -342,10 +390,12 @@ def write_bridge_status(
         "outcome": outcome,
         "opencodeVersion": opencode_version,
         "opencodeReturnCode": opencode_returncode,
+        "transcriptRecord": str(transcript_path.relative_to(persist_root)),
         "recordedAt": datetime.now(timezone.utc).isoformat(),
         "authority": "state/reviews/<reviewId>/eha.ndjson",
     }
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    os.chmod(path, 0o600)
     return path
 
 
@@ -381,9 +431,10 @@ def main(argv: list[str] | None = None) -> int:
                 f"{review_id}, campaign {campaign_id}; failed SHAs are immutable, repair to a new SHA"
             )
 
+        transcript_path = private_transcript_path(persist_root)
         started = datetime.now(timezone.utc)
         opencode_returncode, opencode_version = invoke_opencode(
-            root, release_branch, expected_sha, scope, args.model
+            root, release_branch, expected_sha, scope, args.model, transcript_path
         )
         require_clean(root, "post-EHA exact-target check")
 
@@ -402,7 +453,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             outcome = "INCOMPLETE"
 
-        status_path = write_bridge_status(
+        write_bridge_status(
             persist_root,
             review_id=review_id,
             campaign_id=campaign_id,
@@ -412,6 +463,7 @@ def main(argv: list[str] | None = None) -> int:
             outcome=outcome,
             opencode_version=opencode_version,
             opencode_returncode=opencode_returncode,
+            transcript_path=transcript_path,
         )
         print(
             "EHA BRIDGE RESULT "
@@ -420,7 +472,7 @@ def main(argv: list[str] | None = None) -> int:
             f"outcome={outcome}",
             flush=True,
         )
-        print(f"BRIDGE STATUS {status_path}", flush=True)
+        print("PRIVATE EHA TRANSCRIPT AND BRIDGE STATUS RECORDED ON TRUSTED HOST", flush=True)
 
         if opencode_returncode != 0:
             print(
