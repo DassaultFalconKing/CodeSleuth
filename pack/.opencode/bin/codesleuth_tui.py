@@ -608,11 +608,9 @@ class CodeSleuthApp(ReviewPackApp):
             path = str(entry.get("path") or "")
             if not path:
                 continue
-            name = Path(path).name or path
-            lifecycle = entry.get("lifecycle") or "unknown"
-            version = entry.get("version") or "n/a"
-            mark = "" if entry.get("reachable") else " (missing)"
-            options.append((f"{name} · {lifecycle} · {version}{mark}", path))
+            # list_tracked_repositories already pruned missing paths; degraded existing repos stay reachable or not but visible
+            label = project_lifecycle.format_tracked_label(entry)
+            options.append((label, path))
         return options
 
     def _refresh_tracked_repos(self) -> None:

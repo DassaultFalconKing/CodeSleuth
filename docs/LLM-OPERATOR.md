@@ -94,11 +94,19 @@ Rules:
 - never combine `--self-install` with `--bind-dependency`;
 - the TUI passes `--self-install` automatically when the selected target is the source checkout.
 
-Successful installs upsert the target into the host-local tracked-repository registry. Inspect it with:
+Successful installs upsert the target into the host-local tracked-repository registry (name, CodeSleuth source with exact commit, version). Inspect it with:
 
 ```bash
 .opencode/bin/codesleuth-project --list
 ```
+
+Refresh drops only paths that no longer exist; an existing but broken repository remains visible with degraded state. To remove a still-reachable entry:
+
+```bash
+.opencode/bin/codesleuth-project /path/to/repo --forget
+```
+
+`--forget` uses registry path normalization, returns exit code 1 when the entry does not exist, does not require a successful lifecycle probe, and deletes nothing from the target repository itself.
 
 ### Reproducibly pinned development dependency
 

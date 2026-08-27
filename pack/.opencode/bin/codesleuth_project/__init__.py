@@ -40,10 +40,13 @@ from .paths import (
 )
 from .tracked_repos import (
     forget_tracked_repository,
+    format_tracked_label,
     host_state_dir,
     list_tracked_repositories,
     record_tracked_repository,
     registry_path,
+    short_remote,
+    source_label,
 )
 
 DEFAULT_DEPENDENCY_PATH = "tools/codesleuth"
@@ -657,13 +660,16 @@ def main() -> int:
         epilog=(
             "Self-install: install CodeSleuth into its own source checkout with "
             "`install.py . --self-install` (never with --bind-dependency). "
-            "Host registry: --list shows repositories recorded on this machine."
+            "Host registry: --list shows reachable repositories recorded on this machine "
+            "(name, CodeSleuth source, version). Missing paths are dropped on refresh. "
+            "Use --forget PATH to remove a still-reachable catalog entry."
         ),
     )
     parser.add_argument("repo", nargs="?", default=".")
     parser.add_argument("--dependency-path", default=DEFAULT_DEPENDENCY_PATH)
     actions = parser.add_mutually_exclusive_group(required=True)
     actions.add_argument("--list", action="store_true", help="list host-tracked CodeSleuth repositories")
+    actions.add_argument("--forget", action="store_true", help="remove a path from the host-tracked repository catalog")
     actions.add_argument("--bind", action="store_true", help="pin CodeSleuth as a Git submodule")
     actions.add_argument("--unbind", action="store_true", help="remove the CodeSleuth dependency while keeping the installed runtime")
     actions.add_argument("--uninstall", action="store_true", help="restore pre-CodeSleuth config and remove CodeSleuth")
@@ -673,6 +679,17 @@ def main() -> int:
     if args.list:
         print(json.dumps(list_tracked_repositories(refresh=True), indent=2))
         return 0
+    if args.forget:
+        target = Path(args.repo).expanduser()
+        # --forget uses registry normalization and does not require lifecycle probe
+        removed = forget_tracked_repository(target)
+        # normalize for output consistency
+        try:
+            canon = str(target.resolve())
+        except Exception:
+            canon = str(target)
+        print(json.dumps({"forgotten": removed, "path": canon}, indent=2))
+        return 0 if removed else 1
     repo = git_root(Path(args.repo))
     if args.bind:
         result = bind_dependency(repo, source_metadata=_metadata_source(repo), dependency_path=args.dependency_path)
@@ -714,6 +731,7 @@ __all__ = [
     "ensure_local_gitignore",
     "ensure_reports_workspace",
     "forget_tracked_repository",
+    "format_tracked_label",
     "git_root",
     "host_state_dir",
     "is_self_target",
@@ -730,6 +748,8 @@ __all__ = [
     "restore_preinstall_snapshot",
     "run_git",
     "sha256_file",
+    "short_remote",
+    "source_label",
     "uninstall_project",
     "update_reports_index",
     "utc_stamp",
