@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -10,6 +11,7 @@ SCRIPT = ROOT / "scripts" / "contributor_antipatterns.py"
 SPEC = importlib.util.spec_from_file_location("codesleuth_contributor_antipatterns", SCRIPT)
 assert SPEC and SPEC.loader
 SCANNER = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = SCANNER
 SPEC.loader.exec_module(SCANNER)
 
 
