@@ -30,13 +30,16 @@ concurrency:
 jobs:
   eha:
     # The self-hosted runner carries model/provider auth and the durable local
-    # evidence store.  On this public repository it is never allocated for an
-    # untrusted commenter: only the repository owner's explicit command or
-    # manual dispatch reaches the job.
+    # evidence store. On this public repository it is never allocated for an
+    # untrusted commenter. Manual dispatch is accepted only from main so the
+    # bridge/controller source is also pinned to an immutable trusted main SHA.
     if: >-
       github.actor == github.repository_owner &&
       (
-        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          github.ref == 'refs/heads/main'
+        ) ||
         (
           github.event_name == 'issue_comment' &&
           startsWith(github.event.comment.body, '/eha-test ')
@@ -46,10 +49,10 @@ jobs:
     timeout-minutes: 180
 
     steps:
-      - name: Checkout trusted bridge source
+      - name: Checkout immutable trusted bridge source
         uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 0
           clean: true
           persist-credentials: false
