@@ -13,6 +13,7 @@
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — normative SIB acceptance identity: SIB degree defines what is proven; exact-head acceptance binds that proof to one exact commit SHA.
 - [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — normative repair discipline when an EHA target fails: freeze, classify, repair, and start a new campaign on a new SHA.
 - [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — operator-facing EHA workflow wiring for release-stream candidate selection, testing, repair, and reporting.
+- [`GITHUB-EHA-BRIDGE.md`](GITHUB-EHA-BRIDGE.md) — owner-gated GitHub remote trigger that delegates the canonical `/eha-test` Playbook to a trusted self-hosted OpenCode runner while preserving host-local durable EHA authority.
 - [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — normative contract for selecting future SIB candidates from literal `dev/release-X.Y.Z` heads.
 - [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — accepted durable review/evidence authority: mutable checkpoint snapshots, append-only finding/amendment/EHA ledgers, and derived views.
 - [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — canonical SIB2 TUI visual-regression acceptance gate and artifact contract.
@@ -83,6 +84,7 @@ CodeSleuth documentation is text-first and terminal-native.
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — required acceptance identity contract for SIB promotion, accepted integration states, RCs, and releases.
 - [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — required repair discipline when exact-head acceptance fails.
 - [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — required operator workflow for EHA campaigns on the release stream.
+- [`GITHUB-EHA-BRIDGE.md`](GITHUB-EHA-BRIDGE.md) — remote EHA adapter, trusted-runner contract, durable evidence wiring, and owner-only GitHub control-plane rules.
 - [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — required candidate-selection contract for future SIB promotion.
 - [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — required durable evidence authority and append-only ledger semantics.
 - [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — required SIB2 TUI visual-regression gate and artifact contract.
@@ -113,6 +115,7 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         |       +--> EXACT-HEAD-ACCEPTANCE.md             (what is proven -> exact SHA carrying the proof)
         |       +--> EHA-REPAIR-LOOP.md                   (failed EHA target -> repair -> new campaign)
         |       +--> EHA-OPERATING-PLAYBOOK.md            (release-stream EHA operator workflow)
+        |       |       +--> GITHUB-EHA-BRIDGE.md         (remote trigger -> same OpenCode EHA Playbook)
         |       +--> SIB-CANDIDATE-SELECTION.md           (literal release-stream head -> EHA target)
         |       +--> DURABLE-EVIDENCE-STORE.md            (checkpoint + append-only ledgers + derived views)
         |       +--> TUI-VISUAL-REGRESSION.md             (canonical SIB2 interface evidence)
