@@ -117,8 +117,44 @@ See [`docs/EXACT-HEAD-ACCEPTANCE.md`](docs/EXACT-HEAD-ACCEPTANCE.md) for the ful
 6. **The completed planned population becomes a release candidate.** RC status comes after integration is complete and accepted, not before.
 7. **Baseline promotion is deliberate.** Do not move SIB refs as a side effect of ordinary feature work.
 
+## Mandatory contributor pre-write gate
+
+Before the first repository modification in a work session, run:
+
+```bash
+python scripts/contributor_antipatterns.py prewrite
+```
+
+Then read [`docs/CONTRIBUTOR-ERROR-PATTERNS.md`](docs/CONTRIBUTOR-ERROR-PATTERNS.md) and resolve every relevant semantic checklist item **before** coding, changing tests, changing workflow/packaging, or writing acceptance/support claims.
+
+This gate was derived from recurring blockers found in open PR triage, especially:
+
+- mutable ref/name used where exact commit/blob identity exists;
+- probe failure collapsed into absence and destructive cleanup;
+- default public behavior changed while the old behavior is merely moved behind a new flag;
+- feature exposure broader than the runtime/platform matrix actually proven;
+- green CI where the critical path skipped or a new smoke was outside the canonical umbrella;
+- ambient executable/interpreter identity;
+- implementation that resurrects currently deferred/not-planned scope;
+- PASS/support/completion claims stronger than executed evidence;
+- external provider provenance promoted without CodeSleuth-side source verification;
+- optional dependency lifecycle that is selectable/removable but not reproducibly installable from a normal installed target.
+
+If a relevant checklist item is unresolved, do not invent the missing contract. Record that part as `UNRESOLVED`, `DEFER`, or `BLOCK` and resolve authority/evidence first.
+
+After the change, before ordinary focused tests, run:
+
+```bash
+python scripts/contributor_antipatterns.py scan --strict
+```
+
+Mechanical `ERROR` findings block the change. Heuristic `WARN` findings require semantic review. The scanner is deliberately not allowed to turn semantic uncertainty into an automatic rewrite.
+
+The canonical repository acceptance workflow runs the strict scan as well. A local pre-write run does not replace focused tests, protected-capability assessment, Semantic Refit, or Exact-Head Acceptance.
+
 ## Contributor rules
 
+- Run the mandatory contributor pre-write gate before the first repository modification in a work session.
 - For post-refactor architectural work, identify which baseline is being pursued: SIB0, SIB1, or SIB2.
 - Do not add a new fundamental capability class after SIB0 without explicitly reopening the architectural baseline and planning a replacement SIB0.
 - Do not begin broad release feature population from SIB1.
