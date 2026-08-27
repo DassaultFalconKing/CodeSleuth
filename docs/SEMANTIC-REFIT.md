@@ -42,7 +42,7 @@ Example:
 
 `A user can discover and start an available CodeSleuth update from the TUI.`
 
-### Guarantee
+### Guarantee / postcondition claim
 
 What **must follow** when a condition holds.
 
@@ -50,21 +50,23 @@ Example:
 
 `After a successful verified update, the managed CodeSleuth instance returns to a usable state.`
 
-### Invariant
+### Invariant claim
 
-What must remain true across supported execution paths.
+What must remain true across supported execution paths or valid states.
 
 Example:
 
 `There is one authoritative owner for update/restart decisions.`
 
-### Negative claim
+### Negative / forbidden-state claim
 
 What the product **must not** do or what failure state must not return.
 
 Example:
 
 `A failed update must not leave a partially installed instance presented as healthy.`
+
+Negative claims are a special evidence class; see [Negative-claim evidence protocol](#negative-claim-evidence-protocol).
 
 ### Compatibility claim
 
@@ -74,7 +76,7 @@ Example:
 
 `Existing project/user configuration survives an update unless an explicit migration contract says otherwise.`
 
-### Authority claim
+### Authority / ownership claim
 
 Which component owns a decision or source of truth.
 
@@ -82,9 +84,9 @@ Example:
 
 `The host OpenCode controller remains execution authority; CodeSleuth does not introduce a second agent runtime.`
 
-### Ordering or relational claim
+### Ordering / relational claim
 
-A meaningful relationship between actions, states, or authorities.
+A meaningful relationship between actions, states, identities, or authorities.
 
 Example:
 
@@ -94,7 +96,7 @@ Claims are not necessarily independent. Ordering, concurrency, authority, and co
 
 ### User-journey claim
 
-A user-visible capability can be stronger than the existence of an internal function.
+A supported path by which a user or operator can reach a meaningful outcome, not merely the existence of an internal function.
 
 For example, `update() works` is weaker than:
 
@@ -108,6 +110,148 @@ and resume use without losing supported configuration.
 ```
 
 Semantic refit therefore treats important end-to-end journeys as part of the semantic surface where the product contract supports them.
+
+### Bound claim
+
+A user-relevant, compatibility-relevant, safety-relevant, or architecture-relevant bound that must hold.
+
+Examples include:
+
+- latency or responsiveness bounds that materially affect a supported workflow;
+- memory, storage, request-size, or concurrency limits exposed as product behavior;
+- retry, timeout, lease, or expiry bounds that define correctness rather than a private tuning detail.
+
+Example:
+
+`A stalled child review is detected within the documented watchdog bound rather than waiting indefinitely.`
+
+Do not promote every incidental benchmark number or implementation constant into a semantic claim. A bound belongs in the semantic surface only when consumers, accepted architecture, safety, compatibility, or product behavior rely on it.
+
+## Claim taxonomy is not a substitute for evidence
+
+The claim types above are a compact review vocabulary, not an ontology that must classify every sentence exactly once.
+
+A material statement may legitimately have several dimensions. For example:
+
+```text
+Revoked credentials cannot authorize a write after revocation becomes authoritative.
+```
+
+can be recorded as:
+
+- a negative claim about forbidden authorization;
+- a security-domain claim;
+- an ordering/authority claim about when revocation becomes authoritative.
+
+Use **claim type** to describe the logical shape of the obligation. Use **domain tags** to describe where it belongs, for example:
+
+`security`, `persistence`, `lifecycle`, `update`, `UX`, `API`, `compatibility`, `performance`, `concurrency`, `evidence`, `controller`, or `state`.
+
+Do not invent a new claim type merely because a new subsystem exists.
+
+Also keep these records distinct from claims:
+
+- **ASSUMPTION** — a condition under which a claim or historical implementation was believed to hold;
+- **RATIONALE** — why a design or claim was adopted;
+- **MECHANISM** — how an implementation currently realizes a claim;
+- **EVIDENCE** — what observation, test, contract, source, or authority supports a conclusion;
+- **PROVENANCE** — where the claim, rationale, or negative knowledge came from.
+
+This distinction matters during refit because assumptions and mechanisms may expire while the claim survives.
+
+## Negative-claim evidence protocol
+
+Negative claims deserve stronger handling than simply storing a sentence containing `must not`.
+
+There are three separate reasons.
+
+First, negated requirements can be less robust for an LLM to retain and apply than an equivalent constructive formulation, especially in long or competing context.
+
+Second, a prohibition such as `do not create a second update authority` names and activates the forbidden concept without directly specifying the valid state that should exist instead.
+
+Third, verification is asymmetric. A positive capability can often be supported by an executable witness. A universal negative claim normally cannot be established by one successful happy path; review must actively search for a counterexample inside a stated scope.
+
+Therefore a material negative claim SHOULD be recorded as a paired or tripled representation rather than a naked prohibition.
+
+### Required representation
+
+Use this shape where practical:
+
+```text
+ID: N17
+
+Forbidden state:
+    Failed verification triggers restart into the candidate installation.
+
+Constructive invariant:
+    After failed verification, the current known-good installation remains
+    authoritative and no restart into the failed candidate is initiated.
+
+Violation witness / counterexample predicate:
+    verification == FAIL
+    AND restart(candidate_installation) == TRUE
+
+Scope:
+    supported self-update/restart paths
+
+Oracle:
+    fault-injected update/restart integration test
+
+Provenance:
+    contract / regression / incident / accepted review evidence
+```
+
+The **forbidden state** preserves the negative knowledge.
+
+The **constructive invariant** tells a coding model what valid state should exist instead of forcing it to reason only through suppression of the forbidden concept.
+
+The **violation witness** turns the negative claim into an adversarial search target.
+
+The **scope** prevents a finite review from pretending to prove an unbounded universal statement.
+
+The **oracle** identifies how the project currently attempts to detect violation.
+
+### Review mode
+
+For a positive capability claim, the reviewer often searches for a valid witness:
+
+> Can the supported path succeed?
+
+For a negative claim, invert the review posture:
+
+> Can I make the forbidden state happen through any supported or materially adjacent path inside the stated scope?
+
+Inspect alternate entry points, failure paths, retries, concurrency, persistence/restart boundaries, compatibility paths, background jobs, administrative paths, and bypasses where relevant to the claim.
+
+Do not report `VERIFIED: impossible` merely because a finite test suite did not trigger the state.
+
+Use evidence wording that reflects what was actually established, for example:
+
+- `COUNTEREXAMPLE FOUND` — the negative claim is violated;
+- `NO COUNTEREXAMPLE FOUND IN INSPECTED SCOPE` — bounded review/testing found none;
+- `STRUCTURALLY GUARDED` — an explicit architecture/type/state-machine boundary prevents the state, with the guard identified;
+- `FORMALLY PROVEN` — only when an actual formal proof justifies that wording.
+
+Most repository reviews should use one of the first three, not casually promote testing into proof.
+
+### Context retention rule
+
+When a change touches a subsystem or boundary associated with a material negative claim, retrieve the claim back into active review context together with its constructive invariant and violation witness.
+
+Do not rely on a prohibition written once in a large instruction file remaining perfectly salient tens of thousands of tokens later.
+
+The practical pattern is:
+
+```text
+changed boundary
+    -> retrieve related positive + negative claims
+    -> retrieve constructive invariant
+    -> attempt violation witness
+    -> implement/review
+    -> re-run the strongest practical oracle
+```
+
+This is especially important in LLM-driven work, where a later coding agent may have no memory of the incident or previous prompt that originally produced the negative knowledge.
 
 ## Semantic refit is not a synonym for porting
 
@@ -228,6 +372,8 @@ Human UX verification: not run
 
 rather than flattening partial evidence into `PASS` for an untested UX property.
 
+Negative claims add a second axis to oracle selection: the evidence must attempt the **violation**, not merely re-run the positive happy path. See [Negative-claim evidence protocol](#negative-claim-evidence-protocol).
+
 ## Why this matters for LLM-driven development
 
 Code-generating LLMs can make implementation changes much faster than a human maintainer can manually revalidate the entire product.
@@ -253,7 +399,7 @@ Documentation and evidence should make the following recoverable where materiall
 1. **Capabilities** — what users/operators/consumers can do.
 2. **User journeys** — important supported paths from intent to observable result.
 3. **Guarantees and invariants** — including relational and ordering properties.
-4. **Negative knowledge** — failures and forbidden states that must not return.
+4. **Negative knowledge** — forbidden states, their constructive invariants, and useful violation witnesses that must not be forgotten.
 5. **Authority boundaries** — who owns state, execution, lifecycle, persistence, security, evidence, and other product decisions.
 6. **Compatibility obligations** — what external consumers may rely on and for how long.
 7. **Evidence mapping** — which tests/gates/oracles support which claims and what they do not prove.
@@ -272,11 +418,12 @@ When useful stale work must be reconciled with a changed target, the following i
 3. Identify current normative authority and current architecture for each affected claim.
 4. Determine what the target already provides and prove coverage rather than assuming it.
 5. Record semantic status and delivery disposition separately.
-6. Implement the smallest target-native delta required by the surviving claims.
-7. Preserve attribution and provenance even when source code does not survive.
-8. Add positive and negative regression evidence at the strongest practical oracle level.
-9. Run canonical acceptance on the exact resulting composition.
-10. Record residual unknowns and any required targeted human validation.
+6. For material negative claims, record the forbidden state, constructive invariant, violation witness, scope, and adversarial oracle.
+7. Implement the smallest target-native delta required by the surviving claims.
+8. Preserve attribution and provenance even when source code does not survive.
+9. Add positive and negative regression evidence at the strongest practical oracle level.
+10. Run canonical acceptance on the exact resulting composition.
+11. Record residual unknowns and any required targeted human validation.
 
 The historical organization of commits and hunks is not the semantic unit of review. One old commit may contain several claims with different dispositions, and one claim may span several components.
 
@@ -291,6 +438,7 @@ A semantic refit is defensible when a reviewer can answer:
 - Where is each surviving claim represented in the current product?
 - Which historical mechanisms were deliberately not carried forward, and why?
 - What negative knowledge or forbidden states remain protected?
+- For each material negative claim, what valid state should exist instead, what constitutes a violation witness, and what adversarial evidence searched for that violation?
 - What tests or other oracles support each conclusion?
 - What is still not known or not machine-verifiable?
 - Which intentional semantic changes have an explicit current authority rather than being disguised as `refit`?
@@ -310,6 +458,8 @@ Do not use semantic-refit language to justify:
 - copying old tests while discarding newer contracts;
 - preserving obsolete implementation-specific tests as if mechanisms were requirements;
 - weakening or rewriting acceptance to make a stale implementation pass;
+- storing a material negative claim only as `DO NOT X` without the constructive valid-state invariant or a way to recognize violation;
+- declaring a universal negative `VERIFIED` merely because finite happy-path testing found no failure;
 - claiming UX preservation from code/build evidence alone;
 - treating a generated summary, Mermaid graph, model report, or context projection as stronger evidence than current verified source and accepted contracts;
 - forcing a full semantic-archaeology ritual onto a routine clean port whose meaning and authority have not changed.
