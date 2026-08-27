@@ -106,6 +106,9 @@ OPEN_CODE_COMMANDS = (
     "/repo-review",
     "/repo-docs",
     "/repo-review-resume",
+    "/repo-map",
+    "/repo-contracts",
+    "/eha-status",
 )
 
 
@@ -133,7 +136,8 @@ HELP_SECTIONS = [
         "3. Run Verify after install/update.\n"
         "4. Open CodeSleuth to launch normal OpenCode execution with managed project-local defaults when applicable.\n"
         "5. Start with /repo-prompts for advice or /repo-review for a deep evidence-first review.\n"
-        "6. List host-tracked repos anytime with codesleuth-project --list.",
+        "6. Use /repo-map for bounded repository topology, /repo-contracts for protected impact, and /eha-status for exact-head lineage.\n"
+        "7. List host-tracked repos anytime with codesleuth-project --list.",
     ),
     (
         "Self-install",
@@ -167,13 +171,17 @@ HELP_SECTIONS = [
         "/repo-docs            evidence-first repository documentation\n"
         "/repo-profile         inspect/build repository profile\n"
         "/repo-prompts         in-OpenCode task advisor\n"
-        "/repo-report          persist analysis under .codesleuth/reports/",
+        "/repo-report          persist analysis under .codesleuth/reports/\n"
+        "/repo-map             bounded repository graph + optional Mermaid\n"
+        "/repo-contracts       protected impact + optional Mermaid\n"
+        "/eha-status           exact-head campaign/repair lineage",
     ),
     (
         "Evidence and durable state",
         "Scout summaries are leads, not proof. Material findings are re-opened against exact current source and recorded with identity/provenance. "
         "Durable review checkpoints live under .opencode/state/. Analytical reports live under .codesleuth/reports/ (INDEX.md) for later sessions in this worktree; they stay local-only by default and are not automatically shared with fresh clones. "
-        "OpenCode build writes those reports; CodeSleuth does not add a second supervisor.",
+        "Repository, protected-impact, and EHA Mermaid diagrams are bounded derived views of separate exact authorities; none is finding or acceptance evidence. "
+        "OpenCode build writes reports; CodeSleuth does not add a second supervisor.",
     ),
     (
         "Permissions",
@@ -718,6 +726,8 @@ class CodeSleuthApp(ReviewPackApp):
                 "Use /repo-review or /repo-review-resume in OpenCode; CodeSleuth does not create a parallel evidence store."
             )
         files = [path for path in state_root.rglob("*") if path.is_file()]
+        context_graphs = list((state_root / "context-graphs").glob("*.json")) if (state_root / "context-graphs").is_dir() else []
+        eha_ledgers = list((state_root / "reviews").glob("*/eha.ndjson")) if (state_root / "reviews").is_dir() else []
         try:
             recent = sorted(files, key=lambda path: path.stat().st_mtime, reverse=True)[:5]
         except OSError:
@@ -726,8 +736,9 @@ class CodeSleuthApp(ReviewPackApp):
         return (
             "Durable state root: .opencode/state/ (OpenCode-owned)\n"
             f"State files visible: {len(files)}\n"
+            f"Derived repository projections: {len(context_graphs)}; authoritative EHA ledgers: {len(eha_ledgers)}\n"
             f"Recent state: {recent_text}\n"
-            "Resume/inspect through OpenCode commands; CodeSleuth only presents filesystem-visible state and provenance."
+            "Use /repo-map, /repo-contracts, or /eha-status for bounded derived diagrams. CodeSleuth only presents filesystem-visible state and provenance."
         )
 
     def _settings_summary(self, repo: Path) -> str:
@@ -929,7 +940,7 @@ class CodeSleuthApp(ReviewPackApp):
             self.notify(str(exc), severity="error")
             return
         if self._source_checkout_update_mode(repo):
-            self.run_source_checkout_action("check")
+            self.run_source_checkout_action("check", repo)
         else:
             self.run_runtime_action("check")
 
@@ -942,17 +953,33 @@ class CodeSleuthApp(ReviewPackApp):
             self.notify(str(exc), severity="error")
             return
         if self._source_checkout_update_mode(repo):
-            self.run_source_checkout_action("update")
+            self.run_source_checkout_action("update", repo)
         else:
             self.run_runtime_action("update")
 
     def action_uninstall(self) -> None:
         self.query_one("#uninstall", Button).press()
 
-    @work(thread=True, exclusive=False)
-    def run_source_checkout_action(self, action: str) -> None:
+    def run_source_checkout_action(self, action: str, repo: Path | None = None) -> bool:
+        selected = repo if repo is not None else self._begin_runtime_action(action)
+        if repo is not None:
+            if self._runtime_action_active:
+                self.write_ui_log(f"[yellow]{action} ignored: another lifecycle action is already running.[/yellow]")
+                self.notify("A lifecycle action is already running", severity="warning")
+                return False
+            self._runtime_action_active = True
+            for button_id in ("smoke", "check-update", "update", "uninstall"):
+                matches = self.query(f"#{button_id}")
+                if matches:
+                    self.query_one(f"#{button_id}", Button).disabled = True
+        if selected is None:
+            return False
+        self._run_source_checkout_action_worker(action, selected)
+        return True
+
+    @work(thread=True, exclusive=True)
+    def _run_source_checkout_action_worker(self, action: str, repo: Path) -> None:
         try:
-            repo = self.validate_target()
             source_root = self._source_checkout_root(repo)
             if source_root is None or not self._has_origin(source_root):
                 raise RuntimeError("CodeSleuth source checkout is not bound to an origin remote")
@@ -1021,10 +1048,11 @@ class CodeSleuthApp(ReviewPackApp):
                 lines.append("Restart CodeSleuth to load the updated source checkout.")
 
             self.app.call_from_thread(self.write_ui_log, f"[green]{action}[/]:\n" + "\n".join(lines))
-            self.app.call_from_thread(self.refresh_status)
         except Exception as exc:
             self.app.call_from_thread(self.write_ui_log, f"[red]{action} failed: {exc}[/red]")
             self.app.call_from_thread(self.notify, f"{action} failed", severity="error")
+        finally:
+            self.app.call_from_thread(self._finish_runtime_action)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "nav-collapse":

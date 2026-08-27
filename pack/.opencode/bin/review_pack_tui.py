@@ -13,6 +13,7 @@ from typing import TypeVar
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, RichLog, Select, Static, Switch
 
@@ -434,8 +435,11 @@ class ConfigScreen(AbortableModalScreen[bool]):
             self.app.call_from_thread(self.notify, output[-1200:] or "Applied", severity="information")
             self.app.call_from_thread(self.dismiss, True)
         except Exception as exc:
-            self.app.call_from_thread(self.notify, str(exc), severity="error")
-            self.app.call_from_thread(setattr, self.query_one("#apply", Button), "disabled", False)
+            self.app.call_from_thread(self._apply_failed, str(exc))
+
+    def _apply_failed(self, message: str) -> None:
+        self.notify(message, severity="error")
+        self.query_one("#apply", Button).disabled = False
 
 
 class ReviewPackApp(App[tuple[str, Path] | None]):
@@ -456,6 +460,7 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
         super().__init__()
         self.target = target.resolve()
         self.distribution_root = distribution_root.resolve() if distribution_root else None
+        self._runtime_action_active = False
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -591,22 +596,62 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
 
     def _uninstall_choice(self, choice: str | None) -> None:
         if choice:
-            self.perform_uninstall(choice)
+            repo = self._begin_runtime_action("uninstall")
+            if repo is not None:
+                self.perform_uninstall(choice, repo)
 
     @work(thread=True, exclusive=True)
-    def perform_uninstall(self, choice: str) -> None:
+    def perform_uninstall(self, choice: str, repo: Path) -> None:
         try:
-            repo = self.validate_target()
             result = project_lifecycle.uninstall_project(repo, preserve_traces=choice == "preserve")
             self.app.call_from_thread(self.write_ui_log, f"[green]uninstall[/]:\n{json.dumps(result, indent=2)}")
-            self.app.call_from_thread(self.refresh_status)
         except Exception as exc:
             self.app.call_from_thread(self.write_ui_log, f"[red]uninstall failed: {exc}[/red]")
+        finally:
+            self.app.call_from_thread(self._finish_runtime_action)
 
-    @work(thread=True, exclusive=False)
-    def run_runtime_action(self, action: str) -> None:
+    def _begin_runtime_action(self, action: str) -> Path | None:
+        if self._runtime_action_active:
+            self.write_ui_log(f"[yellow]{action} ignored: another lifecycle action is already running.[/yellow]")
+            self.notify("A lifecycle action is already running", severity="warning")
+            return None
         try:
             repo = self.validate_target()
+        except Exception as exc:
+            self.notify(str(exc), severity="error")
+            return None
+        self._runtime_action_active = True
+        for button_id in ("smoke", "check-update", "update", "uninstall"):
+            matches = self.query(f"#{button_id}")
+            if matches:
+                self.query_one(f"#{button_id}", Button).disabled = True
+        return repo
+
+    def _finish_runtime_action(self) -> None:
+        self._runtime_action_active = False
+        if not self.is_mounted:
+            return
+        try:
+            for button_id in ("smoke", "check-update", "update", "uninstall"):
+                matches = self.query(f"#{button_id}")
+                if matches:
+                    self.query_one(f"#{button_id}", Button).disabled = False
+            self.refresh_status()
+        except NoMatches:
+            # A background subprocess may finish while Textual is dismantling
+            # the screen. There is then no operator surface left to update.
+            return
+
+    def run_runtime_action(self, action: str) -> bool:
+        repo = self._begin_runtime_action(action)
+        if repo is None:
+            return False
+        self._run_runtime_action_worker(action, repo)
+        return True
+
+    @work(thread=True, exclusive=True)
+    def _run_runtime_action_worker(self, action: str, repo: Path) -> None:
+        try:
             ocbin = repo / ".opencode" / "bin"
             if action == "smoke":
                 command = [sys.executable, str(ocbin / "review-pack-smoke.py"), str(repo)]
@@ -622,10 +667,10 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
             self.app.call_from_thread(self.write_ui_log, f"[{prefix}]{action}[/]:\n{text or '(no output)'}")
             if result.returncode != 0:
                 self.app.call_from_thread(self.notify, f"{action} failed", severity="error")
-            else:
-                self.app.call_from_thread(self.refresh_status)
         except Exception as exc:
             self.app.call_from_thread(self.write_ui_log, f"[red]{action} failed: {exc}[/red]")
+        finally:
+            self.app.call_from_thread(self._finish_runtime_action)
 
 
 def launch_opencode(repo: Path) -> int:
