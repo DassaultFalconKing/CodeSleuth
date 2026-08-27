@@ -294,7 +294,8 @@ class RepositoryEvidence:
         if end_line - start_line + 1 > MAX_READ_LINES:
             raise ValueError(f"at most {MAX_READ_LINES} lines may be read at once")
         absolute = self.root / Path(*PurePosixPath(safe_path).parts)
-        payload = absolute.read_bytes()
+        with absolute.open("rb") as source:
+            payload = source.read(MAX_FILE_BYTES + 1)
         if len(payload) > MAX_FILE_BYTES:
             raise ValueError(f"file is larger than {MAX_FILE_BYTES} bytes")
         if b"\0" in payload:
