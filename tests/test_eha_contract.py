@@ -36,44 +36,49 @@ def test_sib_candidates_are_selected_from_release_stream() -> None:
     assert "repair branch is not the next SIB integration line" in playbook
 
 
-def test_eha_skill_carries_sib_exact_head_and_release_stream_contract() -> None:
-    skill = text(OPENCODE / "skills" / "eha-sib-acceptance" / "SKILL.md")
+def test_eha_playbook_carries_sib_exact_head_and_release_stream_contract() -> None:
+    manifest = text(OPENCODE / "playbooks" / "eha-sib-acceptance" / "playbook.json")
+    campaign_skill = text(OPENCODE / "skills" / "eha-campaign-evidence" / "SKILL.md")
     for token in (
         "SIB0",
         "SIB1",
         "SIB2",
         "exact SHA",
         "dev/release-X.Y.Z",
-        "SIB-CANDIDATE-SELECTION.md",
+        "eha-campaign-evidence",
         "eha_state_start_campaign",
         "eha_state_record_verdict",
         "eha_state_record_repair",
         "eha_state_mermaid",
         "semantic-refit",
     ):
-        assert token in skill
-    assert "A repair commit inherits code history, not acceptance evidence" in skill
-    assert "repair branch is not a parallel SIB integration line" in skill
-    assert "resulting literal release-stream head SHA" in skill
+        assert token in manifest or token in campaign_skill, token
+    assert "A repair commit inherits code history, not acceptance evidence" in campaign_skill
+    assert "repair branch is not a parallel SIB integration line" in text(
+        OPENCODE / "skills" / "eha-repair-protocol" / "SKILL.md"
+    )
+    assert "resulting literal release-stream head SHA" in text(
+        OPENCODE / "playbooks" / "eha-repair" / "steps" / "03-integrate-candidate.md"
+    )
 
 
-def test_eha_playbooks_are_installed_and_route_to_the_skill() -> None:
+def test_eha_commands_route_to_playbooks_and_tools() -> None:
     commands = {
-        "eha-test.md": "eha_state_start_campaign",
-        "eha-repair.md": "eha_state_record_repair",
-        "eha-status.md": "eha_state_load",
+        "eha-test.md": ("eha-sib-acceptance", "eha_state_start_campaign"),
+        "eha-repair.md": ("eha-repair", "eha_state_record_repair"),
+        "eha-status.md": ("eha-campaign-evidence", "eha_state_load"),
     }
-    for filename, tool_name in commands.items():
+    for filename, (playbook_or_skill, tool_name) in commands.items():
         command = text(OPENCODE / "commands" / filename)
         assert "agent: build" in command
-        assert "eha-sib-acceptance" in command
+        assert playbook_or_skill in command
         assert tool_name in command
 
     eha_test = text(OPENCODE / "commands" / "eha-test.md")
     eha_repair = text(OPENCODE / "commands" / "eha-repair.md")
     assert "dev/release-X.Y.Z" in eha_test
-    assert "selected release-stream head" in eha_test
-    assert "integrate that repair through the active `dev/release-X.Y.Z` branch" in eha_repair
+    assert "selected SHA" in eha_test or "selected release-stream head" in eha_test
+    assert "integrate through the active `dev/release-X.Y.Z` branch" in eha_repair
     assert "merge commit is the new EHA target" in eha_repair
 
 
@@ -82,7 +87,7 @@ def test_structured_eha_evidence_uses_existing_review_state_boundary() -> None:
     reports = text(OPENCODE / "CODESLEUTH-REPORTS.md")
     assert 'path.join(root, ".opencode", "state", "reviews")' in tool_source
     assert '"eha.ndjson"' in tool_source
-    assert "EHA INVALIDATED — HEAD CHANGED" in tool_source
+    assert "EHA INVALIDATED" in tool_source
     assert "claimable" in tool_source
     assert "renderMermaid" in tool_source
     assert ".opencode/state/reviews/<reviewId>/" in reports
@@ -94,6 +99,17 @@ def test_eha_state_smoke_is_part_of_the_canonical_bun_gate() -> None:
     package = text(ROOT / "package.json")
     assert "tests/eha_state_smoke.ts" in package
     assert '"test:eha-state"' in package
+
+
+def test_eha_state_rejects_verdict_immutability_violations() -> None:
+    tool_source = text(OPENCODE / "tools" / "eha_state.ts")
+    for token in (
+        "verdictForCampaignLevel",
+        "targetShaHasRecordedFail",
+        "EHA verdict already recorded",
+        "repair on a new exact SHA instead of starting another campaign",
+    ):
+        assert token in tool_source, token
 
 
 def test_docs_index_exposes_eha_playbook_repair_and_selection_contracts() -> None:

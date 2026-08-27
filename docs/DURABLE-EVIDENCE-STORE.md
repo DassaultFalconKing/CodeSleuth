@@ -166,7 +166,7 @@ claimable, non-stale, or attached to the current exact HEAD. Re-load through the
 appropriate CodeSleuth tool before making a material acceptance/review claim.
 
 This distinction is deliberate: the store remains transparent to humans and
-LLMs without making “whatever grep found first” the database query planner from
+LLMs without making "whatever grep found first" the database query planner from
 hell.
 
 ## 7. No ordinary CRUD contract
@@ -183,8 +183,8 @@ Instead it exposes domain operations:
 - record EHA repair lineage;
 - derive bounded status/presentation.
 
-There is no supported operation whose purpose is “delete this failed verdict”
-or “rewrite this old finding.”
+There is no supported operation whose purpose is "delete this failed verdict"
+or "rewrite this old finding."
 
 A future retention/garbage-collection feature may remove whole obsolete local
 review histories only through an explicit retention contract. It must never be
@@ -275,23 +275,32 @@ one of:
 
 Storage convenience is not sufficient reason to split truth across two places.
 
-## 12. Skills that consume this contract
+## 12. Skills and Playbooks that consume this contract
 
-The installed Skills that currently touch this evidence boundary are:
+The installed atomic Skills and Playbooks that currently touch this evidence
+boundary are:
 
 - `repository-deep-review` — starts/checkpoints review state, records findings,
   reloads after compaction and binds context projection work to verified review
   state;
 - `codesleuth-reports` — reads the structured store and writes derived
   human-readable reports;
-- `eha-sib-acceptance` — records exact-head campaigns, SIB verdicts and repair
-  lineage in `eha.ndjson`;
+- `eha-candidate-selection` — selects literal release-stream exact-head SIB
+  candidates without inventing a second evidence authority;
+- `eha-campaign-evidence` — records exact-head campaigns, SIB verdicts, and
+  derived history through `eha_state_*` in `eha.ndjson`;
+- `eha-repair-protocol` — records EHA repair-loop decisions and lineage without
+  raw-rewriting append-only ledger history;
+- `eha-sib-acceptance` (Playbook) — orchestrates SIB0/SIB1/SIB2 exact-head
+  acceptance from atomic Skills and `eha_state_*` tools;
+- `eha-repair` (Playbook) — orchestrates the EHA repair loop from atomic Skills
+  and `eha_state_*` tools;
 - `feature-porting-discipline` — uses review state during substantial porting
   work and explicitly forbids creation of a duplicate evidence ledger.
 
-Those Skills inherit this contract even when they mention only one file/tool
-from the store. They may narrow behavior for their domain but may not weaken the
-authority/write/append-only rules here.
+Those Skills and Playbooks inherit this contract even when they mention only one
+file/tool from the store. They may narrow behavior for their domain but may not
+weaken the authority/write/append-only rules here.
 
 ## 13. Change policy
 

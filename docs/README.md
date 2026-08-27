@@ -5,23 +5,31 @@
 - [`CODESLEUTH-PRODUCT-CONTRACT.md`](CODESLEUTH-PRODUCT-CONTRACT.md) — host/runtime ownership boundary, integration model, extension seams, and core feature freeze.
 - [`CODESLEUTH-BRANDING.md`](CODESLEUTH-BRANDING.md) — accepted terminal-native UI/interaction runbook, ASCII identity source, documentation graphics rule, and responsive acceptance.
 - [`CODESLEUTH-COLORMAP.json`](CODESLEUTH-COLORMAP.json) — machine-readable semantic colormap.
-- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — canonical filesystem evidence-store authority: mutable review checkpoint, append-only findings/EHA ledgers, tool-mediated writes, read-only grep/audit, and derived report/Mermaid/context views.
 - [`CONTEXT-GRAPH-DISCIPLINE.md`](CONTEXT-GRAPH-DISCIPLINE.md) — Git source -> review state -> bounded RepositoryContextProjection -> compact context/Mermaid authority chain.
 - [`NOVACLAW-MCP.md`](NOVACLAW-MCP.md) — first external-host MCP integration and its read-only repository-evidence boundary.
 - [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — naming inventory and staged cutover from historical `review-pack` filenames; 0.4.0 keeps live compatibility names.
 - [`STABLE-INTEGRATION-BASELINE.md`](STABLE-INTEGRATION-BASELINE.md) — SIB0/SIB1/SIB2 architecture-recovery model: initialization freeze, implementation completeness, integration completeness, and release construction from SIB2.
+- [`SIB0-CAPABILITY-INVENTORY.md`](SIB0-CAPABILITY-INVENTORY.md) — frozen fundamental capability-class inventory, ownership/dependency map, and must-never-become boundaries for the current architectural generation.
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — normative SIB acceptance identity: SIB degree defines what is proven; exact-head acceptance binds that proof to one exact commit SHA.
-- [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — normative candidate-stream rule: future SIB candidates are selected from the literal exact head of `dev/release-X.Y.Z`; repairs return through that stream before a new EHA campaign.
-- [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — normative failure/repair discipline: freeze failed SHA, minimally repair into a new SHA, retain failed provenance, and start a new EHA campaign.
-- [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — operational mapping from SIB/EHA theory to CodeSleuth Skills, commands, durable evidence, release-stream selection, repair lineage, and Mermaid status views.
-- [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — canonical interface-regression evidence: real Textual screenshots, UI/event logs, semantic render analysis, and SIB2 visual-gate requirements.
-- [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — integration discipline for recovering still-valid intent from stale PRs without overwriting newer accepted semantics.
+- [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — normative repair discipline when an EHA target fails: freeze, classify, repair, and start a new campaign on a new SHA.
+- [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — operator-facing EHA workflow wiring for release-stream candidate selection, testing, repair, and reporting.
+- [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — normative contract for selecting future SIB candidates from literal `dev/release-X.Y.Z` heads.
+- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — accepted durable review/evidence authority: mutable checkpoint snapshots, append-only finding/EHA ledgers, and derived views.
+- [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — canonical SIB2 TUI visual-regression acceptance gate and artifact contract.
+- [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) — post-SIB2 protection model: protected capabilities, contract-owned forbidden regressions, Mermaid dependency/impact graphs, dependency-aware development gates, and full-suite SIB2/RC/release preservation.
+- [`protected-capabilities.json`](protected-capabilities.json) — machine-readable Protected Capability Registry with code/docs/test provenance, contract fingerprints, dependency/impact metadata, and each contract's own forbidden-regression ledger.
+- [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md) — reusable-instruction model: atomic on-demand Skills, isolated Playbook Steps, Playbooks as orchestration, Commands as user entry points, and Tools as bounded execution primitives.
+- [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — normative semantic-continuity criterion: preserve or explicitly reconcile the product's evidenced semantic surface across implementation and architectural change.
 
 ## Engineering articles
 
 Long-form explanatory material lives under [`articles/`](articles/). Articles are non-normative: they may explain the motivation, history, examples, or broader engineering context behind an accepted contract, but canonical contracts and executable acceptance remain authoritative.
 
 - [`articles/STABLE-BASELINES-RU.md`](articles/STABLE-BASELINES-RU.md) — Russian-language article explaining the SIB0/SIB1/SIB2 Stable Baselines model. Normative contract: [`STABLE-INTEGRATION-BASELINE.md`](STABLE-INTEGRATION-BASELINE.md).
+
+## Roadmap and evaluated extensions
+
+- [`MERMAID-GRAPHIFY-AUDIT.md`](MERMAID-GRAPHIFY-AUDIT.md) — audit of the current bounded Mermaid/context-graph implementation and gated evaluation of `Graphify-Labs/graphify` as an optional deterministic structural graph provider. This is a roadmap/incubation document, not approval of a production Graphify dependency.
 
 ## README language maintenance
 
@@ -43,6 +51,10 @@ Root [`../AGENTS.md`](../AGENTS.md) is the compact cross-agent discovery and rep
 
 The executable docs contract checks that `AGENTS.md` continues to route operator tasks to `LLM-OPERATOR.md`, that the operator guide retains the critical unattended-install and lifecycle surfaces, and that internal relative links resolve.
 
+Post-SIB2 feature and regression work is additionally routed through the Protected Capability Registry and its atomic Skills/Playbook. Contract lookup, code/docs/test triangulation, forbidden-regression audit, and dependency closure are separate competencies rather than one permanently loaded protocol.
+
+Multi-step CodeSleuth workflows live under `pack/.opencode/playbooks/`. The host reads a manifest, exposes one Step at a time, and loads only the atomic Skills required by that Step. Direct user-facing Skills remain slash-callable where the host supports it; `/playbook` starts a stored multi-step workflow. See [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md).
+
 ## Documentation media policy
 
 CodeSleuth documentation is text-first and terminal-native.
@@ -51,10 +63,6 @@ CodeSleuth documentation is text-first and terminal-native.
 - UI manuals use terminal/text snapshots captured from the real application and exact implemented labels.
 - Maintained PNG/JPEG/WebP/SVG UI mockups/reference boards are not part of the documentation contract.
 - Mermaid is the allowed diagram format when relationships are materially clearer as encoded text. Mermaid source is reviewable presentation, not a second source of repository truth.
-
-For EHA history, `eha_state_mermaid` derives campaign/SIB/repair lineage from the structured `eha.ndjson` ledger. That diagram is a presentation of acceptance evidence, not the evidence authority itself and not part of the repository context-graph authority.
-
-The same authority rule applies to repository diagrams and analytical reports: they are rebuildable/readable projections of structured evidence and verified source, never write-back formats for the durable evidence store.
 
 ## Completed implementation packets
 
@@ -65,24 +73,23 @@ The same authority rule applies to repository diagrams and analytical reports: t
 - [`USER-GUIDE.md`](USER-GUIDE.md) — install, configure, validate, update, and operate CodeSleuth.
 - [`LLM-OPERATOR.md`](LLM-OPERATOR.md) — task-specific cross-agent operator manual for safe installation, unattended configuration, verification, use, and removal.
 - [`SELF-UPDATE.md`](SELF-UPDATE.md) — floating update, post-update Verify, controlled CodeSleuth process restart, source-checkout reload, and pinned-update boundaries.
-- [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — `/eha-test`, `/eha-repair`, `/eha-status`, structured EHA evidence, release-stream candidate selection, and repair history.
-- [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — exact operational rule for selecting a future SIB from `dev/release-X.Y.Z` and returning repairs through the same integration stream.
-- [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — exact-SHA TUI screenshot/log regression evidence and the SIB2 interface-gate contract.
-- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — evidence storage/read/write/search semantics for review, EHA, reporting and derived views.
 - [`_includes/build-controller-blurb.md`](_includes/build-controller-blurb.md) — canonical OpenCode `build` controller blurb. Public copy: [root README](../README.md#opencode-build-controller).
 
 ## Maintainers
 
 - [`MAINTAINER-SUBREPO.md`](MAINTAINER-SUBREPO.md) — standalone/subrepo maintenance and integration guidance.
-- [`RELEASE-PROCESS.md`](RELEASE-PROCESS.md) — numbered release branch policy, SIB candidate-stream role, and acceptance gates.
+- [`RELEASE-PROCESS.md`](RELEASE-PROCESS.md) — numbered release branch policy and acceptance gates.
 - [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — product-namespace inventory; runtime rename remains post-0.4.0 work.
-- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — persistence authority boundary; changing canonical evidence storage or introducing destructive generic CRUD normally reopens SIB0.
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — required acceptance identity contract for SIB promotion, accepted integration states, RCs, and releases.
-- [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — required rule for choosing future SIB candidates from the active release stream rather than PR/repair/EHA side branches.
-- [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — required repair-loop behavior after an EHA FAIL.
-- [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — executable product workflow and evidence topology for EHA campaigns.
-- [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — required interface evidence contract for canonical acceptance and SIB2 EHA.
-- [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — required method when useful stale work overlaps newer accepted contracts.
+- [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — required repair discipline when exact-head acceptance fails.
+- [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — required operator workflow for EHA campaigns on the release stream.
+- [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — required candidate-selection contract for future SIB promotion.
+- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — required durable evidence authority and append-only ledger semantics.
+- [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — required SIB2 TUI visual-regression gate and artifact contract.
+- [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) — required preservation discipline for accepted capabilities and their contract-owned forbidden regressions during release feature population.
+- [`protected-capabilities.json`](protected-capabilities.json) — queryable machine contract/forbidden-regression registry used for impact selection and preservation review.
+- [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md) — required design contract for atomic Skills and step-isolated Playbooks.
+- [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — semantic-refit authority and refit-readiness criteria for preserving product claims across future change.
 - [`LESSONS-LEARNED-VIEWPORT-HARDENING.md`](LESSONS-LEARNED-VIEWPORT-HARDENING.md) — TUI collapse/Tools viewport acceptance lessons and anti-patterns (paired with `.cursor/rules/tui-viewport-acceptance.mdc`).
 
 ## Contract map
@@ -90,32 +97,35 @@ The same authority rule applies to repository diagrams and analytical reports: t
 ```text
 CODESLEUTH-PRODUCT-CONTRACT.md
         |
-        +--> DURABLE-EVIDENCE-STORE.md                    (review/evidence persistence authority)
-        |       +--> .opencode/state/reviews/*/state.json
-        |       +--> .opencode/state/reviews/*/findings.ndjson
-        |       +--> .opencode/state/reviews/*/eha.ndjson
-        |       +--> CODESLEUTH-REPORTS.md                (derived human-readable view)
-        |       +--> CONTEXT-GRAPH-DISCIPLINE.md          (derived bounded linkage view)
-        |
         +--> CODESLEUTH-BRANDING.md
         |       +--> CODESLEUTH-COLORMAP.json
-        |       +--> TUI-VISUAL-REGRESSION.md             (render/log interface evidence)
         |       +--> pack/.opencode/bin/codesleuth_tui.py  (canonical ASCII/TUI)
         |
+        +--> CONTEXT-GRAPH-DISCIPLINE.md                  (Mermaid when useful)
+        |       +--> MERMAID-GRAPHIFY-AUDIT.md            (roadmap/incubation only)
         +--> NOVACLAW-MCP.md                              (external host seam)
         +--> ../AGENTS.md                                 (compact cross-agent entry point)
         +--> LLM-OPERATOR.md                              (task-specific operator surface)
+        +--> PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md      (Playbook/Step/Skill/Command/Tool composition)
         +--> STABLE-INTEGRATION-BASELINE.md               (SIB0 -> SIB1 -> SIB2)
+        |       +--> SIB0-CAPABILITY-INVENTORY.md         (frozen capability-class inventory)
         |       +--> EXACT-HEAD-ACCEPTANCE.md             (what is proven -> exact SHA carrying the proof)
-        |               +--> SIB-CANDIDATE-SELECTION.md   (dev/release -> exact candidate SHA)
-        |               +--> EHA-REPAIR-LOOP.md           (FAIL -> frozen SHA -> repair -> release-stream reintegration)
-        |               +--> EHA-OPERATING-PLAYBOOK.md    (Skill/commands/eha.ndjson/Mermaid)
-        |               +--> TUI-VISUAL-REGRESSION.md     (SIB2 interface composition evidence)
-        +--> SEMANTIC-REFIT.md                            (stale intent -> current semantics -> accepted refit)
+        |       +--> EHA-REPAIR-LOOP.md                   (failed EHA target -> repair -> new campaign)
+        |       +--> EHA-OPERATING-PLAYBOOK.md            (release-stream EHA operator workflow)
+        |       +--> SIB-CANDIDATE-SELECTION.md           (literal release-stream head -> EHA target)
+        |       +--> DURABLE-EVIDENCE-STORE.md            (checkpoint + append-only ledgers + derived views)
+        |       +--> TUI-VISUAL-REGRESSION.md             (canonical SIB2 interface evidence)
+        |       +--> PROTECTED-CAPABILITY-CONTRACTS.md    (accepted behavior -> preservation obligations)
+        |               +--> protected-capabilities.json  (contracts + impact graph + per-contract FR registry)
+        +--> SEMANTIC-REFIT.md                            (semantic surface -> claim reconciliation -> evidence)
         |
         +--> pack/.opencode/themes/codesleuth.json
-        +--> host runtime / commands / Skills / tools
-        +--> .codesleuth/reports/                         (human-readable local analysis)
+        +--> pack/.opencode/CODESLEUTH-REPORTS.md
+        +--> pack/.opencode/playbooks/                    (stored workflow manifests + isolated Steps)
+        +--> pack/.opencode/skills/                       (atomic on-demand competencies)
+        +--> .opencode/state/reviews/<reviewId>/eha.ndjson (append-only EHA/SIB/repair ledger)
+        +--> host runtime / commands / tools
+        +--> .codesleuth/reports/                         (host-written analysis where supported)
 ```
 
 Core CodeSleuth is feature-frozen. Growth continues through profiles, Skills, Playbooks, small tools, host integrations, and extension-management UX without adding a second execution runtime.

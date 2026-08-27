@@ -101,7 +101,7 @@ A narrow change needed to make SIB1 components integrate and reach SIB2 is **int
 
 ## SIB0 — Stable Initialization Baseline
 
-A **Stable Initialization Baseline (SIB0)** is the point at which the architecture's fundamental capability-class inventory is declared complete for the current architectural generation.
+A **Stable Initialization Baseline (SIB0)** is the point at which the architecture's fundamental capability-class inventory is declared complete for the current architectural generation. The frozen inventory for CodeSleuth lives in [`SIB0-CAPABILITY-INVENTORY.md`](SIB0-CAPABILITY-INVENTORY.md) and is indexed by [`protected-capabilities.json`](protected-capabilities.json).
 
 At SIB0:
 

@@ -64,6 +64,29 @@ async function main() {
   assert(state.latestCampaign.claimable.SIB1 === false, "failed SIB1 must not be claimable")
   assert(state.latestCampaign.claimable.SIB2 === false, "SIB2 cannot be inherited or implied")
 
+  let failToPassRejected = false
+  try {
+    await record_verdict.execute({
+      campaignId: campaignA.campaignId,
+      level: "SIB1",
+      verdict: "PASS",
+      profile: "capability implementation",
+      summary: "must not rehabilitate recorded FAIL in same campaign",
+      evidence: ["attempted overwrite"],
+    }, context)
+  } catch {
+    failToPassRejected = true
+  }
+  assert(failToPassRejected, "SIB1 FAIL must not become SIB1 PASS in the same campaign")
+
+  let secondCampaignRejected = false
+  try {
+    await start_campaign.execute({ targetSha: shaA, targetBranch: "main" }, context)
+  } catch {
+    secondCampaignRejected = true
+  }
+  assert(secondCampaignRejected, "second campaign must not rehabilitate a SHA with recorded EHA FAIL")
+
   let mismatchRejected = false
   try {
     await record_repair.execute({
@@ -134,6 +157,10 @@ async function main() {
   assert(state.campaigns[0].verdicts.SIB1.verdict === "FAIL", "failing SHA must remain failed in history")
   assert(state.latestCampaign.targetSha === shaB, "latest campaign must target repaired SHA")
   assert(state.latestCampaign.claimable.SIB2 === true, "new SHA must become SIB2 claimable only after fresh SIB0/SIB1/SIB2 PASS")
+
+  state = JSON.parse(await load.execute({}, context))
+  assert(state.campaigns[0].verdicts.SIB1.verdict === "FAIL", "failed SHA must remain failed after later repair events")
+  assert(state.campaigns[0].claimable.SIB1 === false, "failed SHA must not become claimable after later events")
 
   const diagram = await mermaid.execute({}, context)
   assert(diagram.includes("flowchart TD"), "EHA ledger must render Mermaid")

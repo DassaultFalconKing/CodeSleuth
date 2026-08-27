@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "protected-capability-assessment",
+  "description": "Assess one contract query or diff against the Protected Capability Registry and contract-owned forbidden regressions.",
+  "steps": [
+    {"id": "capture-target", "execution": "skill", "skill": "exact-target-identity", "depends_on": [], "output": "target_identity", "isolation": "fresh_subagent"},
+    {"id": "query-registry", "execution": "skill", "skill": "protected-capability-registry", "depends_on": ["capture-target"], "output": "matched_contracts", "isolation": "fresh_subagent"},
+    {"id": "triangulate-contracts", "execution": "step", "prompt": "steps/03-triangulate-contracts.md", "skills": ["contract-triangulation"], "depends_on": ["query-registry"], "output": "contract_truth", "isolation": "fresh_subagent"},
+    {"id": "audit-regressions", "execution": "step", "prompt": "steps/04-audit-regressions.md", "skills": ["forbidden-regression-ledger", "dependency-impact-closure"], "depends_on": ["triangulate-contracts"], "output": "preservation_scope", "isolation": "fresh_subagent"},
+    {"id": "assessment-verdict", "execution": "step", "prompt": "steps/05-assessment-verdict.md", "skills": [], "depends_on": ["audit-regressions"], "output": "assessment", "isolation": "fresh_subagent"}
+  ]
+}

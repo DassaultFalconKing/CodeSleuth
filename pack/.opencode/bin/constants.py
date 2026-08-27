@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 SETTINGS_SCHEMA = 1
-TEXTUAL_VERSION = "8.2.8"
 PROFILES = ("generic", "rust", "python", "node", "typescript")
 PERMISSION_VALUES = ("allow", "ask", "deny")
 AGENT_PROFILES = ("native", "open-weight", "codex", "claude")

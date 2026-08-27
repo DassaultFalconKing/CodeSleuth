@@ -160,6 +160,20 @@ function campaignById(all: EhaEvent[], campaignId?: string): CampaignStarted {
   return found
 }
 
+function verdictForCampaignLevel(all: EhaEvent[], campaignId: string, level: SibLevel): VerdictEvent | undefined {
+  return all.find(
+    (event): event is VerdictEvent =>
+      event.type === "verdict" && event.campaignId === campaignId && event.level === level,
+  )
+}
+
+function targetShaHasRecordedFail(all: EhaEvent[], targetSha: string): boolean {
+  return all.some(
+    (event): event is VerdictEvent =>
+      event.type === "verdict" && event.targetSha === targetSha && event.verdict === "FAIL",
+  )
+}
+
 function summarize(all: EhaEvent[]): CampaignSummary[] {
   const starts = all.filter((event): event is CampaignStarted => event.type === "campaign_started")
   return starts.map((start) => {
@@ -247,6 +261,13 @@ export const start_campaign = tool({
     const targetSha = validateSha(args.targetSha ?? headSha, "target SHA")
     if (targetSha !== headSha) throw new Error(`EHA target ${targetSha} does not equal literal current HEAD ${headSha}`)
 
+    const all = await events(root, reviewId)
+    if (targetShaHasRecordedFail(all, targetSha)) {
+      throw new Error(
+        `EHA target ${targetSha} already has a recorded FAIL verdict; repair on a new exact SHA instead of starting another campaign on the same target`,
+      )
+    }
+
     const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)
     const campaignId = `EHA-${stamp}-${targetSha.slice(0, 12)}-${randomUUID().slice(0, 8)}`
     const event: CampaignStarted = {
@@ -284,6 +305,12 @@ export const record_verdict = tool({
     const headSha = validateSha(await currentHead(root), "current HEAD")
     if (headSha !== campaign.targetSha) {
       throw new Error(`EHA INVALIDATED — HEAD CHANGED: campaign target ${campaign.targetSha}, current HEAD ${headSha}`)
+    }
+    const existingVerdict = verdictForCampaignLevel(all, campaign.campaignId, args.level)
+    if (existingVerdict) {
+      throw new Error(
+        `EHA verdict already recorded for ${args.level} in campaign ${campaign.campaignId}: ${existingVerdict.verdict}`,
+      )
     }
     const event: VerdictEvent = {
       type: "verdict",

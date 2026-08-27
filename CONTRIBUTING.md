@@ -2,7 +2,7 @@
 
 CodeSleuth uses a three-level **Stable Baseline** discipline for architectural recovery and release construction.
 
-The full concept, its distinction from MVP and release, capability-class criteria, feature population, and post-refactor use are defined in [`docs/STABLE-INTEGRATION-BASELINE.md`](docs/STABLE-INTEGRATION-BASELINE.md). The normative rule that binds acceptance evidence to one exact repository state is defined in [`docs/EXACT-HEAD-ACCEPTANCE.md`](docs/EXACT-HEAD-ACCEPTANCE.md).
+The full concept, its distinction from MVP and release, capability-class criteria, feature population, and post-refactor use are defined in [`docs/STABLE-INTEGRATION-BASELINE.md`](docs/STABLE-INTEGRATION-BASELINE.md). The frozen capability-class inventory for the current architectural generation is [`docs/SIB0-CAPABILITY-INVENTORY.md`](docs/SIB0-CAPABILITY-INVENTORY.md). The normative rule that binds acceptance evidence to one exact repository state is defined in [`docs/EXACT-HEAD-ACCEPTANCE.md`](docs/EXACT-HEAD-ACCEPTANCE.md).
 
 The levels are:
 
@@ -30,12 +30,14 @@ Treat that ref as the proven integrated construction base. Do not push feature w
 
 A **capability class** is a fundamental type of ability the architecture is designed to possess. Multiple similar features may populate one capability class without changing the architecture.
 
-Examples:
+The authoritative frozen inventory is [`docs/SIB0-CAPABILITY-INVENTORY.md`](docs/SIB0-CAPABILITY-INVENTORY.md), indexed by [`docs/protected-capabilities.json`](docs/protected-capabilities.json).
 
-- `CLI` is a capability class; adding `verify`, `update`, or `doctor` commands is feature population.
-- the profile mechanism is a capability class; adding Rust, TypeScript, Python, or OSINT profiles is feature population.
-- the context graph is a capability class; adding relations, bounded queries, or additional Mermaid views is feature population.
-- external-tool integration is a capability class; adding another adapter through the same integration seam is feature population.
+Examples of feature population inside that inventory:
+
+- `command-line-operation` is a capability class; adding `verify`, `update`, or `doctor` commands is feature population.
+- `profile-extension-system` is a capability class; adding Rust, TypeScript, Python, or OSINT profiles is feature population.
+- `context-relationship-graph` is a capability class; adding relations, bounded queries, or additional Mermaid views is feature population.
+- `external-tool-integration` is a capability class; adding another adapter through the same integration seam is feature population.
 
 **Feature population** means adding instances, variants, operations, workflows, depth, content, or polish inside capability classes that already exist, without changing the fundamental capability-class inventory.
 
@@ -46,7 +48,7 @@ Adding a second independent execution runtime or a fundamentally new persistence
 SIB0 is reached when:
 
 1. every fundamental capability class intended for the current architectural generation has an explicit slot, contract, boundary, module, interface, or placeholder;
-2. the capability-class inventory is declared complete;
+2. the capability-class inventory is declared complete in [`docs/SIB0-CAPABILITY-INVENTORY.md`](docs/SIB0-CAPABILITY-INVENTORY.md);
 3. the list is frozen for ordinary implementation work;
 4. maintainers designate the exact repository state as SIB0.
 

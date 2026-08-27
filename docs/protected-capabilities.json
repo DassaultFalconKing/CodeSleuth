@@ -1,0 +1,856 @@
+{
+  "schema_version": 1,
+  "registry": "codesleuth-protected-capabilities",
+  "authority": "docs/PROTECTED-CAPABILITY-CONTRACTS.md",
+  "sib0_inventory": "docs/SIB0-CAPABILITY-INVENTORY.md",
+  "bootstrap_note": "Registry covers the frozen SIB0 capability-class inventory. Do not upgrade status to sib1_accepted/sib2_integrated/protected by inference; attach exact-head evidence first. Historical protected_at SHAs are provenance, not transferable EHA for descendants.",
+  "query_policy": {
+    "small_registry": "grep_or_ripgrep_then_paged_exact_read",
+    "large_registry": "bm25_then_optional_embeddings_then_optional_reranker_then_exact_manifest_read",
+    "semantic_retrieval_is_authority": false,
+    "allow_new_search_runtime": false
+  },
+  "status_values": [
+    "experimental",
+    "implemented",
+    "sib1_accepted",
+    "sib2_integrated",
+    "protected",
+    "deprecated",
+    "removed"
+  ],
+  "capability_classes": [
+    "controller-tool-execution-boundary",
+    "command-line-operation",
+    "terminal-operator-interface",
+    "lifecycle-and-update-management",
+    "profile-extension-system",
+    "host-integration-pack",
+    "persistent-review-state",
+    "context-relationship-graph",
+    "analytical-reports-workspace",
+    "external-tool-integration",
+    "acceptance-infrastructure"
+  ],
+  "contracts": [
+    {
+      "id": "codesleuth.host-execution-authority",
+      "capability_class": "controller-tool-execution-boundary",
+      "capability_class_id": "CC-HOST",
+      "status": "protected",
+      "introduced": "pre-registry",
+      "protected_at": {
+        "sib_level": "SIB2",
+        "sha": "c5e41a73b84e65645dec5d0a4032b19928291193",
+        "evidence": "docs/STABLE-INTEGRATION-BASELINE.md"
+      },
+      "public_contract": [
+        "The active host owns the model, primary controller, session, tool routing and execution.",
+        "CodeSleuth may configure, expose, package and harden host-native capabilities but must not create a second primary agent runtime or controller."
+      ],
+      "contract_fingerprint": {
+        "execution_owner": "host",
+        "codesleuth_role": "discipline-and-control-surface"
+      },
+      "code_evidence": [
+        "pack/.opencode/commands/repo-review.md",
+        "pack/.opencode/opencode.json",
+        "tests/test_standalone_hardening.py"
+      ],
+      "doc_evidence": [
+        "docs/CODESLEUTH-PRODUCT-CONTRACT.md",
+        "docs/SIB0-CAPABILITY-INVENTORY.md",
+        "AGENTS.md"
+      ],
+      "test_evidence": [
+        "tests/test_docs_contract.py",
+        "tests/test_standalone_hardening.py",
+        "tests/test_agents_pointer.py"
+      ],
+      "affected_paths": [
+        "pack/.opencode/agents/**",
+        "pack/.opencode/commands/**",
+        "pack/.opencode/opencode.json",
+        "pack/.opencode/plugins/**",
+        "pack/.opencode/tools/**",
+        "docs/CODESLEUTH-PRODUCT-CONTRACT.md",
+        "docs/SIB0-CAPABILITY-INVENTORY.md"
+      ],
+      "depends_on": [],
+      "forbidden_regressions": [
+        {
+          "id": "FR-HOST-001",
+          "sib_origin": "SIB0",
+          "must_not": "CodeSleuth becomes or installs a second primary controller, supervisor, agent loop, model runtime, or general-purpose tool router alongside the active host.",
+          "proof": [
+            "docs/CODESLEUTH-PRODUCT-CONTRACT.md",
+            "tests/test_docs_contract.py",
+            "tests/test_standalone_hardening.py"
+          ]
+        },
+        {
+          "id": "FR-HOST-002",
+          "sib_origin": "SIB0",
+          "must_not": "A CodeSleuth-specific state format becomes a second source of truth for host model, controller, or tool execution.",
+          "proof": [
+            "docs/CODESLEUTH-PRODUCT-CONTRACT.md",
+            "docs/SIB0-CAPABILITY-INVENTORY.md"
+          ]
+        },
+        {
+          "id": "FR-HOST-003",
+          "sib_origin": "SIB0",
+          "must_not": "Installed OpenCode integration replaces the host-native build controller prompt with a CodeSleuth supervisor prompt.",
+          "proof": [
+            "tests/test_standalone_hardening.py"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codesleuth.cli-control-surface",
+      "capability_class": "command-line-operation",
+      "capability_class_id": "CC-CLI",
+      "status": "implemented",
+      "introduced": "sib0-inventory-freeze",
+      "protected_at": null,
+      "public_contract": [
+        "CodeSleuth exposes a reachable CLI for install assistance, project lifecycle, Verify, version identity, and OpenCode launch without owning host execution."
+      ],
+      "contract_fingerprint": {
+        "entrypoints": [
+          "install.py",
+          "codesleuth_project",
+          "review-pack-smoke.py",
+          "review-pack-update.py",
+          "opencode-review"
+        ],
+        "version_authority": "VERSION-or-installed-metadata"
+      },
+      "code_evidence": [
+        "install.py",
+        "pack/.opencode/bin/codesleuth_project/__init__.py",
+        "pack/.opencode/bin/codesleuth_version.py",
+        "pack/.opencode/bin/review-pack-smoke.py"
+      ],
+      "doc_evidence": [
+        "docs/SIB0-CAPABILITY-INVENTORY.md",
+        "docs/PROJECT-LIFECYCLE.md",
+        "docs/LLM-OPERATOR.md",
+        "README.md"
+      ],
+      "test_evidence": [
+        "tests/test_version_contract.py",
+        "tests/test_project_lifecycle.py",
+        "tests/test_lifecycle.py"
+      ],
+      "affected_paths": [
+        "install.py",
+        "install.sh",
+        "install.ps1",
+        "codesleuth",
+        "codesleuth.ps1",
+        "pack/.opencode/bin/codesleuth_project/**",
+        "pack/.opencode/bin/codesleuth_version.py",
+        "pack/.opencode/bin/review-pack-smoke.py",
+        "pack/.opencode/bin/opencode-review*"
+      ],
+      "depends_on": [
+        "codesleuth.host-execution-authority"
+      ],
+      "forbidden_regressions": [
+        {
+          "id": "FR-CLI-001",
+          "sib_origin": "SIB0",
+          "must_not": "CLI surfaces become an independent orchestration runtime that bypasses the host execution boundary.",
+          "proof": [
+            "docs/SIB0-CAPABILITY-INVENTORY.md",
+            "docs/CODESLEUTH-PRODUCT-CONTRACT.md"
+          ]
+        },
+        {
+          "id": "FR-CLI-002",
+          "sib_origin": "SIB1",
+          "must_not": "Version identity falls back to hardcoded numeric literals when source or installed metadata is missing instead of failing closed.",
+          "proof": [
+            "tests/test_version_contract.py"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codesleuth.tui-control-feedback",
+      "capability_class": "terminal-operator-interface",
+      "capability_class_id": "CC-TUI",
+      "status": "implemented",
+      "introduced": "post-registry-baseline-lineage",
+      "protected_at": null,
+      "public_contract": [
+        "TUI control actions expose their result or failure to the operator and responsive navigation remains reversible across supported viewports.",
+        "Isolated Textual bootstrap derives the compatible range from requirements-tui.txt and records the actual installed Textual version."
+      ],
+      "contract_fingerprint": {
+        "control_feedback_required": true,
+        "collapse_restore_required": true,
+        "textual_requirement_file": "pack/.opencode/bin/requirements-tui.txt",
+        "textual_soft_pin": "textual>=8.2.8,<9"
+      },
+      "code_evidence": [
+        "pack/.opencode/bin/codesleuth_tui.py",
+        "pack/.opencode/bin/codesleuth_tui_runtime.py",
+        "pack/.opencode/bin/review_pack_tui_bootstrap.py",
+        "pack/.opencode/bin/requirements-tui.txt"
+      ],
+      "doc_evidence": [
+        "docs/SIB0-CAPABILITY-INVENTORY.md",
+        "docs/CODESLEUTH-BRANDING.md",
+        "docs/LESSONS-LEARNED-VIEWPORT-HARDENING.md"
+      ],
+      "test_evidence": [
+        "tests/test_tui_control_feedback.py",
+        "tests/test_tui_viewport_hardening.py",
+        "tests/test_tui.py",
+        "tests/test_version_contract.py"
+      ],
+      "affected_paths": [
+        "pack/.opencode/bin/*tui*.py",
+        "pack/.opencode/bin/requirements-tui.txt",
+        "tests/test_tui*.py",
+        "docs/CODESLEUTH-BRANDING.md"
+      ],
+      "depends_on": [
+        "codesleuth.host-execution-authority",
+        "codesleuth.cli-control-surface"
+      ],
+      "forbidden_regressions": [
+        {
+          "id": "FR-TUI-000",
+          "sib_origin": "SIB0",
+          "must_not": "The operator TUI becomes a second agent loop or controller that replaces host model/session ownership.",
+          "proof": [
+            "docs/SIB0-CAPABILITY-INVENTORY.md",
+            "docs/CODESLEUTH-PRODUCT-CONTRACT.md"
+          ]
+        },
+        {
+          "id": "FR-TUI-001",
+          "sib_origin": "SIB2",
+          "must_not": "A TUI action reaches its runtime path but loses the resulting success/failure feedback before the operator can observe it.",
+          "proof": [
+            "tests/test_tui_control_feedback.py"
+          ]
+        },
+        {
+          "id": "FR-TUI-002",
+          "sib_origin": "SIB2",
+          "must_not": "A collapsible navigation/help surface can collapse but cannot restore in the accepted viewport interaction path.",
+          "proof": [
+            "tests/test_tui_viewport_hardening.py"
+          ]
+        },
+        {
+          "id": "FR-TUI-003",
+          "sib_origin": "SIB1",
+          "must_not": "Textual compatibility regresses to an exact-only pin that rejects other versions inside the declared requirements-tui.txt range, or records a fake version marker instead of the actual installed Textual version.",
+          "proof": [
+            "tests/test_version_contract.py",
+            "pack/.opencode/bin/review_pack_tui_bootstrap.py"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codesleuth.install-lifecycle",
+      "capability_class": "lifecycle-and-update-management",
+      "capability_class_id": "CC-LIFE",
+      "status": "implemented",
+      "introduced": "sib0-inventory-freeze",
+      "protected_at": null,
+      "public_contract": [
+        "Install, adopt, bind, unbind, and uninstall are reversible lifecycle operations with conflict-safe restoration of pre-existing OpenCode configuration.",
+        "Runtime installation and dependency binding are independent axes."
+      ],
+      "contract_fingerprint": {
+        "pack_source": "pack/.opencode",
+        "metadata_name": "review-pack.json",
+        "dependency_path": "tools/codesleuth",
+        "backup_root": ".codesleuth/backups/pre-install"
+      },
+      "code_evidence": [
+        "install.py",
+        "pack/.opencode/bin/codesleuth_project/__init__.py"
+      ],
+      "doc_evidence": [
+        "docs/PROJECT-LIFECYCLE.md",
+        "docs/LLM-OPERATOR.md",
+        "docs/SIB0-CAPABILITY-INVENTORY.md"
+      ],
+      "test_evidence": [
+        "tests/test_project_lifecycle.py",
+        "tests/test_lifecycle.py",
+        "tests/test_tracked_repos.py"
+      ],
+      "affected_paths": [
+        "install.py",
+        "install.sh",
+        "install.ps1",
+        "pack/.opencode/**",
+        "pack/.opencode/bin/codesleuth_project/**",
+        "docs/PROJECT-LIFECYCLE.md"
+      ],
+      "depends_on": [
+        "codesleuth.host-execution-authority",
+        "codesleuth.cli-control-surface",
+        "codesleuth.host-integration-pack"
+      ],
+      "forbidden_regressions": [
+        {
+          "id": "FR-LIFE-001",
+          "sib_origin": "SIB0",
+          "must_not": "Lifecycle operations silently rewrite tracked project .gitignore or discard pre-existing OpenCode configuration without conflict-safe restore evidence.",
+          "proof": [
+            "docs/PROJECT-LIFECYCLE.md",
+            "tests/test_project_lifecycle.py"
+          ]
+        },
+        {
+          "id": "FR-LIFE-002",
+          "sib_origin": "SIB0",
+          "must_not": "Dependency binding and runtime installation collapse into one inseparable axis, or recursive self-submodule binding is permitted.",
+          "proof": [
+            "docs/PROJECT-LIFECYCLE.md",
+            "tests/test_project_lifecycle.py"
+          ]
+        },
+        {
+          "id": "FR-LIFE-003",
+          "sib_origin": "SIB1",
+          "must_not": "Uninstall leaves the managed CodeSleuth runtime advertised as installed while restoring neither metadata removal nor pre-install config.",
+          "proof": [
+            "tests/test_project_lifecycle.py"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codesleuth.update-restart",
+      "capability_class": "lifecycle-and-update-management",
+      "capability_class_id": "CC-LIFE",
+      "status": "implemented",
+      "introduced": "post-registry-baseline-lineage",
+      "protected_at": null,
+      "public_contract": [
+        "CodeSleuth can check/fetch/apply an allowed update and perform the documented restart/reload path without falsely reporting a transition that did not occur.",
+        "Pinned tools/codesleuth dependencies must not be silently moved by floating self-update."
+      ],
+      "contract_fingerprint": {
+        "update_requires_post_update_verify": true,
+        "restart_is_part_of_lifecycle": true,
+        "restart_marker": ".opencode/state/tui-restart-request.json"
+      },
+      "code_evidence": [
+        "pack/.opencode/bin/review-pack-update.py",
+        "pack/.opencode/bin/review_pack_tui_bootstrap.py",
+        "pack/.opencode/bin/codesleuth_tui_runtime.py"
+      ],
+      "doc_evidence": [
+        "docs/SELF-UPDATE.md",
+        "docs/PROJECT-LIFECYCLE.md",
+        "docs/SIB0-CAPABILITY-INVENTORY.md"
+      ],
+      "test_evidence": [
+        "tests/test_update_restart.py",
+        "tests/test_project_lifecycle.py"
+      ],
+      "affected_paths": [
+        "pack/.opencode/bin/review-pack-update*",
+        "pack/.opencode/bin/review_pack_tui_bootstrap.py",
+        "pack/.opencode/bin/codesleuth_tui_runtime.py",
+        "install.py",
+        "docs/SELF-UPDATE.md",
+        "docs/PROJECT-LIFECYCLE.md"
+      ],
+      "depends_on": [
+        "codesleuth.host-execution-authority",
+        "codesleuth.install-lifecycle"
+      ],
+      "forbidden_regressions": [
+        {
+          "id": "FR-UPDATE-000",
+          "sib_origin": "SIB0",
+          "must_not": "Self-update or restart supervision becomes OS reboot authority or restarts an OpenCode model session as if CodeSleuth owned host execution.",
+          "proof": [
+            "docs/SELF-UPDATE.md",
+            "docs/SIB0-CAPABILITY-INVENTORY.md"
+          ]
+        },
+        {
+          "id": "FR-UPDATE-001",
+          "sib_origin": "SIB2",
+          "must_not": "Update is reported successful while restart/reload continues to execute the previous source or otherwise fails to complete the documented transition.",
+          "proof": [
+            "tests/test_update_restart.py"
+          ]
+        },
+        {
+          "id": "FR-UPDATE-002",
+          "sib_origin": "SIB1",
+          "must_not": "The documented update action degenerates into a no-op or unreachable path while remaining advertised as available.",
+          "proof": [
+            "tests/test_update_restart.py"
+          ]
+        },
+        {
+          "id": "FR-UPDATE-003",
+          "sib_origin": "SIB0",
+          "must_not": "Floating self-update silently moves an exact tools/codesleuth pinned dependency.",
+          "proof": [
+            "docs/SELF-UPDATE.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codesleuth.host-integration-pack",
+      "capability_class": "host-integration-pack",
+      "capability_class_id": "CC-PACK",
+      "status": "implemented",
+      "introduced": "sib0-inventory-freeze",
+      "protected_at": null,
+      "public_contract": [
+        "CodeSleuth distributes an OpenCode-materialized pack of Skills, commands, agents, tools, plugins and themes.",
+        "After installation, the host remains the execution authority for those artifacts."
+      ],
+      "contract_fingerprint": {
+        "distribution_root": "pack/.opencode",
+        "install_target": ".opencode"
+      },
+      "code_evidence": [
+        "pack/.opencode/opencode.json",
+        "pack/.opencode/skills/repository-deep-review/SKILL.md",
+        "pack/.opencode/tools/repo_inventory.ts",
+        "install.py"
+      ],
+      "doc_evidence": [
+        "docs/CODESLEUTH-PRODUCT-CONTRACT.md",
+        "docs/SIB0-CAPABILITY-INVENTORY.md",
+        "README.md"
+      ],
+      "test_evidence": [
+        "tests/test_lifecycle.py",
+        "tests/test_docs_contract.py",
+        "tests/test_naming_cutover.py"
+      ],
+      "affected_paths": [
+        "pack/.opencode/**",
+        "install.py"
+      ],
+      "depends_on": [
+        "codesleuth.host-execution-authority"
+      ],
+      "forbidden_regressions": [
+        {
+          "id": "FR-PACK-001",
+          "sib_origin": "SIB0",
+          "must_not": "The host-integration pack grows into an independent CodeSleuth execution runtime or general-purpose tool router.",
+          "proof": [
+            "docs/CODESLEUTH-PRODUCT-CONTRACT.md",
+            "docs/SIB0-CAPABILITY-INVENTORY.md"
+          ]
+        },
+        {
+          "id": "FR-PACK-002",
+          "sib_origin": "SIB1",
+          "must_not": "Required pack Skills/commands/tools disappear from the distribution root while remaining documented as installed capabilities.",
+          "proof": [
+            "tests/test_lifecycle.py",
+            "pack/.opencode/bin/review-pack-smoke.py"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codesleuth.profile-extension-system",
+      "capability_class": "profile-extension-system",
+      "capability_class_id": "CC-PROF",
+      "status": "implemented",
+      "introduced": "sib0-inventory-freeze",
+      "protected_at": null,
+      "public_contract": [
+        "Repository profiles are selected/detected through the pack profile mechanism and remain permission-neutral.",
+        "Builtin language/framework profiles are feature population inside this class, not new classes."
+      ],
+      "contract_fingerprint": {
+        "builtin_root": "pack/.opencode/profiles/builtin",
+        "permission_neutral": true
+      },
+      "code_evidence": [
+        "pack/.opencode/profiles/builtin/generic.json",
+        "pack/.opencode/tools/repo_profile.ts",
+        "pack/.opencode/commands/repo-profile.md"
+      ],
+      "doc_evidence": [
+        "docs/SIB0-CAPABILITY-INVENTORY.md",
+        "docs/MAINTAINER-SUBREPO.md",
+        "docs/CODESLEUTH-PRODUCT-CONTRACT.md"
+      ],
+      "test_evidence": [
+        "tests/test_standalone_hardening.py",
+        "tests/test_apply_settings.py"
+      ],
+      "affected_paths": [
+        "pack/.opencode/profiles/**",
+        "pack/.opencode/tools/repo_profile.ts",
+        "pack/.opencode/commands/repo-profile.md"
+      ],
+      "depends_on": [
+        "codesleuth.host-execution-authority",
+        "codesleuth.host-integration-pack"
+      ],
+      "forbidden_regressions": [
+        {
+          "id": "FR-PROF-001",
+          "sib_origin": "SIB0",
+          "must_not": "Builtin profiles silently escalate deny/ask permissions into allow for web, edit, shell, or external-directory access.",
+          "proof": [
+            "tests/test_standalone_hardening.py",
+            "docs/MAINTAINER-SUBREPO.md"
+          ]
+        },
+        {
+          "id": "FR-PROF-002",
+          "sib_origin": "SIB0",
+          "must_not": "A second independent profile runtime with separate install/state/execution ownership appears while still being described as ordinary profile feature population.",
+          "proof": [
+            "docs/SIB0-CAPABILITY-INVENTORY.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codesleuth.durable-review-state",
+      "capability_class": "persistent-review-state",
+      "capability_class_id": "CC-STATE",
+      "status": "protected",
+      "introduced": "pre-registry",
+      "protected_at": {
+        "sib_level": "SIB2",
+        "sha": "c5e41a73b84e65645dec5d0a4032b19928291193",
+        "evidence": "docs/STABLE-INTEGRATION-BASELINE.md"
+      },
+      "public_contract": [
+        "Durable review state survives model-context compaction and records evidence identity independently of chat history.",
+        "Durable analytical state is review evidence/supporting state, not execution authority for the host."
+      ],
+      "contract_fingerprint": {
+        "state_role": "durable-review-evidence",
+        "execution_authority": false,
+        "state_root": ".opencode/state/reviews"
+      },
+      "code_evidence": [
+        "pack/.opencode/tools/review_state.ts"
+      ],
+      "doc_evidence": [
+        "pack/.opencode/skills/repository-deep-review/SKILL.md",
+        "docs/CONTEXT-GRAPH-DISCIPLINE.md",
+        "docs/SIB0-CAPABILITY-INVENTORY.md"
+      ],
+      "test_evidence": [
+        "tests/review_state_smoke.ts"
+      ],
+      "affected_paths": [
+        "pack/.opencode/tools/review_state.ts",
+        "tests/review_state_smoke.ts",
+        "pack/.opencode/plugins/review-compaction.ts"
+      ],
+      "depends_on": [
+        "codesleuth.host-execution-authority"
+      ],
+      "forbidden_regressions": [
+        {
+          "id": "FR-STATE-001",
+          "sib_origin": "SIB1",
+          "must_not": "Durable review state becomes merely conversational or loses the evidence identity needed to rehydrate a finding after compaction.",
+          "proof": [
+            "tests/review_state_smoke.ts"
+          ]
+        },
+        {
+          "id": "FR-STATE-002",
+          "sib_origin": "SIB0",
+          "must_not": "Durable review state becomes an independent controller or execution-state authority competing with the host.",
+          "proof": [
+            "docs/CODESLEUTH-PRODUCT-CONTRACT.md",
+            "docs/SIB0-CAPABILITY-INVENTORY.md"
+          ]
+        },
+        {
+          "id": "FR-STATE-003",
+          "sib_origin": "SIB0",
+          "must_not": "Review state silently persists outside the declared .opencode/state ownership boundary as a new project-authoritative format.",
+          "proof": [
+            "docs/CONTEXT-GRAPH-DISCIPLINE.md",
+            "docs/SIB0-CAPABILITY-INVENTORY.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codesleuth.context-graph-evidence-boundary",
+      "capability_class": "context-relationship-graph",
+      "capability_class_id": "CC-GRAPH",
+      "status": "protected",
+      "introduced": "pre-registry",
+      "protected_at": {
+        "sib_level": "SIB2",
+        "sha": "c5e41a73b84e65645dec5d0a4032b19928291193",
+        "evidence": "docs/STABLE-INTEGRATION-BASELINE.md"
+      },
+      "public_contract": [
+        "The context graph is a bounded navigation and relationship projection derived from repository evidence.",
+        "Graph or Mermaid output is not stronger finding evidence than exact current source."
+      ],
+      "contract_fingerprint": {
+        "graph_role": "bounded-context-projection",
+        "finding_authority": "exact-current-source",
+        "schema_version": 1
+      },
+      "code_evidence": [
+        "pack/.opencode/tools/repo_context_graph.ts"
+      ],
+      "doc_evidence": [
+        "docs/CONTEXT-GRAPH-DISCIPLINE.md",
+        "docs/SIB0-CAPABILITY-INVENTORY.md",
+        "pack/.opencode/skills/repository-deep-review/SKILL.md"
+      ],
+      "test_evidence": [
+        "tests/context_graph_smoke.ts"
+      ],
+      "affected_paths": [
+        "pack/.opencode/tools/repo_context_graph.ts",
+        "pack/.opencode/commands/repo-map.md",
+        "tests/context_graph_smoke.ts",
+        "docs/CONTEXT-GRAPH-DISCIPLINE.md",
+        "docs/SIB0-CAPABILITY-INVENTORY.md"
+      ],
+      "depends_on": [
+        "codesleuth.host-execution-authority",
+        "codesleuth.durable-review-state"
+      ],
+      "forbidden_regressions": [
+        {
+          "id": "FR-GRAPH-000",
+          "sib_origin": "SIB0",
+          "must_not": "Context graphs or Mermaid become repository source authority or a second source of truth above tracked Git/blob identity.",
+          "proof": [
+            "docs/CONTEXT-GRAPH-DISCIPLINE.md",
+            "docs/SIB0-CAPABILITY-INVENTORY.md"
+          ]
+        },
+        {
+          "id": "FR-GRAPH-001",
+          "sib_origin": "SIB1",
+          "must_not": "Context graph or Mermaid output becomes an unbounded replacement for exact repository evidence or is treated as sufficient material-finding evidence by itself.",
+          "proof": [
+            "tests/context_graph_smoke.ts",
+            "docs/CONTEXT-GRAPH-DISCIPLINE.md"
+          ]
+        },
+        {
+          "id": "FR-GRAPH-002",
+          "sib_origin": "SIB2",
+          "must_not": "A generated graph silently diverges from its repository/review-state provenance while remaining presented as verified source structure.",
+          "proof": [
+            "tests/context_graph_smoke.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codesleuth.analytical-reports-workspace",
+      "capability_class": "analytical-reports-workspace",
+      "capability_class_id": "CC-REPORT",
+      "status": "implemented",
+      "introduced": "sib0-inventory-freeze",
+      "protected_at": null,
+      "public_contract": [
+        "Analytical reports live under .codesleuth/reports/ with CodeSleuth-owned conventions and INDEX maintenance.",
+        "Report bodies are written by the host build agent where supported and are locally ignored by default because they may contain secrets."
+      ],
+      "contract_fingerprint": {
+        "reports_root": ".codesleuth/reports",
+        "format_doc": "pack/.opencode/CODESLEUTH-REPORTS.md",
+        "writer": "host-build"
+      },
+      "code_evidence": [
+        "pack/.opencode/CODESLEUTH-REPORTS.md",
+        "pack/.opencode/bin/codesleuth_project/paths.py",
+        "pack/.opencode/skills/codesleuth-reports/SKILL.md"
+      ],
+      "doc_evidence": [
+        "docs/SIB0-CAPABILITY-INVENTORY.md",
+        "docs/PROJECT-LIFECYCLE.md",
+        "AGENTS.md"
+      ],
+      "test_evidence": [
+        "tests/test_reports_index.py",
+        "tests/test_agents_pointer.py"
+      ],
+      "affected_paths": [
+        "pack/.opencode/CODESLEUTH-REPORTS.md",
+        "pack/.opencode/bin/codesleuth_project/paths.py",
+        "pack/.opencode/skills/codesleuth-reports/**",
+        ".codesleuth/reports/**"
+      ],
+      "depends_on": [
+        "codesleuth.host-execution-authority",
+        "codesleuth.host-integration-pack"
+      ],
+      "forbidden_regressions": [
+        {
+          "id": "FR-REPORT-001",
+          "sib_origin": "SIB0",
+          "must_not": "Reports become a CodeSleuth-owned analysis engine or second controller that bypasses the host build writer.",
+          "proof": [
+            "docs/SIB0-CAPABILITY-INVENTORY.md",
+            "pack/.opencode/skills/codesleuth-reports/SKILL.md"
+          ]
+        },
+        {
+          "id": "FR-REPORT-002",
+          "sib_origin": "SIB0",
+          "must_not": "Installer policy forces report bodies into tracked Git by default without an intentional maintainer decision.",
+          "proof": [
+            "docs/PROJECT-LIFECYCLE.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codesleuth.mcp-evidence-adapter",
+      "capability_class": "external-tool-integration",
+      "capability_class_id": "CC-MCP",
+      "status": "implemented",
+      "introduced": "sib0-inventory-freeze",
+      "protected_at": null,
+      "public_contract": [
+        "The MCP adapter exposes bounded read-only repository evidence to external hosts.",
+        "It never replaces the host controller, model runtime, or tool router."
+      ],
+      "contract_fingerprint": {
+        "mode": "read-only",
+        "binding": "repository-bound",
+        "package": "codesleuth_mcp"
+      },
+      "code_evidence": [
+        "codesleuth_mcp/server.py"
+      ],
+      "doc_evidence": [
+        "docs/NOVACLAW-MCP.md",
+        "docs/CODESLEUTH-PRODUCT-CONTRACT.md",
+        "docs/SIB0-CAPABILITY-INVENTORY.md"
+      ],
+      "test_evidence": [
+        "tests/test_mcp_server.py"
+      ],
+      "affected_paths": [
+        "codesleuth_mcp/**",
+        "codesleuth-mcp.ps1",
+        "docs/NOVACLAW-MCP.md",
+        "tests/test_mcp_server.py"
+      ],
+      "depends_on": [
+        "codesleuth.host-execution-authority"
+      ],
+      "forbidden_regressions": [
+        {
+          "id": "FR-MCP-001",
+          "sib_origin": "SIB0",
+          "must_not": "MCP evidence adapter gains write, execution, or controller-replacement capabilities while still described as the read-only external-host seam.",
+          "proof": [
+            "docs/NOVACLAW-MCP.md",
+            "tests/test_mcp_server.py"
+          ]
+        },
+        {
+          "id": "FR-MCP-002",
+          "sib_origin": "SIB1",
+          "must_not": "MCP Git evidence paths escape the repository binding or return untracked/symlink/gitlink content as regular file evidence.",
+          "proof": [
+            "tests/test_mcp_server.py"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "codesleuth.acceptance-infrastructure",
+      "capability_class": "acceptance-infrastructure",
+      "capability_class_id": "CC-ACCEPT",
+      "status": "implemented",
+      "introduced": "sib0-inventory-freeze",
+      "protected_at": null,
+      "public_contract": [
+        "Canonical acceptance binds evidence to an exact commit SHA, not a branch name or synthetic PR merge commit.",
+        "The Protected Capability Registry and SIB0 inventory are executable contract surfaces with structural tests."
+      ],
+      "contract_fingerprint": {
+        "workflow": ".github/workflows/acceptance.yml",
+        "exact_head_env": "CODESLEUTH_ACCEPTANCE_SHA",
+        "registry": "docs/protected-capabilities.json",
+        "sib0_inventory": "docs/SIB0-CAPABILITY-INVENTORY.md"
+      },
+      "code_evidence": [
+        ".github/workflows/acceptance.yml",
+        "docs/protected-capabilities.json",
+        "docs/SIB0-CAPABILITY-INVENTORY.md"
+      ],
+      "doc_evidence": [
+        "docs/EXACT-HEAD-ACCEPTANCE.md",
+        "docs/PROTECTED-CAPABILITY-CONTRACTS.md",
+        "docs/SIB0-CAPABILITY-INVENTORY.md",
+        "CONTRIBUTING.md"
+      ],
+      "test_evidence": [
+        "tests/test_protected_capability_registry.py"
+      ],
+      "affected_paths": [
+        ".github/workflows/acceptance.yml",
+        "docs/protected-capabilities.json",
+        "docs/SIB0-CAPABILITY-INVENTORY.md",
+        "docs/PROTECTED-CAPABILITY-CONTRACTS.md",
+        "docs/EXACT-HEAD-ACCEPTANCE.md",
+        "tests/test_protected_capability_registry.py"
+      ],
+      "depends_on": [],
+      "forbidden_regressions": [
+        {
+          "id": "FR-ACCEPT-001",
+          "sib_origin": "SIB0",
+          "must_not": "Acceptance evidence is attached to a synthetic pull-request merge SHA or otherwise decoupled from the literal candidate HEAD.",
+          "proof": [
+            ".github/workflows/acceptance.yml",
+            "docs/EXACT-HEAD-ACCEPTANCE.md"
+          ]
+        },
+        {
+          "id": "FR-ACCEPT-002",
+          "sib_origin": "SIB0",
+          "must_not": "The SIB0 capability-class inventory becomes incomplete relative to the registry, or a contract exists without a non-empty forbidden_regressions ledger.",
+          "proof": [
+            "tests/test_protected_capability_registry.py",
+            "docs/SIB0-CAPABILITY-INVENTORY.md"
+          ]
+        },
+        {
+          "id": "FR-ACCEPT-003",
+          "sib_origin": "SIB0",
+          "must_not": "A new fundamental capability class is introduced as ordinary feature population without reopening the SIB0 lineage.",
+          "proof": [
+            "docs/SIB0-CAPABILITY-INVENTORY.md",
+            "docs/STABLE-INTEGRATION-BASELINE.md"
+          ]
+        }
+      ]
+    }
+  ]
+}

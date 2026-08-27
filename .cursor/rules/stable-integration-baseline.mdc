@@ -1,11 +1,11 @@
 ---
-description: SIB0/SIB1/SIB2 architecture recovery and release integration discipline
+description: SIB0/SIB1/SIB2 architecture recovery, protected capability, forbidden-regression, and release integration discipline
 alwaysApply: true
 ---
 
 # Stable Baseline discipline
 
-CodeSleuth uses three distinct baseline states:
+CodeSleuth uses three baseline states:
 
 - `SIB0` = **Stable Initialization Baseline**: fundamental capability-class inventory is represented and frozen.
 - `SIB1` = **Stable Implementation Baseline**: every SIB0 capability class has a real basic implementation satisfying its own contract.
@@ -23,42 +23,62 @@ The `SIB` branch is semantically the current **SIB2**. At policy introduction it
 
 ## Terms
 
-- **Capability class** = a fundamental architectural type of ability, not an individual feature. Example: CLI is a capability class; `verify`, `update`, and `doctor` are feature population inside it.
-- **Feature population** = adding instances, variants, operations, workflows, depth, content, or polish inside existing capability classes without changing the fundamental class inventory. Example: adding more CodeSleuth profiles through the existing profile mechanism is feature population; adding a second independent execution runtime is not.
-- **Semantic refit** = recover still-valid intent from stale work by re-implementing its minimal required behavior on the current accepted base while preserving newer accepted semantics; the old diff is evidence of intent, not authority over the current tree.
-- **Exact-head acceptance** = successful execution of the required acceptance profile against one exact repository commit; the tested SHA must be identical to the candidate head being accepted.
-- **Acceptance profile** = the required checks, gates, and environments for the maturity or release claim being made.
-- **Acceptance evidence** = the successful result of an acceptance profile attached to one exact commit SHA.
+- **Capability class** = a fundamental architectural type of ability, not an individual feature.
+- **Feature population** = adding variants, operations, workflows, depth, content, or polish inside existing capability classes without changing the fundamental class inventory.
+- **Semantic refit** = the target condition in which the product's relevant evidenced semantic surface is preserved or explicitly reconciled across implementation/architectural change. Porting, adaptation, reimplementation, no change, defer, or block are delivery outcomes; implementation resemblance is not the success criterion.
+- **Exact-head acceptance** = successful execution of the required acceptance profile against one exact repository commit; tested SHA must equal candidate SHA.
+- **Acceptance profile** = required checks/gates/environments for the maturity or release claim.
+- **Acceptance evidence** = successful result of an acceptance profile attached to one exact SHA.
+- **Protected capability** = an SIB2-integrated accepted capability whose contract becomes a preservation obligation for later feature population.
+- **Forbidden regression** = a stable contract-owned negative state that must not silently return once accepted.
+- **Protected Capability Registry** = `docs/protected-capabilities.json`, the machine-readable index of contracts, evidence, impact/dependency metadata, and each contract's own forbidden-regression ledger.
 
-SIB degree and exact-head acceptance are separate axes:
+SIB degree and EHA are separate axes:
 
-- SIB0 exact-head acceptance proves **architectural completeness** for the exact SHA.
-- SIB1 exact-head acceptance proves **implementation completeness** for the exact SHA.
-- SIB2 exact-head acceptance proves **integration completeness** for the exact SHA.
+- SIB0 EHA proves architectural completeness for the exact SHA.
+- SIB1 EHA proves implementation completeness for the exact SHA.
+- SIB2 EHA proves integration completeness for the exact SHA.
 
-SIB levels define **what is proven**; exact-head acceptance defines **which repository state the proof applies to**.
+After SIB2, accepted proof becomes preservation obligation:
+
+- SIB0 -> architectural invariants / SIB0-origin forbidden regressions;
+- SIB1 -> capability invariants / SIB1-origin forbidden regressions;
+- SIB2 -> integration invariants / SIB2-origin forbidden regressions.
+
+**Every contract record owns a non-empty `forbidden_regressions` ledger from the moment the contract is recorded.** Before protection these are candidate/observed negative obligations. As SIB/EHA accepts the behavior, the applicable entries become normative preservation obligations. Do not replace per-contract ledgers with one vague global list.
 
 ## Required behavior
 
+- The frozen SIB0 inventory lives in `docs/SIB0-CAPABILITY-INVENTORY.md` and is indexed by `docs/protected-capabilities.json`.
 - Do not declare SIB0 until every intended fundamental capability class has an explicit architectural slot and the inventory is deliberately frozen.
-- After SIB0, adding/removing/redefining a fundamental capability class reopens the architecture and requires a replacement SIB0 lineage.
+- After SIB0, adding/removing/redefining a fundamental capability class reopens architecture and requires a replacement SIB0 lineage.
 - Do not declare SIB1 until every SIB0 class has a real basic implementation and relevant capability/component acceptance evidence.
-- **Do not use SIB1 as the normal base for active feature population.** SIB1 work should focus on integration recovery and promotion to SIB2.
-- Do not declare SIB2 until the exact integrated composition passes the repository's full canonical acceptance gate.
+- **Do not use SIB1 as the normal base for active feature population.** SIB1 work focuses on integration recovery and promotion to SIB2.
+- Do not declare SIB2 until the exact integrated composition passes the full canonical acceptance gate.
 - **SIB2 is the first normal safe base for active feature population and release construction.**
-- **Acceptance evidence never implicitly propagates to a descendant or divergent commit.** If HEAD changes, the new SHA is a new candidate state and must establish acceptance under the required profile before promotion.
-- Two independently accepted divergent heads do not make their untested combination accepted. The resulting composition must pass acceptance on its own exact SHA.
-- The tested SHA and the SHA promoted as an accepted integration state, SIB state, RC, or release must be identical.
+- For every new or discovered contract, maintain a non-empty per-contract forbidden-regression ledger even before it reaches protected status.
+- After SIB2, preserve accepted public/architectural contracts, accepted behavior coverage, and accepted forbidden regressions unless an explicit contract change supersedes them.
+- For post-SIB2 feature work or PR review, read `docs/PROTECTED-CAPABILITY-CONTRACTS.md` and query `docs/protected-capabilities.json` before deciding regression gates.
+- Derive/update contract meaning only by triangulating current code/config, normative/public docs, and executable tests. If they disagree, classify contract drift.
+- Do not remove or weaken an accepted `FR-*` entry without explicit deprecation/removal/supersession.
+- Do not promote a capability to `protected` because it merged. It must follow `implemented -> SIB1 accepted -> SIB2 integrated -> protected` with exact-head evidence.
+- For an ordinary development candidate, gate at least `always-run invariant core + affected reverse-dependency closure + new-feature acceptance`.
+- Dependency-aware selection is only a development optimization. **SIB2, accepted integration heads, RCs, and releases still require the full acceptance profile demanded by that claim on the exact SHA.**
+- If exact source reveals a consumer missing from the manifest graph, repair the graph; never use stale impact metadata to skip a known relevant gate.
+- **Acceptance evidence never implicitly propagates to descendants or divergent commits.** If HEAD changes, prove the new SHA under the required profile.
+- Two independently accepted divergent heads do not make their untested combination accepted.
+- Tested SHA and promoted SIB/integration/RC/release SHA must be identical.
 - Do not implement release-bound feature work directly on the SIB2 ref.
-- Start new release/integration work from SIB2 or from an explicitly accepted descendant.
-- Apply feature population incrementally and run full canonical acceptance after each substantial layer.
-- A feature being green on an old branch or old base is not acceptance evidence for the current composition.
-- Only an exact tested commit may be treated as an accepted integration state.
-- When stale work overlaps files or contracts that changed after its source base, perform a **semantic refit**: inventory the source intent, inventory current semantics, classify old behavior as REAPPLY/SUPERSEDED/REFIT/DROP, and re-implement only the still-valid delta.
-- Preserve current semantics when transplanting stale work. Never replace a newer file wholesale merely because the stale branch version applies more easily.
+- Start new release/integration work from SIB2 or an explicitly accepted descendant.
+- Apply feature population incrementally and run full canonical acceptance after each substantial layer promoted as an accepted integration head.
+- A feature green on an old branch/base is not composition evidence for the current candidate.
+- When historical or divergent work overlaps changed contracts, pursue semantic refit by recovering evidenced claims and negative knowledge, resolving current normative authority, recording claim status separately from delivery disposition, and implementing only the target-native delta required by surviving claims.
+- `SUPERSEDED` requires positive coverage evidence; `RETIRED` requires an explicit current authority. Never silently convert implementation difficulty into claim retirement.
+- The older `REAPPLY/SUPERSEDED/REFIT/DROP` shorthand is not a substitute for the explicit claim-status/delivery model in `docs/SEMANTIC-REFIT.md`; `DROP` is ambiguous until an authority-backed semantic status is recorded.
+- Never replace a newer file wholesale merely because stale work applies more easily.
 - Never weaken, skip, xfail, or rewrite acceptance tests to promote a change.
-- Record the tested commit SHA, acceptance profile/gate, environment matrix where applicable, and result appropriate to the claimed baseline level.
-- RC status is downstream of completed, accepted feature population. SIB2 itself is not an RC.
-- Moving any baseline ref is a separate maintainer promotion decision, never a side effect of ordinary feature work.
+- Record tested SHA, acceptance profile/gate, environment matrix where applicable, and result.
+- RC is downstream of completed accepted feature population. SIB2 itself is not an RC.
+- Moving a baseline ref is a maintainer promotion decision, never an ordinary feature side effect.
 
-See [`CONTRIBUTING.md`](../../CONTRIBUTING.md), [`docs/STABLE-INTEGRATION-BASELINE.md`](../../docs/STABLE-INTEGRATION-BASELINE.md), [`docs/EXACT-HEAD-ACCEPTANCE.md`](../../docs/EXACT-HEAD-ACCEPTANCE.md), and [`docs/SEMANTIC-REFIT.md`](../../docs/SEMANTIC-REFIT.md) for the full contracts and examples.
+See [`CONTRIBUTING.md`](../../CONTRIBUTING.md), [`docs/STABLE-INTEGRATION-BASELINE.md`](../../docs/STABLE-INTEGRATION-BASELINE.md), [`docs/SIB0-CAPABILITY-INVENTORY.md`](../../docs/SIB0-CAPABILITY-INVENTORY.md), [`docs/EXACT-HEAD-ACCEPTANCE.md`](../../docs/EXACT-HEAD-ACCEPTANCE.md), [`docs/PROTECTED-CAPABILITY-CONTRACTS.md`](../../docs/PROTECTED-CAPABILITY-CONTRACTS.md), [`docs/protected-capabilities.json`](../../docs/protected-capabilities.json), and [`docs/SEMANTIC-REFIT.md`](../../docs/SEMANTIC-REFIT.md).

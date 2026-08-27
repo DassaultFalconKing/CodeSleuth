@@ -34,7 +34,7 @@ def test_report_contract_points_back_to_durable_store_contract() -> None:
     skill = text(OPENCODE / "skills" / "codesleuth-reports" / "SKILL.md")
     assert "DURABLE-EVIDENCE-STORE.md" in reports
     assert "DURABLE-EVIDENCE-STORE.md" in skill
-    assert "reports are derived" in skill.lower()
+    assert "derived" in skill.lower()
 
 
 def test_review_skill_uses_tool_mediated_evidence_access() -> None:
@@ -45,11 +45,25 @@ def test_review_skill_uses_tool_mediated_evidence_access() -> None:
 
 
 def test_eha_skill_inherits_append_only_store_contract() -> None:
-    skill = text(OPENCODE / "skills" / "eha-sib-acceptance" / "SKILL.md")
+    skill = text(OPENCODE / "skills" / "eha-campaign-evidence" / "SKILL.md")
     assert "DURABLE-EVIDENCE-STORE.md" in skill
     assert "append-only" in skill
     assert "eha.ndjson" in skill
     assert "raw" in skill.lower() and "rewrite" in skill.lower()
+
+
+def test_durable_store_contract_lists_playbooks_and_atomic_eha_skills() -> None:
+    contract = text(CONTRACT)
+    for token in (
+        "eha-sib-acceptance` (Playbook)",
+        "eha-repair` (Playbook)",
+        "eha-candidate-selection",
+        "eha-campaign-evidence",
+        "eha-repair-protocol",
+        "codesleuth-reports",
+    ):
+        assert token in contract, token
+    assert "eha-sib-acceptance` — records exact-head campaigns" not in contract
 
 
 def test_feature_porting_skill_already_forbids_duplicate_evidence_authority() -> None:

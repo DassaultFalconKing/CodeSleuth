@@ -1,69 +1,29 @@
 ---
 name: codesleuth-reports
-description: Persist and update CodeSleuth analytical reports for later sessions in this worktree
+description: Persist one bounded CodeSleuth analytical report and update the local report index from already-verified evidence
+slash: true
 ---
 
 # CodeSleuth reports
 
-OpenCode's primary `build` agent owns this work. Do not switch to a custom
-supervisor and do not set `agent.prompt` on `build`.
+## Atomic contract
 
-Write assistant-readable markdown under:
+**Input:** verified findings/results for one scope, exact HEAD/dirty identity, checks actually run, and limitations.
 
-```text
-.codesleuth/reports/
-```
+**Objective:** write or update one assistant-readable report under `.codesleuth/reports/` and keep `INDEX.md` coherent.
 
-Create the folder if needed. Follow `.opencode/CODESLEUTH-REPORTS.md`,
-`docs/DURABLE-EVIDENCE-STORE.md`, and `.codesleuth/reports/README.md`.
+**Output:** one report path plus updated index entry.
 
-Reports are derived human-readable projections of the durable evidence store.
-They are not evidence authority and must never become a competing state store.
+**Stop:** evidence identity is missing, the requested report would require inventing unverified findings, or the user asks to commit sensitive/local report material without an explicit sanitized commit decision.
 
-## Before writing
+**Must not:** review the repository, change application source, claim unexecuted checks, turn reports into repository authority, or raw-rewrite append-only evidence ledgers.
 
-1. Read `.codesleuth/reports/INDEX.md` if it exists.
-2. Reuse or supersede an existing report for the same HEAD+scope instead of
-   duplicating it. If HEAD moved, write a new file and note the predecessor.
-3. Stay out of source trees: the only required writes are
-   `.codesleuth/reports/*.md`. Do not edit application code unless the user
-   asked.
-4. If this is EHA/SIB work, load `eha_state_load` before writing. The structured
-   EHA ledger under `.opencode/state/reviews/<reviewId>/eha.ndjson` is the
-   durable source for campaign IDs, exact SHAs, SIB verdicts and repair lineage.
-5. For ordinary review findings, prefer `review_state_load` /
-   `review_state_get_finding` over raw file parsing so blob/staleness semantics
-   remain applied.
+OpenCode's primary controller owns the work. This Skill only persists an already-bounded result.
 
-Raw `cat`/`grep` of `.opencode/state/reviews/` is allowed for read-only audit,
-debugging, recovery, or locating an ID when necessary. It is not a semantic API
-and does not authorize a report claim by itself. Never raw-rewrite
-`state.json`, `findings.ndjson`, or `eha.ndjson` from this Skill.
+Read `.opencode/CODESLEUTH-REPORTS.md`, `docs/DURABLE-EVIDENCE-STORE.md`, and `.codesleuth/reports/README.md` when present. Reuse or supersede an existing report for the same HEAD+scope instead of duplicating it.
 
-## Write
+For EHA/SIB work, load `eha_state_load` before writing. The structured EHA ledger under `.opencode/state/reviews/<reviewId>/eha.ndjson` is the durable source for campaign IDs, exact SHAs, SIB verdicts, and repair lineage. Reports are derived human-readable projections, not evidence authority.
 
-1. Name the file `YYYY-MM-DDTHHMMZ-<slug>.md` in UTC.
-2. Include title, date, HEAD, dirty state, scope, findings with `path:line`
-   evidence, paths inspected, checks actually run, recommendations, and
-   limitations.
-3. For EHA reports also include:
-   - review ID and EHA campaign ID;
-   - exact target SHA;
-   - SIB0/SIB1/SIB2 PASS/FAIL/PENDING;
-   - whether each SIB degree is actually claimable on that SHA;
-   - blocker finding IDs;
-   - repair decision/branch/candidate/regression/focused tests when applicable;
-   - predecessor/successor campaign relationships.
-4. Never describe a repaired SHA as inheriting acceptance from a failed
-   predecessor. Report the old failed campaign and the new campaign separately.
-5. Update `INDEX.md` (newest first).
-6. Do not claim a check passed unless it ran.
+Name new reports `YYYY-MM-DDTHHMMZ-<slug>.md` in UTC. Include title, date, HEAD, dirty state, scope, findings with exact evidence, paths inspected, checks actually run, recommendations, and limitations. Update `INDEX.md` newest first.
 
-Reports are human-readable projections of durable evidence. Do not edit report
-prose to contradict `findings.ndjson` or `eha.ndjson`; correct the underlying
-record only through the appropriate evidence operation when the record itself
-is wrong. Existing append-only ledger history must not be rewritten to make the
-report cleaner.
-
-Reports may contain secrets visible to the authorized runtime. Never git-add
-them unless the user explicitly asked after sanitizing.
+Reports may contain information visible to the authorized runtime. Never git-add them unless the user explicitly requested a sanitized commit.

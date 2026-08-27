@@ -1,6 +1,7 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
+import { ReviewCompaction } from "../pack/.opencode/plugins/review-compaction"
 import { checkpoint, load, record_finding, start } from "../pack/.opencode/tools/review_state"
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -78,6 +79,65 @@ async function main() {
 
   const statePath = path.join(root, ".opencode", "state", "reviews", started.reviewId, "state.json")
   JSON.parse(await readFile(statePath, "utf8"))
+
+  const restarted = JSON.parse(await start.execute({ objective: "second state smoke", mode: "review" }, context))
+  assert(restarted.reviewId !== started.reviewId, "each review start must allocate a fresh collision-safe review ID")
+  const currentReview = JSON.parse(await load.execute({}, context))
+  assert(currentReview.reviewId === restarted.reviewId, "session pointer must move to the newly started review")
+  assert(currentReview.findingCount === 0, "new review history must not inherit findings from a prior review directory")
+  const originalReview = JSON.parse(await load.execute({ reviewId: started.reviewId }, context))
+  assert(originalReview.findingCount === 2, "prior review evidence must remain available under its original ID")
+
+  const compaction = await ReviewCompaction({ worktree: root } as any)
+  const compact = (compaction as any)["experimental.session.compacting"]
+  assert(typeof compact === "function", "review compaction hook must be registered")
+  const reviewsBase = path.join(root, ".opencode", "state", "reviews")
+  const sessionsDir = path.join(reviewsBase, "sessions")
+  await mkdir(sessionsDir, { recursive: true })
+
+  const corruptStateReview = "compaction-corrupt-state"
+  await mkdir(path.join(reviewsBase, corruptStateReview), { recursive: true })
+  await writeFile(path.join(sessionsDir, "compaction-corrupt-session.txt"), `${corruptStateReview}\n`, "utf8")
+  await writeFile(path.join(reviewsBase, corruptStateReview, "state.json"), "{not valid json\n", "utf8")
+  const corruptStateOutput = { context: [] as string[] }
+  await compact({ sessionID: "compaction-corrupt-session" }, corruptStateOutput)
+  assert(corruptStateOutput.context.length === 1, "corrupt checkpoint must degrade to one explicit compaction warning")
+  assert(
+    corruptStateOutput.context[0].includes("checkpoint unavailable") &&
+      corruptStateOutput.context[0].includes("not valid JSON"),
+    "corrupt checkpoint must not abort compaction or masquerade as authoritative state",
+  )
+
+  const partialLedgerReview = "compaction-partial-ledger"
+  await mkdir(path.join(reviewsBase, partialLedgerReview), { recursive: true })
+  await writeFile(path.join(sessionsDir, "compaction-ledger-session.txt"), `${partialLedgerReview}\n`, "utf8")
+  await writeFile(
+    path.join(reviewsBase, partialLedgerReview, "state.json"),
+    JSON.stringify({
+      objective: "compaction evidence",
+      target: "HEAD",
+      headSha: "abc123",
+      phase: "source-review",
+      completed: ["inventory"],
+      reviewedPaths: ["tracked.txt"],
+      openQuestions: [],
+      next: ["continue"],
+      note: "",
+    }),
+    "utf8",
+  )
+  await writeFile(
+    path.join(reviewsBase, partialLedgerReview, "findings.ndjson"),
+    `${JSON.stringify({ id: "F-valid", severity: "high", title: "valid", path: "tracked.txt", startLine: 1, endLine: 1, blobHash: "blob" })}\n{broken-json\n`,
+    "utf8",
+  )
+  const partialLedgerOutput = { context: [] as string[] }
+  await compact({ sessionID: "compaction-ledger-session" }, partialLedgerOutput)
+  assert(partialLedgerOutput.context.length === 1, "partially corrupt finding ledger must still yield bounded continuation context")
+  assert(partialLedgerOutput.context[0].includes('"id": "F-valid"'), "valid finding evidence must survive a corrupt neighboring line")
+  assert(partialLedgerOutput.context[0].includes('"corruptFindingsSkipped": 1'), "compaction must disclose skipped corrupt finding lines")
+  assert(partialLedgerOutput.context[0].includes("corrupt finding ledger line"), "degraded finding completeness must be visible to the model")
+
   console.log("REVIEW STATE SMOKE PASS")
 }
 
