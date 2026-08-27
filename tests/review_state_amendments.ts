@@ -388,9 +388,17 @@ async function main() {
   )
 
   const other = await fixture("other-review")
+  const crossSource = JSON.parse(await record_finding.execute({
+    severity: "low",
+    title: "still-open cross source",
+    path: "tracked.txt",
+    startLine: 11,
+    endLine: 12,
+    explanation: "open finding used to probe cross-review supersede",
+  }, cycleRoot.context))
   await expectReject(
     () => amend_finding.execute({
-      findingId: a.id,
+      findingId: crossSource.id,
       amendmentType: "supersede",
       explanation: "cross-review",
       supersededBy: other.finding.id,
