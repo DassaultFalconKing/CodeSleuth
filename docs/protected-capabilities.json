@@ -288,7 +288,9 @@
       },
       "code_evidence": [
         "install.py",
-        "pack/.opencode/bin/codesleuth_project/__init__.py"
+        "pack/.opencode/bin/codesleuth_project/__init__.py",
+        "pack/.opencode/bin/codesleuth_project/tracked_repos.py",
+        "pack/.opencode/bin/codesleuth_tui.py"
       ],
       "doc_evidence": [
         "docs/PROJECT-LIFECYCLE.md",
@@ -338,6 +340,26 @@
           "must_not": "Uninstall leaves the managed CodeSleuth runtime advertised as installed while restoring neither metadata removal nor pre-install config.",
           "proof": [
             "tests/test_project_lifecycle.py"
+          ]
+        },
+        {
+          "id": "FR-LIFE-004",
+          "sib_origin": "SIB1",
+          "must_not": "The host-tracked repository catalog presents only an installed version with no repository name and no exact CodeSleuth source commit, or hides the exact commit behind a floating branch ref, or keeps deleted test/install paths as version-only rows after refresh.",
+          "proof": [
+            "pack/.opencode/bin/codesleuth_project/tracked_repos.py",
+            "pack/.opencode/bin/codesleuth_project/__init__.py",
+            "pack/.opencode/bin/codesleuth_tui.py",
+            "tests/test_tracked_repos.py"
+          ]
+        },
+        {
+          "id": "FR-LIFE-005",
+          "sib_origin": "SIB1",
+          "must_not": "An existing but unprobeable repository (lifecycle error, malformed metadata, transient Git failure) is silently pruned from the host catalog during refresh, losing its prior identity.",
+          "proof": [
+            "pack/.opencode/bin/codesleuth_project/tracked_repos.py",
+            "tests/test_tracked_repos.py"
           ]
         }
       ]

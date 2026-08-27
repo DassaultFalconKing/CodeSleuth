@@ -86,11 +86,14 @@ If the target repository is the CodeSleuth source checkout itself, pass `--self-
 
 `--bind-dependency` is invalid for that case. Self-install is supported; recursive self-submodule binding is rejected before any `tools/codesleuth` gitlink is created.
 
-List repositories remembered on this host after install or TUI **Remember**:
+List repositories remembered on this host after install or TUI **Remember**. The catalog shows repository name, CodeSleuth source (remote and exact commit), and version; missing paths are dropped on refresh, while existing but broken repositories stay visible:
 
 ```bash
 .opencode/bin/codesleuth-project --list
+.opencode/bin/codesleuth-project /path/to/repo --forget
 ```
+
+`--forget` removes only the host registry entry (normalized path, no probe required, exit 1 if missing) and never deletes files from the target repository.
 
 Passing a nested project directory is safe: CLI entrypoints normalize it to the containing Git repository root before writing `.opencode` or `.codesleuth`.
 

@@ -71,7 +71,7 @@ Rules:
 - `--self-install` cannot be combined with `--bind-dependency`;
 - the control TUI passes `--self-install` automatically when the selected repository is the source checkout.
 
-Successful installs also upsert the target into the host-local tracked-repository registry (see `codesleuth-project --list`).
+Successful installs also upsert the target into the host-local tracked-repository registry (see `codesleuth-project --list`). Each catalog row records repository name, CodeSleuth source identity (remote and exact commit), and installed version. Refresh drops only paths that no longer exist so deleted test/install targets cannot remain as version-only rows; an existing but broken/unprobeable repository stays visible with degraded state and is not pruned automatically. Remove a still-reachable entry with `codesleuth-project <path> --forget` (path normalization matches registry; no lifecycle probe is required and nothing is deleted from the target).
 
 ## Dependency binding
 
