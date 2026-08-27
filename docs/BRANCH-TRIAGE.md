@@ -112,3 +112,44 @@ The Playbooks catalog concept may fit the accepted extension-management UX seam,
 - **Archive:** not yet; retain as source evidence until target-native delivery is reviewed
 
 This is a plausible bug-fix packet for an existing protected lifecycle/TUI surface, but its stale `supervisor` base disqualifies wholesale integration. Recover the intended tracked-repository identity/cleanup semantics onto the current release head, then review and gate the resulting exact SHA independently.
+
+## `feature/post-sib2-mermaid-full` / PR #78
+
+**Reviewed target:** `dev/release-0.4.0 @ 2d62781f70bbf079a84afcb8c429e8d8c5e87413`.
+
+**Feature tip:** `027134c73659542b1def10eecafebcb1e30ce0e7`
+
+**Shape:** seven logical commits, 54 changed files, Mermaid provenance/QA plus Graphify M2-M5 provider/corpus/TUI/topology delivery.
+
+### Mechanical evidence
+
+- The feature is correctly based on the exact current release candidate rather than the retired `supervisor` lineage.
+- Repository acceptance run `33112593826` (#262) completed successfully across the normal six hosted jobs on exact feature head `027134c...`.
+- The actual optional Graphify runtime execution test skips when `.runtime/graphify-provider` is absent; hosted CI therefore proves provider-absent behavior but not the enabled Graphify runtime on the supported Python 3.10/3.12 Ubuntu/Windows matrix.
+- The only exact transitive Graphify provider lock in the branch is explicitly Windows + Python 3.14.
+
+### Scope conflict
+
+Issue #27 was already closed with the explicit disposition that M1 is `COMPLETED / ABSORBED` and Graphify M2-M5 are `DEFER / NOT PLANNED` for the current release line. Future Graphify adoption was required to reopen through a new exact-version/provider-boundary issue against the then-current accepted baseline.
+
+PR #78 implements those deferred M2-M5 stages and adds them to the 0.4.0 CHANGELOG. Green implementation evidence does not override the recorded release-scope decision.
+
+### Additional blockers
+
+- `eha_state_mermaid` changes the no-argument/default response from Mermaid source to JSON; requiring old callers to start sending a newly introduced `responseFormat: mermaid_source` argument is not backward compatibility.
+- Graphify is product-visible in TUI/settings beyond the runtime profiles for which enabled execution has been proven.
+- the provider tool invokes ambient `python` from PATH instead of an explicit interpreter/runtime identity.
+
+### Verdict
+
+- **Semantic status:** `DEFER`
+- **Delivery:** `SPLIT REQUIRED`
+- **Full merge into 0.4.0:** `NO`
+- **Graphify M2-M5 current release:** `NOT PLANNED`
+- **Mermaid QA/provenance salvage:** `POSSIBLE`, but only as an additive compatibility-preserving hardening packet
+- **Direct cherry-pick of full range:** `NO`
+- **Repository CI on feature head:** `PASS`
+- **EHA/SIB/release acceptance:** `NOT CLAIMED`
+- **Archive:** retain as incubation/source evidence until split/re-adoption disposition is complete
+
+Detailed PR-level findings are recorded in `docs/triage/PR-78.md`.
