@@ -115,6 +115,11 @@ campaigns, pending levels, claimable levels, repair decisions, and candidate
 transitions remain visibly distinct. The diagram is useful for humans but is not
 acceptance authority and never transfers a verdict to another SHA.
 
+The default response is a versioned JSON envelope containing exact review/ledger
+provenance, selection totals and bounds, truncation state, and `mermaidSource`.
+Callers that require only historical raw source must request
+`responseFormat: mermaid_source` explicitly.
+
 ## Claimability
 
 A recorded PASS and a claimable SIB degree are deliberately different concepts.

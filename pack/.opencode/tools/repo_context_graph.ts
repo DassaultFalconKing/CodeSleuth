@@ -1348,6 +1348,12 @@ export const mermaid = tool({
     })
     return JSON.stringify(
       {
+        schemaVersion: 1,
+        view: "repository_context",
+        authority: {
+          kind: "saved_repository_context_projection",
+          statement: "tracked source and exact blob provenance remain authority; Mermaid is derived presentation only",
+        },
         derivedFrom: {
           projectionId: projection.projectionId,
           headSha: projection.headSha,

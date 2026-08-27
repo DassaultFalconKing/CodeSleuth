@@ -246,6 +246,8 @@ async function main() {
     const neighborhood = JSON.parse(await query.execute({ nodeLimit: 20, edgeLimit: 20 }, validation.context))
     assert(neighborhood.returnedNodes.length >= 1 && neighborhood.returnedEdges.length >= 1, "query returns a bounded neighborhood from the saved projection")
     const diagram = JSON.parse(await mermaid.execute({}, validation.context))
+    assert(diagram.schemaVersion === 1 && diagram.view === "repository_context", "context Mermaid must use the shared versioned envelope")
+    assert(diagram.authority.kind === "saved_repository_context_projection", "context Mermaid must declare its separate authority")
     assert(diagram.mermaidSource.includes("flowchart"), "mermaid derives flowchart source from the saved projection")
   } finally {
     await validation.cleanup()

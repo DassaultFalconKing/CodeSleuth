@@ -340,6 +340,13 @@ Their respective authorities remain tracked Git source plus context state,
 selection/provenance metadata and Mermaid source is presentation, never a write
 path back into evidence state.
 
+All three tools return a versioned JSON envelope with the common minimum fields
+`schemaVersion`, `view`, `authority`, `provenance`, `selection`,
+`derivedPresentationOnly`, and `mermaidSource`. The common vocabulary does not
+merge their authorities or make one view interchangeable with another.
+`eha_state_mermaid` additionally accepts `responseFormat: mermaid_source` as an
+explicit legacy compatibility mode; JSON remains the unambiguous default.
+
 Do not parse edited Mermaid and write it back into `review_state`,
 `findings.ndjson`, `findings-amendments.ndjson`, `eha.ndjson`,
 `protected-capabilities.json`, or repository truth. A diagram also cannot

@@ -19,4 +19,4 @@ Report, without changing repository state:
 - repair decisions, repair branches, candidate SHAs, regression tests and focused-test evidence;
 - predecessor/successor campaign relationships.
 
-Render `eha_state_mermaid` after the textual status when there is more than one campaign or any repair lineage. Use explicit campaign/repair bounds for large histories and preserve its omission markers. Treat the Mermaid output as a derived view of the ledger, not as acceptance evidence by itself; a displayed repair/candidate edge never transfers a verdict between exact SHAs.
+Render `eha_state_mermaid` after the textual status when there is more than one campaign or any repair lineage. Use its default versioned JSON envelope, report the exact ledger provenance and selection/truncation fields, and present `mermaidSource` to the user. Use explicit campaign/repair bounds for large histories and preserve its omission markers. Treat the Mermaid output as a derived view of the ledger, not as acceptance evidence by itself; a displayed repair/candidate edge never transfers a verdict between exact SHAs. Request `responseFormat: mermaid_source` only for an explicitly legacy caller.

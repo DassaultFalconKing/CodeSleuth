@@ -220,6 +220,12 @@ export const mermaid = tool({
     const selection = selectProtectedImpact(loaded.registry, args)
     return JSON.stringify(
       {
+        schemaVersion: 1,
+        view: "protected_capability_impact",
+        authority: {
+          kind: "tracked_protected_capability_registry",
+          statement: "docs/protected-capabilities.json remains registry authority; Mermaid is derived presentation only",
+        },
         provenance: loaded.provenance,
         selection,
         derivedPresentationOnly: true,
