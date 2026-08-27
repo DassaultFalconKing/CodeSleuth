@@ -93,18 +93,18 @@ python -m pytest -q tests/test_mermaid_qa_contract.py
 
 ### D3 — Graphify structural-provider adapter (M2)
 
-- [ ] Exact provider package/version and upstream commit are pinned and visible.
-- [ ] Adapter accepts only a caller-supplied, tracked Git file manifest beneath the
+- [x] Exact provider package/version and upstream commit are pinned and visible.
+- [x] Adapter accepts only a caller-supplied, tracked Git file manifest beneath the
       explicit repository root.
-- [ ] Adapter calls a library/API boundary or isolated helper, never Graphify install,
+- [x] Adapter calls a library/API boundary or isolated helper, never Graphify install,
       hooks, MCP, HTML/report, semantic, credential, or network paths.
-- [ ] Provider output is normalized into a closed candidate schema before it reaches
+- [x] Provider output is normalized into a closed candidate schema before it reaches
       TypeScript/model-visible tools.
-- [ ] Unknown node/relation kinds and `INFERRED`/`AMBIGUOUS` data are counted and
+- [x] Unknown node/relation kinds and `INFERRED`/`AMBIGUOUS` data are counted and
       fail closed or remain review inference.
-- [ ] `EXTRACTED` candidates require CodeSleuth path/blob/source validation before
+- [x] `EXTRACTED` candidates require CodeSleuth path/blob/source validation before
       promotion to `verified_source`.
-- [ ] Disabled/default operation has no Graphify import or runtime requirement.
+- [x] Disabled/default operation has no Graphify import or runtime requirement.
 
 Focused gate:
 
@@ -195,7 +195,7 @@ the feature delta only; it does not transfer SIB/EHA acceptance to the feature h
 | D0 baseline | exact Git base/worktree | full baseline gate | complete |
 | D1 envelope | tool schemas and docs | EHA + graph smoke/contracts | complete |
 | D2 Mermaid QA | isolated QA helper/tool | parser and hostile-source tests | complete |
-| D3 Graphify adapter | pinned adapter and closed schema | adapter/provider contracts | pending |
+| D3 Graphify adapter | pinned adapter and closed schema | adapter/provider contracts | complete |
 | D4 corpus | deterministic harness/fixtures | corpus check | pending |
 | D5 provider UX | config/playbook/lifecycle integration | provider/lifecycle/parity | pending |
 | D6 topology | bounded hint selection | topology + M1 regression | pending |

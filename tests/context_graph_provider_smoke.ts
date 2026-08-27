@@ -1,0 +1,47 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import os from "node:os"
+import path from "node:path"
+
+function assert(condition: unknown, message: string): asserts condition {
+  if (!condition) throw new Error(message)
+}
+
+async function git(root: string, args: string[]) {
+  const proc = Bun.spawn(["git", "-C", root, ...args], { stdout: "pipe", stderr: "pipe" })
+  const stdout = await new Response(proc.stdout).text()
+  const stderr = await new Response(proc.stderr).text()
+  assert((await proc.exited) === 0, stderr)
+  return stdout.trim()
+}
+
+const root = await mkdtemp(path.join(os.tmpdir(), "codesleuth-graphify-provider-"))
+try {
+  await git(root, ["init", "-q"])
+  await git(root, ["config", "user.email", "test@example.invalid"])
+  await git(root, ["config", "user.name", "CodeSleuth Test"])
+  await writeFile(path.join(root, "app.py"), "def run():\n    return 1\n", "utf8")
+  await writeFile(path.join(root, "main.py"), "from app import run\nrun()\n", "utf8")
+  await git(root, ["add", "app.py", "main.py"])
+  await git(root, ["commit", "-qm", "fixture"])
+  const request = JSON.stringify({ root, files: ["app.py", "main.py"], nodeLimit: 20, edgeLimit: 20 })
+  const proc = Bun.spawn(["python", "scripts/graphify_adapter.py"], {
+    cwd: path.resolve(import.meta.dir, ".."),
+    stdin: "pipe",
+    stdout: "pipe",
+    stderr: "pipe",
+  })
+  proc.stdin.write(request)
+  proc.stdin.end()
+  const stdout = await new Response(proc.stdout).text()
+  const stderr = await new Response(proc.stderr).text()
+  assert((await proc.exited) === 0, `Graphify adapter failed: ${stderr || stdout}`)
+  const result = JSON.parse(stdout)
+  assert(result.status === "ok" && result.provider.version === "0.9.50", "exact provider must execute")
+  assert(result.authority.kind === "candidate_structural_provider", "provider cannot become evidence authority")
+  assert(result.input.files.every((file: any) => file.exactIndexMatch), "tracked fixture inputs must retain exact blob identity")
+  assert(result.selection.returned.nodes > 0, "provider must return bounded structural candidates")
+  assert(result.providerDiagnostics.stdout.length < 4001, "provider diagnostics must remain bounded")
+  console.log("CONTEXT GRAPH PROVIDER SMOKE PASS")
+} finally {
+  await rm(root, { recursive: true, force: true })
+}
