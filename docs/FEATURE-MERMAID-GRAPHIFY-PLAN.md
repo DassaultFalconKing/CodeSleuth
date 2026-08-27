@@ -115,14 +115,14 @@ bun tests/context_graph_provider_smoke.ts
 
 ### D4 — representative corpus comparison and hardening (M3)
 
-- [ ] Harness covers CodeSleuth, Python, TypeScript/Node, Rust, mixed-language,
+- [x] Harness covers CodeSleuth, Python, TypeScript/Node, Rust, mixed-language,
       over-limit, dirty tracked, rename/delete, symlink/gitlink/non-regular, malicious
       label, odd-encoding, and Windows-path cases.
-- [ ] Results report precision samples, useful-structure recall proxy, wall time,
+- [x] Results report precision samples, useful-structure recall proxy, wall time,
       peak memory where available, output size, truncation, unmapped semantics, and
       provider/model-visible size.
-- [ ] Fixtures are deterministic and do not require network access.
-- [ ] A machine-readable comparison artifact is disposable/ignored, not authority.
+- [x] Fixtures are deterministic and do not require network access.
+- [x] A machine-readable comparison artifact is disposable/ignored, not authority.
 
 Focused gate:
 
@@ -196,7 +196,7 @@ the feature delta only; it does not transfer SIB/EHA acceptance to the feature h
 | D1 envelope | tool schemas and docs | EHA + graph smoke/contracts | complete |
 | D2 Mermaid QA | isolated QA helper/tool | parser and hostile-source tests | complete |
 | D3 Graphify adapter | pinned adapter and closed schema | adapter/provider contracts | complete |
-| D4 corpus | deterministic harness/fixtures | corpus check | pending |
+| D4 corpus | deterministic harness/fixtures | corpus check | complete |
 | D5 provider UX | config/playbook/lifecycle integration | provider/lifecycle/parity | pending |
 | D6 topology | bounded hint selection | topology + M1 regression | pending |
 | D7 handoff | exact-head audit | all gates rerun | pending |

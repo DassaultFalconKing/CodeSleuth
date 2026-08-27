@@ -1,0 +1,6 @@
+{
+  "python": { "minNodes": 4, "minMappedEdges": 1 },
+  "typescript": { "minNodes": 4, "minMappedEdges": 1 },
+  "rust": { "minNodes": 3, "minMappedEdges": 0 },
+  "mixed": { "minNodes": 6, "minMappedEdges": 0 }
+}

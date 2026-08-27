@@ -33,6 +33,7 @@ Long-form explanatory material lives under [`articles/`](articles/). Articles ar
 - [`MERMAID-GRAPHIFY-AUDIT.md`](MERMAID-GRAPHIFY-AUDIT.md) — audit of the current bounded Mermaid/context-graph implementation and gated evaluation of `Graphify-Labs/graphify` as an optional deterministic structural graph provider. This is a roadmap/incubation document, not approval of a production Graphify dependency.
 - [`MERMAID-QA.md`](MERMAID-QA.md) — explicit isolated parser/render QA for generated Mermaid source; normal CodeSleuth runtime remains browser-free.
 - [`GRAPHIFY-PROVIDER.md`](GRAPHIFY-PROVIDER.md) — isolated, explicitly enabled Graphify structural-provider contract, provenance and fail-closed mapping rules.
+- [`GRAPHIFY-CORPUS.md`](GRAPHIFY-CORPUS.md) — deterministic representative-corpus comparison, hardening cases and honest measurement limits for the optional provider.
 
 ## README language maintenance
 
