@@ -1354,11 +1354,12 @@ export const mermaid = tool({
           kind: "saved_repository_context_projection",
           statement: "tracked source and exact blob provenance remain authority; Mermaid is derived presentation only",
         },
-        derivedFrom: {
+        provenance: {
           projectionId: projection.projectionId,
           headSha: projection.headSha,
           schemaVersion: CONTEXT_GRAPH_SCHEMA_VERSION,
         },
+        derivedPresentationOnly: true,
         scoped: rendered.selection.scoped,
         selection: rendered.selection,
         savedMapTruncatedByAuthor: projection.bounds.truncated,
