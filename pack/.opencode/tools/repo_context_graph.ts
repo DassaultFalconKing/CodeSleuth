@@ -1373,3 +1373,111 @@ export const mermaid = tool({
     )
   },
 })
+
+const topologyHintShape = {
+  kind: tool.schema.enum(NODE_KINDS),
+  key: tool.schema.string().min(1).max(KEY_MAX),
+  community: tool.schema.string().max(100).nullable().optional(),
+  centrality: tool.schema.number().min(0).max(1),
+}
+
+export const topology = tool({
+  description:
+    "Convert optional provider community/centrality metadata into deterministic bounded root hints for repo_context_graph_query and repo_context_graph_mermaid. Selection hints never change projection identity, origin, evidence, or saved state.",
+  args: {
+    projectionId: tool.schema.string().optional(),
+    reviewId: tool.schema.string().optional(),
+    provider: tool.schema.enum(["graphify"]),
+    providerVersion: tool.schema.string().min(1).max(50),
+    upstreamCommit: tool.schema.string().regex(/^[0-9a-f]{40}$/),
+    strategy: tool.schema.enum(["community_hubs", "cross_community"]).optional(),
+    rootLimit: tool.schema.number().int().min(1).max(20).optional(),
+    hints: tool.schema.array(tool.schema.object(topologyHintShape)).max(MAX_VIEW_NODES),
+  },
+  async execute(args, context) {
+    const resolution = args.projectionId || args.reviewId
+      ? await resolveProjectionFile(context.worktree, { projectionId: args.projectionId, reviewId: args.reviewId })
+      : await resolveDefaultProjectionFile(context.worktree, context.sessionID)
+    const projection = await loadProjectionByFile(resolution.file)
+    const bySemantic = new Map(
+      projection.nodes.map((node) => [semanticElementName(node.kind, node.key), node]),
+    )
+    const deduplicated = new Map<string, { node: ContextNode; community?: string; centrality: number }>()
+    let staleHints = 0
+    for (const hint of args.hints) {
+      assertKnownKind(hint.kind)
+      assertValidKey(hint.key)
+      const semantic = semanticElementName(hint.kind, hint.key)
+      const node = bySemantic.get(semantic)
+      if (!node) {
+        staleHints += 1
+        continue
+      }
+      const candidate = {
+        node,
+        ...(hint.community ? { community: hint.community } : {}),
+        centrality: hint.centrality,
+      }
+      const previous = deduplicated.get(semantic)
+      if (!previous || candidate.centrality > previous.centrality) deduplicated.set(semantic, candidate)
+    }
+    const matched = [...deduplicated.values()]
+    const rank = (a: typeof matched[number], b: typeof matched[number]) =>
+      b.centrality - a.centrality || semanticElementName(a.node.kind, a.node.key).localeCompare(semanticElementName(b.node.kind, b.node.key))
+    matched.sort(rank)
+    const rootLimit = Math.min(args.rootLimit ?? 8, 20)
+    const strategy = args.strategy ?? "community_hubs"
+    let ranked: typeof matched = []
+    let fallbackReason: string | undefined
+    if (strategy === "cross_community") {
+      const hintByNodeId = new Map(matched.map((item) => [item.node.nodeId, item]))
+      const crossIds = new Set<string>()
+      for (const edge of projection.edges) {
+        const source = hintByNodeId.get(edge.sourceNodeId)
+        const target = hintByNodeId.get(edge.targetNodeId)
+        if (source?.community && target?.community && source.community !== target.community) {
+          crossIds.add(source.node.nodeId)
+          crossIds.add(target.node.nodeId)
+        }
+      }
+      ranked = matched.filter((item) => crossIds.has(item.node.nodeId)).sort(rank)
+      if (ranked.length === 0) {
+        fallbackReason = "no validated cross-community projection edge; used community_hubs"
+      }
+    }
+    if (strategy === "community_hubs" || ranked.length === 0) {
+      const firstPerCommunity = new Map<string, typeof matched[number]>()
+      for (const item of matched) {
+        const community = item.community ?? `unassigned:${semanticElementName(item.node.kind, item.node.key)}`
+        if (!firstPerCommunity.has(community)) firstPerCommunity.set(community, item)
+      }
+      const hubs = [...firstPerCommunity.values()].sort(rank)
+      const hubIds = new Set(hubs.map((item) => item.node.nodeId))
+      ranked = [...hubs, ...matched.filter((item) => !hubIds.has(item.node.nodeId))]
+    }
+    const roots = ranked.slice(0, rootLimit).map((item) => ({ kind: item.node.kind, key: item.node.key }))
+    return JSON.stringify(
+      {
+        schemaVersion: 1,
+        projectionId: projection.projectionId,
+        provider: { id: args.provider, version: args.providerVersion, upstreamCommit: args.upstreamCommit },
+        algorithm: { name: strategy, version: 1 },
+        derivedSelectionHintsOnly: true,
+        roots,
+        selection: {
+          submittedHints: args.hints.length,
+          matchedHints: matched.length,
+          staleHints,
+          communities: new Set(matched.map((item) => item.community).filter(Boolean)).size,
+          rootLimit,
+          returnedRoots: roots.length,
+          omittedMatchedHints: Math.max(0, matched.length - roots.length),
+          fallbackReason: fallbackReason ?? null,
+        },
+        next: "Pass these exact roots to repo_context_graph_query and repo_context_graph_mermaid with explicit hops and bounds.",
+      },
+      null,
+      2,
+    )
+  },
+})

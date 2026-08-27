@@ -185,7 +185,8 @@ def normalize_extraction(
                 "key": key,
                 "label": label,
                 "origin": "verified_source",
-                "sourceRef": source_ref,
+                "path": source_ref["path"],
+                **({"startLine": source_ref["startLine"]} if "startLine" in source_ref else {}),
             }
         else:
             candidate["projectionInput"] = {
@@ -226,8 +227,10 @@ def normalize_extraction(
             and target["sourceRef"]["exactIndexMatch"]
         )
         projection_edge: dict[str, Any] = {
-            "source": {"kind": source["kind"], "key": source["key"]},
-            "target": {"kind": target["kind"], "key": target["key"]},
+            "sourceKind": source["kind"],
+            "sourceKey": source["key"],
+            "targetKind": target["kind"],
+            "targetKey": target["key"],
             "relation": mapped_relation if exact else "review_inference",
             "origin": "verified_source" if exact else "review_inference",
         }
@@ -235,18 +238,17 @@ def normalize_extraction(
             edge_source_file = raw_edge.get("source_file")
             edge_ref = provenance.get(str(edge_source_file).replace("\\", "/"))
             if edge_ref and edge_ref["exactIndexMatch"]:
-                projection_edge["sourceRef"] = {
-                    "path": edge_ref["path"],
-                    "blobHash": edge_ref["indexBlob"],
-                }
+                projection_edge["path"] = edge_ref["path"]
                 edge_location = raw_edge.get("source_location")
                 if isinstance(edge_location, str) and edge_location.startswith("L") and edge_location[1:].isdigit():
-                    projection_edge["sourceRef"]["startLine"] = int(edge_location[1:])
+                    projection_edge["startLine"] = int(edge_location[1:])
             else:
                 exact = False
                 projection_edge = {
-                    "source": projection_edge["source"],
-                    "target": projection_edge["target"],
+                    "sourceKind": projection_edge["sourceKind"],
+                    "sourceKey": projection_edge["sourceKey"],
+                    "targetKind": projection_edge["targetKind"],
+                    "targetKey": projection_edge["targetKey"],
                     "relation": "review_inference",
                     "origin": "review_inference",
                 }
@@ -354,6 +356,8 @@ def run_provider(
         if version != PROVIDER_VERSION:
             raise AdapterError(f"expected exact {PROVIDER_PACKAGE} {PROVIDER_VERSION}, found {version}")
         from graphify.extract import extract  # type: ignore[import-not-found]
+        from graphify.build import build  # type: ignore[import-not-found]
+        from graphify.cluster import cluster  # type: ignore[import-not-found]
     except (ImportError, importlib.metadata.PackageNotFoundError) as error:
         raise AdapterError(f"optional Graphify runtime unavailable: {error}") from error
 
@@ -369,6 +373,8 @@ def run_provider(
                     cache_root=Path(cache_dir),
                     parallel=False,
                 )
+                graph = build([extraction])
+                communities = cluster(graph)
     finally:
         socket.socket.connect = original_connect  # type: ignore[method-assign]
         socket.create_connection = original_create_connection  # type: ignore[assignment]
@@ -379,6 +385,19 @@ def run_provider(
         node_limit=node_limit,
         edge_limit=edge_limit,
     )
+    community_by_id = {
+        str(node_id): str(community_id)
+        for community_id, node_ids in communities.items()
+        for node_id in node_ids
+    }
+    denominator = max(1, graph.number_of_nodes() - 1)
+    centrality = {str(node_id): round(graph.degree(node_id) / denominator, 8) for node_id in graph.nodes}
+    for node in normalized["nodes"]:
+        provider_id = node["providerId"]
+        node["topologyHint"] = {
+            "community": community_by_id.get(provider_id),
+            "centrality": centrality.get(provider_id, 0.0),
+        }
     return {
         "schemaVersion": 1,
         "provider": {
@@ -404,6 +423,15 @@ def run_provider(
             "stdout": captured_stdout.getvalue()[:4_000],
             "stderr": captured_stderr.getvalue()[:4_000],
             "failedSources": extraction.get("failed_sources", []),
+        },
+        "topology": {
+            "derivedSelectionHintsOnly": True,
+            "algorithm": "graphify.cluster+undirected_degree_centrality",
+            "algorithmVersion": 1,
+            "graphNodes": graph.number_of_nodes(),
+            "graphEdges": graph.number_of_edges(),
+            "communities": len(communities),
+            "hintedReturnedNodes": sum(node["topologyHint"]["community"] is not None for node in normalized["nodes"]),
         },
         **normalized,
     }

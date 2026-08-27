@@ -10,6 +10,10 @@ bounded tracked-file manifest from Git/repository inventory, then call
 Review its diagnostics and candidate `projectionInput` values, reopen exact source for
 material relationships, and pass the chosen bounded candidates through
 `repo_context_graph_save`; the provider never writes projection state directly.
+If topology-assisted presentation is requested, save/validate the projection first,
+then pass provider hints to `repo_context_graph_topology`. Use its exact returned roots
+for both query and Mermaid rendering, report stale/omitted/fallback metadata, and never
+feed community or centrality into projection identity or evidence origin.
 
 Persist/update only a bounded RepositoryContextProjection with `repo_context_graph_save`. Mark tracked-source facts `verified_source`; model/scout assertions remain inference. Query a compact neighborhood with `repo_context_graph_query`.
 

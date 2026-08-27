@@ -152,14 +152,14 @@ python -m pytest -q tests/test_tui.py tests/test_apply_settings.py
 
 ### D6 — topology-assisted bounded selection (M5)
 
-- [ ] Communities/centrality are optional selection hints over already validated
+- [x] Communities/centrality are optional selection hints over already validated
       CodeSleuth nodes, never identity or evidence.
-- [ ] Selection is deterministic, bounded before model exposure, and reports provider,
+- [x] Selection is deterministic, bounded before model exposure, and reports provider,
       algorithm/version, totals, omissions, and fallback reason.
-- [ ] Unknown/stale/incomplete provider topology falls back or fails closed without
+- [x] Unknown/stale/incomplete provider topology falls back or fails closed without
       changing the underlying projection.
-- [ ] Rendered edges still reference only rendered nodes and preserve inference style.
-- [ ] No-filter/native output remains compatible with the accepted M1 behavior.
+- [x] Rendered edges still reference only rendered nodes and preserve inference style.
+- [x] No-filter/native output remains compatible with the accepted M1 behavior.
 
 Focused gate:
 
@@ -198,5 +198,5 @@ the feature delta only; it does not transfer SIB/EHA acceptance to the feature h
 | D3 Graphify adapter | pinned adapter and closed schema | adapter/provider contracts | complete |
 | D4 corpus | deterministic harness/fixtures | corpus check | complete |
 | D5 provider UX | config/playbook/lifecycle integration | provider/lifecycle/parity | complete |
-| D6 topology | bounded hint selection | topology + M1 regression | pending |
+| D6 topology | bounded hint selection | topology + M1 regression | complete |
 | D7 handoff | exact-head audit | all gates rerun | pending |

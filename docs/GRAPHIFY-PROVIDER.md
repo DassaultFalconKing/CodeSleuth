@@ -82,3 +82,18 @@ Remove only the ignored optional runtime through the installed lifecycle CLI:
 This permanently removes `.runtime/graphify-provider` and nothing else; reinstall from
 the exact lock to recover it. Normal CodeSleuth uninstall does not silently broaden its
 scope to this separately installed dependency.
+
+## Topology-assisted selection
+
+The adapter may additionally run Graphify's local `build()` and `cluster()` over the
+same already bounded extraction. Returned nodes carry an optional community id and
+undirected degree-centrality score. These fields are `derivedSelectionHintsOnly`: they
+never enter node keys, projection identity, source provenance or evidence origin.
+
+`repo_context_graph_topology` matches those hints against an already saved projection
+by its existing closed `(kind, key)` identity. It drops and counts stale hints, then
+deterministically selects bounded `community_hubs` or validated `cross_community`
+bridge roots. When no cross-community projection edge exists it reports a fallback to
+community hubs. The returned roots must be passed unchanged to both
+`repo_context_graph_query` and `repo_context_graph_mermaid`; those tools continue to
+share the accepted M1 neighborhood traversal and omitted-node edge safety.

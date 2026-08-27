@@ -2,6 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { extract, status } from "../pack/.opencode/tools/repo_context_provider"
+import { save } from "../pack/.opencode/tools/repo_context_graph"
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -62,6 +63,17 @@ try {
     viaTool.edges.every((edge: any) => edge.projectionInput.origin === "verified_source" || edge.projectionInput.relation === "review_inference"),
     "non-exact provider edges must use the existing review_inference save contract",
   )
+  const validated = JSON.parse(
+    await save.execute(
+      {
+        validate_only: true,
+        nodes: viaTool.nodes.map((node: any) => node.projectionInput),
+        edges: viaTool.edges.map((edge: any) => edge.projectionInput),
+      },
+      context,
+    ),
+  )
+  assert(validated.valid === true, "provider projectionInput must pass consolidated context-graph validation")
   console.log("CONTEXT GRAPH PROVIDER SMOKE PASS")
 } finally {
   await rm(root, { recursive: true, force: true })
