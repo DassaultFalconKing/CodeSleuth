@@ -160,8 +160,10 @@ def test_workflow_is_a_delegating_owner_gated_self_hosted_bridge() -> None:
     assert "OPENCODE_CONFIG_DIR" in script
     assert "OPENCODE_DISABLE_AUTOUPDATE" in script
     assert "literal release-stream head" in script
+    assert "refs/remotes/origin/" in script
+    assert "prior_failed_sha" in script
+    assert "post-EHA exact-target check" in script
     assert "state/reviews/<reviewId>/eha.ndjson" in script
-    assert "git", "test intentionally checks the bridge source rather than reimplementing EHA"
 
 
 def test_bridge_document_is_discoverable_from_docs_index() -> None:
