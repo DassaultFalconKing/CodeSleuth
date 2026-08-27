@@ -20,6 +20,9 @@ Tree:       .codesleuth/reports/**
 The `reports` branch is a derived-report channel, not a second state store and
 not a release/integration branch.
 
+For the structured evidence authority and mutation rules, follow
+`docs/DURABLE-EVIDENCE-STORE.md`.
+
 ## Read and write protocol
 
 Every report-producing or report-consuming CodeSleuth workflow follows this
