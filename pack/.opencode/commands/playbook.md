@@ -7,7 +7,7 @@ Run CodeSleuth Playbook `$1` for this request:
 
 $2
 
-Read `docs/PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`, then resolve `pack/.opencode/playbooks/$1/playbook.json`.
+Read `docs/PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`, then resolve `.opencode/playbooks/$1/playbook.json` first, then `pack/.opencode/playbooks/$1/playbook.json`. The overlay wins when both exist.
 
 Do not preload every Step prompt. Keep OpenCode `build` as the primary controller. Determine the next runnable Step from the manifest and retained outputs. Materialize exactly one Step at a time. For `execution=skill`, load only the named Skill. For `execution=step`, read only the named Step prompt and load only its declared Skills.
 

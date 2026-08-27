@@ -410,7 +410,8 @@ The current main surfaces are exact implemented labels:
 | Surface | What it shows | Contextual actions |
 | --- | --- | --- |
 | **Home** | repository readiness, active policy/profile summary, safe next action | Configure, Verify, Playbooks, Help, Open CodeSleuth |
-| **Review** | OpenCode review commands and Playbooks | Playbooks, Open CodeSleuth |
+| **Review** | OpenCode review commands and suggested prompts | Suggested prompts, Open CodeSleuth |
+| **Playbooks** | stored overlay/pack Playbook catalog, step/skill/tool inspection, load wizard | Load playbook, Copy /playbook, Open CodeSleuth |
 | **Evidence** | durable review state and checkpoint provenance visible in `.opencode/state/` | Help, Open CodeSleuth |
 | **Tools** | installed commands, Skills, tools/plugins and lifecycle utilities | Verify, Check Updates, Update, Open CodeSleuth |
 | **Settings** | profile, permission, runtime and dependency/lifecycle configuration | Configure, Uninstall |

@@ -3,11 +3,11 @@
   "id": "eha-sib-acceptance",
   "description": "Exact-Head Acceptance campaign for SIB0, SIB1, and SIB2 on one immutable release-stream SHA.",
   "steps": [
-    {"id": "select-candidate", "execution": "step", "prompt": "steps/01-select-candidate.md", "skills": ["exact-target-identity", "eha-candidate-selection"], "depends_on": [], "output": "candidate_identity", "isolation": "fresh_subagent"},
-    {"id": "start-campaign", "execution": "step", "prompt": "steps/02-start-campaign.md", "skills": ["eha-campaign-evidence"], "depends_on": ["select-candidate"], "output": "campaign_started", "isolation": "fresh_subagent"},
-    {"id": "sib0-profile", "execution": "step", "prompt": "steps/03-sib0-profile.md", "skills": ["eha-campaign-evidence", "protected-capability-registry"], "depends_on": ["start-campaign"], "output": "sib0_verdict", "isolation": "fresh_subagent"},
-    {"id": "sib1-profile", "execution": "step", "prompt": "steps/04-sib1-profile.md", "skills": ["eha-campaign-evidence", "contract-triangulation"], "depends_on": ["sib0-profile"], "output": "sib1_verdict", "isolation": "fresh_subagent"},
-    {"id": "sib2-profile", "execution": "step", "prompt": "steps/05-sib2-profile.md", "skills": ["eha-campaign-evidence", "acceptance-matrix-design"], "depends_on": ["sib1-profile"], "output": "sib2_verdict", "isolation": "fresh_subagent"},
-    {"id": "persist-report", "execution": "skill", "skill": "codesleuth-reports", "depends_on": ["sib2-profile"], "output": "report_path", "isolation": "fresh_subagent"}
+    {"id": "select-candidate", "execution": "step", "prompt": "steps/01-select-candidate.md", "skills": ["exact-target-identity", "eha-candidate-selection"], "tools": [], "depends_on": [], "output": "candidate_identity", "isolation": "fresh_subagent"},
+    {"id": "start-campaign", "execution": "step", "prompt": "steps/02-start-campaign.md", "skills": ["eha-campaign-evidence"], "tools": ["eha_state_start_campaign"], "depends_on": ["select-candidate"], "output": "campaign_started", "isolation": "fresh_subagent"},
+    {"id": "sib0-profile", "execution": "step", "prompt": "steps/03-sib0-profile.md", "skills": ["eha-campaign-evidence", "protected-capability-registry"], "tools": ["review_state_record_finding", "eha_state_record_verdict"], "depends_on": ["start-campaign"], "output": "sib0_verdict", "isolation": "fresh_subagent"},
+    {"id": "sib1-profile", "execution": "step", "prompt": "steps/04-sib1-profile.md", "skills": ["eha-campaign-evidence", "contract-triangulation"], "tools": ["review_state_record_finding", "eha_state_record_verdict"], "depends_on": ["sib0-profile"], "output": "sib1_verdict", "isolation": "fresh_subagent"},
+    {"id": "sib2-profile", "execution": "step", "prompt": "steps/05-sib2-profile.md", "skills": ["eha-campaign-evidence", "acceptance-matrix-design"], "tools": ["review_state_record_finding", "eha_state_record_verdict"], "depends_on": ["sib1-profile"], "output": "sib2_verdict", "isolation": "fresh_subagent"},
+    {"id": "persist-report", "execution": "skill", "skill": "codesleuth-reports", "tools": [], "depends_on": ["sib2-profile"], "output": "report_path", "isolation": "fresh_subagent"}
   ]
 }

@@ -10,7 +10,7 @@ pytest.importorskip("textual")
 
 BIN = Path(__file__).resolve().parents[1] / "pack" / ".opencode" / "bin"
 sys.path.insert(0, str(BIN))
-from codesleuth_tui import CodeSleuthApp, CodeSleuthHelpPanel, NAV_SURFACES  # noqa: E402
+from codesleuth_tui import CodeSleuthApp, CodeSleuthHelpPanel, NAV_SURFACES, PlaybookLoadWizard  # noqa: E402
 from textual.containers import VerticalScroll  # noqa: E402
 from textual.widgets import Footer, Static  # noqa: E402
 
@@ -146,6 +146,61 @@ async def test_active_navigation_surface_is_brought_to_top_of_viewport(tmp_path:
             assert surface.region.y >= 0
             assert surface.region.y < size[1]
             assert surface.region.bottom > 0
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _assert_clickable(widget, width: int, height: int) -> None:
+    assert widget.display
+    assert widget.region.x >= 0
+    assert widget.region.y >= 0
+    assert widget.region.right <= width
+    assert widget.region.bottom <= height
+    assert widget.region.width > 0
+    assert widget.region.height > 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("size", [(80, 24), (120, 35)])
+async def test_playbooks_catalog_detail_and_wizard_abort_fit_viewport(
+    tmp_path: Path, size: tuple[int, int], monkeypatch
+) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
+    repo = tmp_path / "target"
+    init_committed_repo(repo)
+    app = CodeSleuthApp(repo, ROOT)
+    async with app.run_test(size=size) as pilot:
+        await pilot.pause()
+        await pilot.click("#playbooks")
+        await pilot.pause()
+        assert app.current_surface == "playbooks"
+        compact = size[0] < 100 or size[1] < 30
+        if not compact:
+            _assert_clickable(app.query_one("#nav-playbooks"), size[0], size[1])
+        _assert_clickable(app.query_one("#load-playbook"), size[0], size[1])
+        _assert_clickable(app.query_one("#copy-playbook"), size[0], size[1])
+        _assert_clickable(app.query_one("#launch"), size[0], size[1])
+        row = app.query_one("#pb-row-eha-sib-acceptance")
+        _assert_clickable(row, size[0], size[1])
+        await pilot.click("#pb-row-eha-sib-acceptance")
+        await pilot.pause()
+        detail = app.query_one("#playbooks-detail")
+        assert detail.region.y >= 0
+        assert detail.region.bottom <= size[1]
+        chips = list(app.query(".skill-chip"))
+        assert chips
+        _assert_clickable(chips[0], size[0], size[1])
+
+        await pilot.click("#load-playbook")
+        await pilot.pause()
+        assert isinstance(app.screen, PlaybookLoadWizard)
+        abort = app.screen.query_one("#abort")
+        _assert_clickable(abort, size[0], size[1])
+        await pilot.click("#abort")
+        await pilot.pause()
+        assert not isinstance(app.screen, PlaybookLoadWizard)
+        assert not (repo / ".opencode" / "playbooks").exists()
 
 
 @pytest.mark.asyncio

@@ -25,6 +25,7 @@ required = [
     "bin/opencode-review", "bin/opencode-review.ps1",
     "bin/review-pack", "bin/review-pack.ps1",
     "bin/review_pack_tui.py", "bin/codesleuth_tui.py", "bin/review_pack_tui_core.py", "bin/review_pack_tui_bootstrap.py",
+    "bin/playbook_catalog.py",
     "bin/codesleuth_version.py", "bin/codesleuth_naming.py", "bin/requirements-tui.txt",
     "bin/review-pack-update", "bin/review-pack-update.ps1", "bin/review-pack-update.py",
     "bin/review-pack-smoke.py", "themes/codesleuth.json", "tui.json",
