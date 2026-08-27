@@ -18,7 +18,8 @@ def test_semantic_refit_is_continuity_criterion_not_porting_alias() -> None:
     assert "target condition and review criterion" in contract
     assert "not a fourth SIB level" in contract
     assert "Semantic refit is not a synonym for porting" in contract
-    assert "implementation resemblance is not the success criterion" in contract.lower()
+    assert "Implementation may change freely" in contract
+    assert "do **not** determine semantic correctness" in contract
 
 
 def test_semantic_refit_separates_claim_status_from_delivery() -> None:
@@ -28,7 +29,8 @@ def test_semantic_refit_separates_claim_status_from_delivery() -> None:
     for token in ("REUSE", "PORT / ADAPT", "REIMPLEMENT", "NEW CHANGE", "NO CHANGE", "DEFER", "BLOCK"):
         assert token in contract
     assert "Separate semantic status from delivery decision" in contract
-    assert "`DROP` is **ambiguous**" in contract
+    assert "| `DROP` | **ambiguous** |" in contract
+    assert "never use `DROP` as a shortcut for `hard to integrate`" in contract
 
 
 def test_semantic_refit_reuses_existing_codesleuth_authorities() -> None:
