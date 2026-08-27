@@ -14,7 +14,7 @@
 - [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — normative repair discipline when an EHA target fails: freeze, classify, repair, and start a new campaign on a new SHA.
 - [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — operator-facing EHA workflow wiring for release-stream candidate selection, testing, repair, and reporting.
 - [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — normative contract for selecting future SIB candidates from literal `dev/release-X.Y.Z` heads.
-- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — accepted durable review/evidence authority: mutable checkpoint snapshots, append-only finding/EHA ledgers, and derived views.
+- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — accepted durable review/evidence authority: mutable checkpoint snapshots, append-only finding/amendment/EHA ledgers, and derived views.
 - [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — canonical SIB2 TUI visual-regression acceptance gate and artifact contract.
 - [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) — post-SIB2 protection model: protected capabilities, contract-owned forbidden regressions, Mermaid dependency/impact graphs, dependency-aware development gates, and full-suite SIB2/RC/release preservation.
 - [`protected-capabilities.json`](protected-capabilities.json) — machine-readable Protected Capability Registry with code/docs/test provenance, contract fingerprints, dependency/impact metadata, and each contract's own forbidden-regression ledger.

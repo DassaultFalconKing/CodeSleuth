@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { ReviewCompaction } from "../pack/.opencode/plugins/review-compaction"
-import { checkpoint, load, record_finding, start } from "../pack/.opencode/tools/review_state"
+import { amend_finding, checkpoint, get_finding, list_amendments, load, record_finding, start } from "../pack/.opencode/tools/review_state"
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -87,6 +87,92 @@ async function main() {
   assert(currentReview.findingCount === 0, "new review history must not inherit findings from a prior review directory")
   const originalReview = JSON.parse(await load.execute({ reviewId: started.reviewId }, context))
   assert(originalReview.findingCount === 2, "prior review evidence must remain available under its original ID")
+  assert(originalReview.amendmentLedgerPresent === false, "reviews with no amendment ledger remain compatible")
+  assert(originalReview.findings[0].lifecycleStatus === "OPEN", "findings without amendments stay OPEN")
+  assert(originalReview.findings[0].derivedStatus === "OPEN", "derivedStatus is lifecycle state, not last amendment type")
+
+  const findingsPath = path.join(root, ".opencode", "state", "reviews", started.reviewId, "findings.ndjson")
+  const originalFindingBytes = await readFile(findingsPath)
+  const correctedOpen = JSON.parse(await amend_finding.execute({
+    reviewId: started.reviewId,
+    findingId: finding1.id,
+    amendmentType: "correct",
+    explanation: "restated without changing lifecycle",
+    path: "tracked.txt",
+    startLine: 1,
+    endLine: 1,
+  }, context))
+  assert(correctedOpen.lifecycleStatus === "OPEN", "correct on OPEN preserves OPEN")
+  assert((await readFile(findingsPath)).equals(originalFindingBytes), "amendments must not rewrite original finding lines")
+
+  let closeRejected = false
+  try {
+    await amend_finding.execute({
+      reviewId: started.reviewId,
+      findingId: finding1.id,
+      amendmentType: "close",
+      explanation: "no verification",
+    }, context)
+  } catch {
+    closeRejected = true
+  }
+  assert(closeRejected, "close requires real verification")
+
+  const closed = JSON.parse(await amend_finding.execute({
+    reviewId: started.reviewId,
+    findingId: finding1.id,
+    amendmentType: "close",
+    explanation: "verified fix",
+    verification: "bun tests/review_state_smoke.ts — PASS",
+  }, context))
+  assert(closed.lifecycleStatus === "CLOSED", "verified close yields CLOSED")
+  const closedThenCorrect = JSON.parse(await amend_finding.execute({
+    reviewId: started.reviewId,
+    findingId: finding1.id,
+    amendmentType: "correct",
+    explanation: "metadata after close",
+    path: "tracked.txt",
+    startLine: 1,
+    endLine: 1,
+  }, context))
+  assert(closedThenCorrect.lifecycleStatus === "CLOSED", "close -> correct remains CLOSED")
+
+  let reopenRejected = false
+  try {
+    await amend_finding.execute({
+      reviewId: started.reviewId,
+      findingId: finding1.id,
+      amendmentType: "reopen",
+      explanation: "remembered evidence only",
+    }, context)
+  } catch {
+    reopenRejected = true
+  }
+  assert(reopenRejected, "reopen without fresh tracked-source evidence must fail")
+
+  const reopened = JSON.parse(await amend_finding.execute({
+    reviewId: started.reviewId,
+    findingId: finding1.id,
+    amendmentType: "reopen",
+    explanation: "still present",
+    path: "tracked.txt",
+    startLine: 2,
+    endLine: 2,
+  }, context))
+  assert(reopened.lifecycleStatus === "REOPENED", "reopen with current path/range/blob/HEAD evidence succeeds")
+  assert(reopened.blobHash, "reopen must capture current blob hash")
+  assert(reopened.headSha, "reopen must capture current HEAD")
+
+  const loadedLifecycle = JSON.parse(await load.execute({ reviewId: started.reviewId }, context))
+  const gotLifecycle = JSON.parse(await get_finding.execute({ reviewId: started.reviewId, findingId: finding1.id }, context))
+  const listedLifecycle = JSON.parse(await list_amendments.execute({ reviewId: started.reviewId, findingId: finding1.id }, context))
+  const finding1Loaded = loadedLifecycle.findings.find((item: any) => item.id === finding1.id)
+  assert(finding1Loaded.lifecycleStatus === "REOPENED", "load reports REOPENED")
+  assert(gotLifecycle.lifecycleStatus === "REOPENED", "get_finding reports REOPENED")
+  assert(listedLifecycle.lifecycleStatus === "REOPENED", "list_amendments reports REOPENED")
+  assert(finding1Loaded.latestAmendmentId === gotLifecycle.latestAmendmentId, "load/get latest amendment ids agree")
+  assert(gotLifecycle.latestAmendmentType === "reopen", "latestAmendmentType stays on the metadata axis")
+  assert((await readFile(findingsPath)).equals(originalFindingBytes), "original finding lines stay byte-for-byte immutable after reopen")
 
   const compaction = await ReviewCompaction({ worktree: root } as any)
   const compact = (compaction as any)["experimental.session.compacting"]

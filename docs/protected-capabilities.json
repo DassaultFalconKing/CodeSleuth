@@ -593,7 +593,8 @@
       },
       "code_evidence": [
         "pack/.opencode/tools/review_state.ts",
-        "pack/.opencode/tools/eha_state.ts"
+        "pack/.opencode/tools/eha_state.ts",
+        "pack/.opencode/skills/findings-ledger-update/SKILL.md"
       ],
       "doc_evidence": [
         "pack/.opencode/skills/repository-deep-review/SKILL.md",
@@ -604,14 +605,17 @@
       ],
       "test_evidence": [
         "tests/review_state_smoke.ts",
+        "tests/review_state_amendments.ts",
         "tests/eha_state_smoke.ts"
       ],
       "affected_paths": [
         "pack/.opencode/tools/review_state.ts",
         "pack/.opencode/tools/eha_state.ts",
         "tests/review_state_smoke.ts",
+        "tests/review_state_amendments.ts",
         "tests/eha_state_smoke.ts",
         "pack/.opencode/plugins/review-compaction.ts",
+        "pack/.opencode/skills/findings-ledger-update/SKILL.md",
         "docs/DURABLE-EVIDENCE-STORE.md",
         "docs/EHA-OPERATING-PLAYBOOK.md"
       ],
@@ -661,6 +665,50 @@
           "proof": [
             "tests/eha_state_smoke.ts",
             "docs/EHA-OPERATING-PLAYBOOK.md"
+          ]
+        },
+        {
+          "id": "FR-STATE-006",
+          "sib_origin": "SIB1",
+          "must_not": "findings-amendments.ndjson becomes a second independently writable persistence authority instead of a sibling ledger under the one durable review/evidence store.",
+          "proof": [
+            "docs/DURABLE-EVIDENCE-STORE.md",
+            "pack/.opencode/tools/review_state.ts"
+          ]
+        },
+        {
+          "id": "FR-STATE-007",
+          "sib_origin": "SIB1",
+          "must_not": "reopen succeeds from explanation or remembered evidence without capturing fresh tracked path, line range, current blob hash, and exact HEAD/worktree identity.",
+          "proof": [
+            "tests/review_state_amendments.ts",
+            "pack/.opencode/skills/findings-ledger-update/SKILL.md"
+          ]
+        },
+        {
+          "id": "FR-STATE-008",
+          "sib_origin": "SIB1",
+          "must_not": "Finding lifecycle is derived only from the last amendment type so that correct after close/supersede/reopen changes lifecycle.",
+          "proof": [
+            "tests/review_state_amendments.ts",
+            "docs/DURABLE-EVIDENCE-STORE.md"
+          ]
+        },
+        {
+          "id": "FR-STATE-009",
+          "sib_origin": "SIB1",
+          "must_not": "Torn or unparseable amendment records are skipped silently while a trustworthy lifecycle is still derived, or mutations append onto untrusted amendment history.",
+          "proof": [
+            "tests/review_state_amendments.ts"
+          ]
+        },
+        {
+          "id": "FR-STATE-010",
+          "sib_origin": "SIB1",
+          "must_not": "Amendment operations rewrite, delete, or compact original findings.ndjson lines.",
+          "proof": [
+            "tests/review_state_amendments.ts",
+            "tests/review_state_smoke.ts"
           ]
         }
       ]
@@ -784,7 +832,8 @@
       "code_evidence": [
         "pack/.opencode/CODESLEUTH-REPORTS.md",
         "pack/.opencode/bin/codesleuth_project/paths.py",
-        "pack/.opencode/skills/codesleuth-reports/SKILL.md"
+        "pack/.opencode/skills/codesleuth-reports/SKILL.md",
+        "pack/.opencode/skills/report-bug-closure/SKILL.md"
       ],
       "doc_evidence": [
         "docs/SIB0-CAPABILITY-INVENTORY.md",
@@ -799,6 +848,7 @@
         "pack/.opencode/CODESLEUTH-REPORTS.md",
         "pack/.opencode/bin/codesleuth_project/paths.py",
         "pack/.opencode/skills/codesleuth-reports/**",
+        "pack/.opencode/skills/report-bug-closure/**",
         ".codesleuth/reports/**"
       ],
       "depends_on": [
@@ -821,6 +871,15 @@
           "must_not": "Installer policy forces report bodies into tracked Git by default without an intentional maintainer decision.",
           "proof": [
             "docs/PROJECT-LIFECYCLE.md"
+          ]
+        },
+        {
+          "id": "FR-REPORT-003",
+          "sib_origin": "SIB1",
+          "must_not": "A bug-closure report claims CLOSED/SUPERSEDED/RETRACTED without a trustworthy amendment-derived lifecycle, or treats correct as a lifecycle close.",
+          "proof": [
+            "pack/.opencode/skills/report-bug-closure/SKILL.md",
+            "docs/DURABLE-EVIDENCE-STORE.md"
           ]
         }
       ]

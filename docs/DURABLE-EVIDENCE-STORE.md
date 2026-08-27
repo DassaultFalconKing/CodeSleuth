@@ -27,9 +27,10 @@ tracked Git source + exact blob/SHA identity
         v
 .opencode/state/reviews/<reviewId>/
         |
-        +--> state.json       mutable atomic checkpoint snapshot
-        +--> findings.ndjson  append-only verified finding ledger
-        +--> eha.ndjson       append-only EHA/SIB/repair event ledger
+        +--> state.json                 mutable atomic checkpoint snapshot
+        +--> findings.ndjson            append-only verified finding ledger
+        +--> findings-amendments.ndjson append-only sibling amendment ledger
+        +--> eha.ndjson                 append-only EHA/SIB/repair event ledger
         |
         +-----------------------------+
         |                             |
@@ -42,6 +43,11 @@ RepositoryContextProjection      reports / EHA Mermaid
                 OpenCode/LLM context
                 ephemeral working memory
 ```
+
+`findings-amendments.ndjson` is a **sibling ledger within this one durable
+review/evidence authority**. It is not a second persistence plane, database, or
+independently writable store for the same facts. Original finding lines remain
+the immutable originals; amendment events refine the read model.
 
 Authority is one-way. A downstream representation never upgrades itself into
 upstream evidence.
@@ -65,11 +71,14 @@ The review store lives under:
     <reviewId>/
         state.json
         findings.ndjson
+        findings-amendments.ndjson
         eha.ndjson
 ```
 
 Not every review must contain every ledger. For example, `eha.ndjson` appears
-only when EHA/SIB work is recorded.
+only when EHA/SIB work is recorded. `findings-amendments.ndjson` appears only
+when a finding has been amended; a review with no amendment file is a valid
+legacy/compatible review whose findings remain `OPEN`.
 
 `latest.txt` and `sessions/*.txt` are mutable discovery pointers. They help tools
 resolve a review ID but are **not evidence** and must never be cited as proof of
@@ -101,8 +110,124 @@ atomic so a crash does not expose a partially-written checkpoint.
 HEAD, worktree status, severity and explanation.
 
 Ordinary operation must never edit or delete an existing finding line in place.
-A future need for correction/supersession must be represented by an explicit,
-versioned evidence operation rather than history rewriting.
+Correction, close, reopen, retract, and supersession are represented by
+append-only events in the sibling `findings-amendments.ndjson` ledger. Each
+original `findings.ndjson` line remains byte-for-byte immutable after every
+amendment.
+
+### `findings-amendments.ndjson`: sibling append-only amendment ledger
+
+`findings-amendments.ndjson` records versioned amendment events captured through
+`review_state_amend_finding`. It lives beside `findings.ndjson` under the same
+review directory and the same CodeSleuth tool write boundary.
+
+This is feature population of the existing durable-review-state authority
+(`CC-STATE`). It does **not** introduce a second persistence authority.
+
+#### Record identity, schema, and versioning
+
+Each amendment is one NDJSON object terminated by a newline. Current writer
+schema is `schemaVersion: 1`. Missing `schemaVersion` on a well-formed record is
+treated as implicit `1`. An unsupported `schemaVersion` is corrupt/unreadable
+and fail-closed.
+
+Required v1 identity fields:
+
+```text
+schemaVersion
+id              FA-...
+amends          F-...
+amendmentType   correct | close | reopen | retract | supersede
+explanation
+recordedAt
+headSha
+```
+
+IDs are allocated with `FA-` plus a UUID so rapid successive writes do not
+collide. The writer also stores optional evidence/metadata (`path`,
+`startLine`, `endLine`, `excerpt`, `blobHash`, `worktreeStatus`, `newSeverity`,
+`newTitle`, `supersededBy`, `verification`, `regressionTests`) according to the
+operation.
+
+#### Writer API and immutable originals
+
+The only supported mutation API is `review_state_amend_finding`. It appends one
+new line. It must never rewrite, delete, or compact lines in `findings.ndjson`
+or `findings-amendments.ndjson`.
+
+#### Lifecycle vs metadata
+
+Lifecycle and amendment metadata are separate axes.
+
+Lifecycle states: `OPEN | REOPENED | CLOSED | RETRACTED | SUPERSEDED`.
+
+Lifecycle operations: `close`, `reopen`, `retract`, `supersede`.
+
+Metadata operation: `correct`. `correct` never changes lifecycle. A finding that
+is `CLOSED` and then `correct`ed remains `CLOSED`.
+
+Public read models expose both:
+
+- `lifecycleStatus` — the lifecycle axis;
+- `latestAmendmentType` / `latestAmendmentId` — the metadata axis;
+- `derivedStatus` — compatibility alias of `lifecycleStatus`. It is lifecycle
+  state, never `CORRECTED`.
+
+Legal transitions:
+
+```text
+from \ op     correct           close        reopen         retract       supersede
+OPEN          stay OPEN         ->CLOSED     illegal        ->RETRACTED   ->SUPERSEDED
+REOPENED      stay REOPENED     ->CLOSED     illegal        ->RETRACTED   ->SUPERSEDED
+CLOSED        stay CLOSED       illegal      ->REOPENED     ->RETRACTED   ->SUPERSEDED
+RETRACTED     stay RETRACTED    illegal      illegal        illegal       illegal
+SUPERSEDED    stay SUPERSEDED   illegal      illegal        illegal       illegal
+```
+
+`reopen` from `RETRACTED` is not defined; record a new finding instead.
+Repeated terminal operations (`close` when `CLOSED`, `retract` when
+`RETRACTED`, `supersede` when `SUPERSEDED`) are illegal.
+
+`reopen` fail-closes unless it captures fresh current reproduction from tracked
+source: explicit `path` + `startLine`/`endLine`, at most 80 lines, current blob
+hash, and exact current HEAD/worktree identity. Explanation or remembered
+evidence alone is insufficient.
+
+`close` requires verification of tests/commands actually run.
+
+`supersede` requires an existing same-review target `F-...`, rejects
+self-supersession, rejects direct and transitive cycles, fail-closes on
+ambiguous/corrupt linkage, and does not silently replace an existing terminal
+supersession relation.
+
+#### Read-model derivation
+
+`review_state_load`, `review_state_get_finding`, and
+`review_state_list_amendments` derive lifecycle by walking the amendment
+history in append order and applying only lifecycle operations. They must agree
+on `lifecycleStatus`, `latestAmendmentId`, `latestAmendmentType`, and counts.
+
+A review with no `findings-amendments.ndjson` is compatible: amendment count is
+zero and every finding's lifecycle is `OPEN`.
+
+#### Corruption behavior
+
+Reads must visibly surface corrupt/torn amendment records
+(`amendmentLedgerCorrupt`, `corruptAmendmentRecords`,
+`trustworthyAmendmentHistory`). No trustworthy lifecycle status may be silently
+derived from incomplete authoritative history; derived lifecycle is
+`UNTRUSTED` when the ledger cannot be trusted.
+
+Mutation must fail closed when existing amendment history cannot be trusted.
+Do not append onto a torn, unparseable, duplicate-id, unknown-type, or
+semantically illegal persisted ledger.
+
+#### Migration / schema behavior
+
+Creating `findings-amendments.ndjson` is additive. Older reviews without the
+file remain valid. Writers emit `schemaVersion: 1`. Future schema changes must
+keep implicit-v1 readable or fail closed on unsupported versions; they must not
+rewrite historical lines in place.
 
 ### `eha.ndjson`: append-only EHA event ledger
 
@@ -124,6 +249,7 @@ The supported write boundary is the CodeSleuth tool API:
 review_state_start
 review_state_checkpoint
 review_state_record_finding
+review_state_amend_finding
 
 eha_state_start_campaign
 eha_state_record_verdict
@@ -146,6 +272,8 @@ the store's semantics:
 ```text
 review_state_load
 review_state_get_finding
+review_state_get_amendment
+review_state_list_amendments
 
 eha_state_load
 eha_state_mermaid
@@ -178,6 +306,7 @@ Instead it exposes domain operations:
 
 - start/checkpoint a review;
 - record/reload a verified finding;
+- append a versioned finding amendment and reload the derived lifecycle;
 - start an EHA campaign;
 - record a SIB verdict;
 - record EHA repair lineage;
@@ -212,8 +341,9 @@ selection/provenance metadata and Mermaid source is presentation, never a write
 path back into evidence state.
 
 Do not parse edited Mermaid and write it back into `review_state`,
-`findings.ndjson`, `eha.ndjson`, `protected-capabilities.json`, or repository
-truth. A diagram also cannot transfer an EHA/SIB verdict between commit SHAs.
+`findings.ndjson`, `findings-amendments.ndjson`, `eha.ndjson`,
+`protected-capabilities.json`, or repository truth. A diagram also cannot
+transfer an EHA/SIB verdict between commit SHAs.
 
 ### Analytical reports
 
@@ -287,8 +417,14 @@ boundary are:
 - `repository-deep-review` — starts/checkpoints review state, records findings,
   reloads after compaction and binds context projection work to verified review
   state;
+- `findings-ledger-update` — appends versioned finding amendments to the sibling
+  `findings-amendments.ndjson` ledger through `review_state_amend_finding`
+  without rewriting `findings.ndjson`;
 - `codesleuth-reports` — reads the structured store and writes derived
   human-readable reports;
+- `report-bug-closure` — syncs derived `.codesleuth/reports` when a finding's
+  lifecycle is `CLOSED`, `SUPERSEDED`, or `RETRACTED`; reports remain derived
+  views, never ledger authority;
 - `eha-candidate-selection` — selects literal release-stream exact-head SIB
   candidates without inventing a second evidence authority;
 - `eha-campaign-evidence` — records exact-head campaigns, SIB verdicts, and
@@ -316,7 +452,9 @@ The following require an explicit architecture review and normally reopen SIB0:
 
 - replacing filesystem evidence authority with a database service;
 - making context graphs, reports or Mermaid canonical evidence;
-- adding a second independently writable evidence ledger for the same facts;
+- adding a second independently writable evidence ledger for the same facts
+  (a sibling amendment ledger under the same review directory and tool API is
+  not a second authority);
 - allowing model prose/raw grep output to promote itself into verified evidence;
 - adding generic destructive CRUD that can rewrite acceptance/finding history.
 

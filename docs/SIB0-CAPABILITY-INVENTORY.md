@@ -73,7 +73,9 @@ agent loop, or general-purpose tool router. See contract
 | `CC-LIFE` | self-install, bind-dependency, purge traces, restart request marker |
 | `CC-PROF` | `generic` / `rust` / `python` / `node` / `typescript` builtins |
 | `CC-PACK` | individual Skills, `/repo-*` commands, plugins, themes |
+| `CC-STATE` | finding-amendment sibling ledger, review compaction fail-soft |
 | `CC-GRAPH` | relation kinds, neighborhood queries, Mermaid projection options |
+| `CC-REPORT` | `report-bug-closure` Skill, INDEX newest-first maintenance |
 | `CC-MCP` | NovaClaw or later host adapters through the same read-only evidence seam |
 | `CC-ACCEPT` | additional matrix cells, focused contract tests |
 

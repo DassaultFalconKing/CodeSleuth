@@ -25,6 +25,12 @@ def test_contract_defines_snapshot_ledgers_and_derived_views() -> None:
         "read-only discovery mechanism",
         "Direct raw writes are forbidden",
         "duplicate authority",
+        "findings-amendments.ndjson",
+        "sibling ledger",
+        "lifecycleStatus",
+        "latestAmendmentType",
+        "review_state_amend_finding",
+        "fail closed",
     ):
         assert token in contract
 
@@ -61,6 +67,8 @@ def test_durable_store_contract_lists_playbooks_and_atomic_eha_skills() -> None:
         "eha-campaign-evidence",
         "eha-repair-protocol",
         "codesleuth-reports",
+        "findings-ledger-update",
+        "report-bug-closure",
     ):
         assert token in contract, token
     assert "eha-sib-acceptance` — records exact-head campaigns" not in contract
