@@ -49,10 +49,43 @@ def test_overview_and_inventory_are_bound_to_git(repository: Path) -> None:
     assert evidence.root == repository.resolve()
     assert overview["trackedFiles"] == 3
     assert overview["dirty"] is False
+    assert overview["statusTruncated"] is False
+    assert overview["rootFilesTruncated"] is False
+    assert overview["topLevelTruncated"] is False
+    assert overview["extensionsTruncated"] is False
     assert inventory["total"] == 3
     assert len(inventory["files"]) == 2
     assert inventory["nextCursor"] == 2
     assert all(len(item["blob"]) == 40 for item in inventory["files"])
+
+
+def test_overview_discloses_every_bounded_shape_collection(repository: Path) -> None:
+    for index in range(105):
+        directory = repository / f"component-{index:03d}"
+        directory.mkdir()
+        target = directory / f"source.ext{index:03d}"
+        target.write_text(f"component {index}\n", encoding="utf-8", newline="\n")
+    for index in range(105):
+        (repository / f"root-{index:03d}.txt").write_text("root\n", encoding="utf-8", newline="\n")
+    git(repository, "add", ".")
+    git(repository, "commit", "-m", "large repository shape")
+    for index in range(105):
+        (repository / f"root-{index:03d}.txt").write_text("dirty\n", encoding="utf-8", newline="\n")
+
+    overview = RepositoryEvidence(repository).overview()
+
+    assert len(overview["status"]) == 100
+    assert overview["statusTotal"] == 105
+    assert overview["statusTruncated"] is True
+    assert len(overview["rootFiles"]) == 100
+    assert overview["rootFilesTotal"] == 106  # README plus 105 fixture files
+    assert overview["rootFilesTruncated"] is True
+    assert len(overview["topLevel"]) == 40
+    assert overview["topLevelTotal"] == 108  # root, 105 components, tests, and src
+    assert overview["topLevelTruncated"] is True
+    assert len(overview["extensions"]) == 40
+    assert overview["extensionsTotal"] == 108  # unique fixture suffixes plus .md, .py, and .txt
+    assert overview["extensionsTruncated"] is True
 
 
 def test_repository_binding_ignores_inherited_git_redirects(

@@ -14,6 +14,16 @@ async function git(root: string, args: string[]): Promise<string> {
   return stdout
 }
 
+async function headIdentity(root: string): Promise<{ headSha: string | null; headState: "committed" | "unborn" }> {
+  try {
+    return { headSha: (await git(root, ["rev-parse", "--verify", "HEAD"])).trim(), headState: "committed" }
+  } catch (error) {
+    const inside = (await git(root, ["rev-parse", "--is-inside-work-tree"])).trim()
+    if (inside !== "true") throw error
+    return { headSha: null, headState: "unborn" }
+  }
+}
+
 function normalizePrefix(input?: string): string {
   if (!input) return ""
   return input.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "")
@@ -29,7 +39,7 @@ export default tool({
   async execute(args, context) {
     const root = context.worktree
     const raw = await git(root, ["ls-files", "-s", "-z"])
-    const headSha = (await git(root, ["rev-parse", "HEAD"])).trim()
+    const { headSha, headState } = await headIdentity(root)
     const status = await git(root, ["status", "--porcelain=v1"])
 
     const files = raw
@@ -57,6 +67,7 @@ export default tool({
           schemaVersion: 1,
           generatedAt: new Date().toISOString(),
           headSha,
+          headState,
           dirty: status.trim().length > 0,
           status: status.trim().split("\n").filter(Boolean),
           files,
@@ -99,6 +110,7 @@ export default tool({
     return JSON.stringify(
       {
         headSha,
+        headState,
         dirty: status.trim().length > 0,
         trackedFiles: files.length,
         scope: prefix || ".",
