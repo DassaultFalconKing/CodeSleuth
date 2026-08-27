@@ -1,81 +1,143 @@
 # CodeSleuth analytical reports
 
-OpenCode's primary `build` agent writes durable markdown reports so later
-CodeSleuth sessions and other coding assistants in the same worktree can reuse
-analysis instead of starting from zero.
+OpenCode's primary `build` agent writes durable Markdown reports so later
+CodeSleuth sessions and other coding assistants can reuse analysis instead of
+starting from zero.
 
-Live report store (target repository worktree):
+Local working mirror:
 
 ```text
 .codesleuth/reports/
 ```
 
-Do not set `prompt` on `build`. This file is discovery and format, not a
-replacement controller.
+Shared cross-assistant transport:
 
-For the underlying structured evidence authority and mutation rules, follow
-`docs/DURABLE-EVIDENCE-STORE.md`.
+```text
+Git branch: reports
+Tree:       .codesleuth/reports/**
+```
+
+The `reports` branch is a derived-report channel, not a second state store and
+not a release/integration branch.
+
+## Read and write protocol
+
+Every report-producing or report-consuming CodeSleuth workflow follows this
+order:
+
+1. resolve the application repository and exact current HEAD;
+2. sync the remote `reports` branch into the local `.codesleuth/reports/`
+   mirror;
+3. read `INDEX.md` and relevant matching reports;
+4. perform the requested review/documentation work against exact current source;
+5. write or update one bounded local report and refresh `INDEX.md`;
+6. publish that one timestamped report to the `reports` branch.
+
+Host-native launchers:
+
+```text
+Unix:
+  .opencode/bin/codesleuth-reports sync --repo .
+  .opencode/bin/codesleuth-reports publish --repo . .codesleuth/reports/<report>.md
+
+PowerShell:
+  .opencode/bin/codesleuth-reports.ps1 sync --repo .
+  .opencode/bin/codesleuth-reports.ps1 publish --repo . .codesleuth/reports/<report>.md
+```
+
+Publication is performed without checking out `reports` over the application
+worktree. The application branch and application HEAD must remain unchanged.
+
+The branch is created lazily on first publication. Its history is orphaned from
+the application history and its complete tree is restricted to
+`.codesleuth/reports/**`. If a pre-existing `reports` branch contains any other
+path, CodeSleuth refuses to use it.
+
+If no `origin` remote exists, CodeSleuth may create the local `reports` branch
+but must report `publishedRemote: false`; cross-clone sharing has not happened.
 
 ## Who writes, who reads
 
-- **Writer:** OpenCode `build` via `/repo-review`, `/repo-docs`, `/repo-report`,
-  `/eha-test`, `/eha-repair`, and the relevant CodeSleuth skills.
-- **Readers:** CodeSleuth, Cursor, Claude, Codex, Copilot, humans working in the
-  current worktree by default.
-- Before repeating a review in that worktree, read `INDEX.md` then the latest
-  matching report.
+- **Writer:** OpenCode `build` via `/repo-review`, `/repo-docs`,
+  `/repo-report`, `/bug-hunt`, `/eha-test`, `/eha-repair`, and the
+  `codesleuth-reports` skill.
+- **Readers:** later CodeSleuth/OpenCode sessions, Cursor, Claude, Codex,
+  Copilot, humans, and other assistants with access to the repository remote.
+- Before repeating analysis, sync the shared branch and read `INDEX.md` plus the
+  latest relevant reports.
+- Reports are ordinary Markdown handoff material. They never override exact
+  current source, tests, accepted contracts, or exact-head acceptance evidence.
 
-## Structured evidence versus reports
+## Structured evidence versus shared reports
 
-Markdown reports are human-readable derived views. They are not the structured
-evidence authority and must never become a competing state store.
-
-Repository-review findings and EHA campaigns are stored under the existing
-ignored review-state boundary:
+Structured review/EHA evidence stays local:
 
 ```text
 .opencode/state/reviews/<reviewId>/
-  state.json          # mutable atomic checkpoint snapshot
-  findings.ndjson     # append-only finding history
-  eha.ndjson          # append-only EHA/SIB/repair history
+  state.json
+  findings.ndjson
+  findings-amendments.ndjson
+  eha.ndjson
 ```
 
-For EHA work, `eha.ndjson` is the structured append-only ledger for exact target
-SHAs, SIB0/SIB1/SIB2 verdicts, and repair-loop decisions. A report must summarize
-that ledger truthfully; it must not replace, rewrite, truncate, delete, or
-silently contradict it.
+Those files remain the durable local authority for finding history, exact
+target SHAs, EHA/SIB campaigns, repairs, amendments, and claimability. They are
+**never** copied to the `reports` branch.
 
-Use `review_state_*` / `eha_state_*` to load or change structured evidence. Raw
-`cat`/`grep` is permitted for read-only audit, debugging, recovery, or locating
-an ID, but it is not a semantic API and cannot by itself establish freshness,
-blob validity, exact-head identity, or SIB claimability.
+A shared Markdown report may reference a review ID, finding ID, campaign ID, or
+exact SHA, but it must summarize the local ledger rather than embedding or
+republishing raw ledger records.
 
-## Git and cross-clone reuse
+For EHA work, `eha.ndjson` remains authoritative. A report is only a
+human-readable projection and cannot transfer PASS from one SHA to another.
 
-`README.md` in the reports folder may be intentionally committed. `INDEX.md`
-and report bodies are excluded from Git by default because they may contain
-secrets, source excerpts, or credentials. CodeSleuth writes these default
-patterns to the repository-local Git exclude file (`.git/info/exclude`, or the
-worktree-aware path returned by `git rev-parse --git-path info/exclude`). It
-does **not** silently rewrite the project's tracked `.gitignore` to hide its
-runtime/report state.
+## Publication safety
 
-A fresh clone therefore does not automatically receive local report bodies or
-an installer-created `AGENTS.md` pointer. If analysis should travel between
-clones, inspect and sanitize it, then deliberately commit the chosen report or
-shared repository guidance. Do not force-add unsanitized local evidence merely
-to make assistant state portable.
+Only one timestamped Markdown report body may be published per publish command.
+CodeSleuth regenerates the shared `INDEX.md` and shared branch `README.md`.
+
+Publishing fails closed when:
+
+- the report filename is outside the timestamped report convention;
+- the same report filename already exists with different content;
+- the report contains a strong secret/credential candidate;
+- local and remote `reports` history has diverged;
+- any non-`.codesleuth/reports/**` path exists in the branch tree;
+- remote fetch/push fails or authentication is unavailable.
+
+The secret scan is a guardrail, not a proof of sanitization. Reports should
+contain the minimum source excerpts needed to preserve the analytical result.
+Never paste credentials, private keys, access tokens, raw `.env` values, or
+private connection strings into a shared report.
+
+## Local Git behavior
+
+The local working mirror remains excluded from the application branch through
+the repository-local Git exclude mechanism. This prevents normal application
+commits from accidentally absorbing derived reports.
+
+The dedicated publisher uses its own isolated report worktree and a narrow
+force-add allowlist for `.codesleuth/reports/**`. This is intentionally
+different from allowing the primary coding agent to run arbitrary `git push`.
+
+Do not merge the `reports` branch into application, release, SIB, or feature
+branches.
 
 ## File names
+
+Preferred form:
+
+```text
+YYYYMMDDTHHMMSSZ-<slug>.md
+```
+
+The existing minute-resolution compatibility form is also accepted:
 
 ```text
 YYYY-MM-DDTHHMMZ-<slug>.md
 ```
 
-Example: `20260825T031200Z-architecture.md`
-
-Use UTC. Slug is lowercase kebab-case from the scope (`architecture`,
-`pr-main`, `auth-subsystem`, `eha-sib`).
+Use UTC and lowercase kebab-case slugs.
 
 ## Report template
 
@@ -83,7 +145,7 @@ Use UTC. Slug is lowercase kebab-case from the scope (`architecture`,
 # <title>
 
 - date: <UTC ISO-8601>
-- target: <git rev-parse HEAD>
+- target: <exact git SHA>
 - dirty: <yes/no; summarize if yes>
 - scope: <paths / ref / question>
 - agent: OpenCode build
@@ -97,32 +159,16 @@ Use UTC. Slug is lowercase kebab-case from the scope (`architecture`,
 ## EHA / SIB status
 
 - exact target SHA: <full SHA or not an EHA report>
-- SIB0: <PASS | FAIL | PENDING> — claimable: <yes/no> — <profile/evidence summary>
-- SIB1: <PASS | FAIL | PENDING> — claimable: <yes/no> — <profile/evidence summary>
-- SIB2: <PASS | FAIL | PENDING> — claimable: <yes/no> — <profile/evidence summary>
+- SIB0: <PASS | FAIL | PENDING> — claimable: <yes/no>
+- SIB1: <PASS | FAIL | PENDING> — claimable: <yes/no>
+- SIB2: <PASS | FAIL | PENDING> — claimable: <yes/no>
 - blocker finding IDs: <ids or none>
-- predecessor campaign: <id or none>
-- successor campaign: <id or none>
-
-If an EHA repair loop was entered, also record:
-
-- failing SHA and SIB level;
-- defect classification;
-- failing test/path and reproduction;
-- repair decision and branch;
-- new candidate SHA, if known;
-- regression tests added;
-- focused repair tests actually run and their results.
-
-Do not mark a repaired descendant as inheriting PASS from its predecessor. Each
-new exact SHA receives its own EHA campaign and fresh evidence for every SIB
-degree claimed.
 
 ## Findings
 
 ### <severity>: <title>
 - location: `path:start-end`
-- evidence: <what the current source actually does>
+- evidence: <what exact current source actually does>
 - recommendation: <smallest correction direction>
 
 ## Paths inspected
@@ -135,21 +181,17 @@ degree claimed.
 
 ## Recommendations
 
-- <next action for a coding assistant>
+- <next action>
 
 ## Limitations
 
 - <what was not reviewed>
 ```
 
-For non-EHA work the EHA section may be omitted or explicitly marked not
-applicable.
+For non-EHA work the EHA section may be omitted.
 
 ## INDEX.md
 
-Keep newest first:
-
-```text
-- `20260825T031200Z-architecture.md` — 2026-08-25T03:12Z — Architecture — HEAD abc1234 — 2 high
-- `20260826T140500Z-eha-sib.md` — 2026-08-26T14:05Z — EHA — HEAD def4567 — SIB0 PASS / SIB1 FAIL / SIB2 PENDING
-```
+The local and shared indexes are newest-first catalogs. They are navigation
+aids, not evidence authority. A stale index entry never makes a stale report
+current.
