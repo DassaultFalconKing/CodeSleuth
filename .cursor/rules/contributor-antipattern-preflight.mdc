@@ -1,0 +1,39 @@
+---
+description: Mandatory contributor pre-write anti-pattern review before repository modification
+alwaysApply: true
+---
+
+# Contributor pre-write gate
+
+Before the first repository modification in a work session, run:
+
+```bash
+python scripts/contributor_antipatterns.py prewrite
+```
+
+Read `docs/CONTRIBUTOR-ERROR-PATTERNS.md` and resolve every semantic checklist item relevant to the change before editing. This is a precondition for coding, test edits, workflow edits, documentation claims, packaging changes, or lifecycle changes.
+
+Do not start implementation while any relevant item is unresolved. Record the uncertain part as `UNRESOLVED`, `DEFER`, or `BLOCK` instead of inventing a convenient contract.
+
+The recurring failure classes this gate exists to prevent are:
+
+- mutable ref/name replacing exact SHA/blob/hash identity;
+- probe/read/parse failure being collapsed into absence and triggering deletion/pruning;
+- changing an existing no-argument/default contract while calling the old behavior behind a new flag "backward compatible";
+- product-visible feature exposure beyond the runtime/platform matrix actually proven;
+- green CI caused by skipped enabled paths or smoke tests omitted from the canonical umbrella;
+- ambient `python`/runtime lookup where executable identity matters;
+- implementation of work already deferred/retired/not-planned by current authority;
+- PASS/support/completion claims stronger than exact evidence;
+- promotion of provider/extractor candidate data to verified source without CodeSleuth-side re-verification;
+- optional dependency lifecycle that can configure/remove a feature but cannot reproducibly install/activate it from a normal installed target.
+
+After the change, before ordinary focused tests, run:
+
+```bash
+python scripts/contributor_antipatterns.py scan --strict
+```
+
+Mechanical `ERROR` findings are blockers. `WARN` findings require semantic review and must not be waved away merely because the scanner is heuristic.
+
+The scanner supplements, rather than replaces, current contract triangulation, protected-capability assessment, Semantic Refit, and Exact-Head Acceptance.
