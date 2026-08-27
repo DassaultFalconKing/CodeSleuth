@@ -90,6 +90,7 @@ CodeSleuth documentation is text-first and terminal-native.
 - [`protected-capabilities.json`](protected-capabilities.json) — queryable machine contract/forbidden-regression registry used for impact selection and preservation review.
 - [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md) — required design contract for atomic Skills and step-isolated Playbooks.
 - [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — semantic-refit authority and refit-readiness criteria for preserving product claims across future change.
+- [`LESSONS-LEARNED-SIB2-SEMANTIC-REFIT.md`](LESSONS-LEARNED-SIB2-SEMANTIC-REFIT.md) — non-normative retrospective on the 0.4.0 SIB2 assembly: exact-head identity, Semantic Refit, repair discipline, hardening, promotion, branch archaeology, and preserved negative knowledge.
 - [`LESSONS-LEARNED-VIEWPORT-HARDENING.md`](LESSONS-LEARNED-VIEWPORT-HARDENING.md) — TUI collapse/Tools viewport acceptance lessons and anti-patterns (paired with `.cursor/rules/tui-viewport-acceptance.mdc`).
 
 ## Contract map
