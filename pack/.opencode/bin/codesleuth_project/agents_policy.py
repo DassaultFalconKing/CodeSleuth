@@ -1,4 +1,4 @@
-"""Managed AGENTS.md policy block: exactly one fenced CodeSleuth block, user-owned surrounding text preserved."""
+"""Managed AGENTS.md policy block with exact ownership boundaries."""
 
 from __future__ import annotations
 
@@ -13,12 +13,11 @@ CANONICAL_REL = Path("policy/agents-rules.md")
 
 
 def _pack_root() -> Path:
-    # This module lives under pack/.opencode/bin/codesleuth_project
     return Path(__file__).resolve().parents[2]
 
 
 def canonical_policy_text() -> str:
-    """Return canonical policy inner text as stored in the pack (LF normalized, no surrounding markers)."""
+    """Return canonical policy inner text normalized to LF."""
     cand = _pack_root() / CANONICAL_REL
     if not cand.is_file():
         raise FileNotFoundError(f"canonical policy not found: {cand}")
@@ -28,8 +27,7 @@ def canonical_policy_text() -> str:
 
 
 def canonical_policy_hash() -> str:
-    data = canonical_policy_text().encode("utf-8")
-    return hashlib.sha256(data).hexdigest()
+    return hashlib.sha256(canonical_policy_text().encode("utf-8")).hexdigest()
 
 
 def _detect_line_ending(text: str) -> str:
@@ -45,8 +43,8 @@ def _read_agents_md(repo: Path) -> tuple[bytes | None, str | None]:
     data = path.read_bytes()
     try:
         text = data.decode("utf-8")
-    except UnicodeDecodeError:
-        raise RuntimeError("AGENTS.md is not valid UTF-8; refusing to modify")
+    except UnicodeDecodeError as exc:
+        raise RuntimeError("AGENTS.md is not valid UTF-8; refusing to modify") from exc
     return data, text
 
 
@@ -54,23 +52,8 @@ def _write_agents_text(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8", newline="")
 
 
-def _strip_one_leading_eol(text: str, eol: str) -> str:
-    """Remove at most one CodeSleuth-owned marker-line terminator after END."""
-    if eol and text.startswith(eol):
-        return text[len(eol) :]
-    if text.startswith("\r\n"):
-        return text[2:]
-    if text.startswith("\n") or text.startswith("\r"):
-        return text[1:]
-    return text
-
-
 def validate_agents_rules(repo: Path) -> None:
-    """Fail closed if AGENTS.md contains malformed or duplicate managed block.
-
-    Allows: 0 blocks, or exactly 1 well-formed block where BEGIN precedes END and no overlap.
-    Raises RuntimeError otherwise and must not be used to guess deletion.
-    """
+    """Allow zero managed blocks or exactly one well-formed block; otherwise fail closed."""
     _, text = _read_agents_md(repo)
     if text is None:
         return
@@ -87,86 +70,79 @@ def validate_agents_rules(repo: Path) -> None:
     inner = text[b + len(POLICY_BEGIN) : e]
     if POLICY_BEGIN in inner or POLICY_END in inner:
         raise RuntimeError("malformed CodeSleuth AGENTS.md block: nested markers")
-    next_b = text.find(POLICY_BEGIN, b + len(POLICY_BEGIN))
-    if next_b != -1 and next_b < e:
-        raise RuntimeError("malformed CodeSleuth AGENTS.md block: BEGIN without END")
 
 
 def _build_block(canonical_text: str, eol: str) -> str:
     inner = canonical_text.replace("\r\n", "\n").replace("\r", "\n")
     inner = inner.strip("\n") + "\n" if inner.strip() else ""
-    inner_eol = inner.replace("\n", eol)
-    return f"{POLICY_BEGIN}{eol}{inner_eol}{POLICY_END}"
+    return f"{POLICY_BEGIN}{eol}{inner.replace(chr(10), eol)}{POLICY_END}"
 
 
 def ensure_agents_rules(repo: Path, canonical_text: str | None = None) -> Path:
-    """Ensure AGENTS.md contains exactly one managed block with canonical_text.
+    """Ensure exactly one current managed block while preserving all user-owned bytes.
 
-    Preserves all text outside the block, preserves dominant line ending, and is idempotent.
-    Fail closed on malformed/duplicate markers.
+    Any separator inserted solely to place the managed block on its own line is
+    recorded in policy state. Disable/uninstall removes only separators for which
+    CodeSleuth still has positive ownership evidence.
     """
     if canonical_text is None:
         canonical_text = canonical_policy_text()
     path = repo / "AGENTS.md"
     validate_agents_rules(repo)
-    data, text = _read_agents_md(repo)
+    _, text = _read_agents_md(repo)
+
     if text is None:
         eol = "\n"
         block = _build_block(canonical_text, eol)
         _write_agents_text(path, block + eol)
-        _record_state(repo, created_by_codesleuth=True, canonical_text=canonical_text)
+        _record_state(
+            repo,
+            created_by_codesleuth=True,
+            canonical_text=canonical_text,
+            owned_prefix="",
+            owned_suffix=eol,
+        )
         return path
 
     eol = _detect_line_ending(text)
-    had_final_newline = text.endswith("\n") or text.endswith("\r")
     block = _build_block(canonical_text, eol)
-
     begins = text.count(POLICY_BEGIN)
+
     if begins == 0:
-        if text.strip() == "":
+        if text == "":
+            owned_prefix = ""
             new_text = block + eol
-        elif had_final_newline:
+        elif text.endswith("\n") or text.endswith("\r"):
+            owned_prefix = ""
             new_text = text + block + eol
         else:
-            new_text = text + eol + block + eol
+            owned_prefix = eol
+            new_text = text + owned_prefix + block + eol
         _write_agents_text(path, new_text)
-        _record_state(repo, created_by_codesleuth=False, canonical_text=canonical_text)
+        _record_state(
+            repo,
+            created_by_codesleuth=False,
+            canonical_text=canonical_text,
+            owned_prefix=owned_prefix,
+            owned_suffix=eol,
+        )
         return path
 
     b = text.find(POLICY_BEGIN)
     e = text.find(POLICY_END) + len(POLICY_END)
-    before = text[:b]
-    after = text[e:]
     current_block = text[b:e]
-    if current_block == block:
-        _record_state(repo, created_by_codesleuth=_state_created_by(repo), canonical_text=canonical_text)
-        return path
-    new_text = before + block + after
-    if had_final_newline and not (new_text.endswith("\n") or new_text.endswith("\r")):
-        new_text += eol
-    _write_agents_text(path, new_text)
-    _record_state(repo, created_by_codesleuth=_state_created_by(repo), canonical_text=canonical_text)
+    if current_block != block:
+        _write_agents_text(path, text[:b] + block + text[e:])
+    _record_state(
+        repo,
+        created_by_codesleuth=_state_created_by(repo),
+        canonical_text=canonical_text,
+    )
     return path
 
 
-def _remaining_after_block_removal(text: str) -> str:
-    """Return exact user-owned bytes with the managed block removed.
-
-    Strips at most one CodeSleuth-owned line terminator immediately after END so
-    an append-at-EOF round-trip restores the original user file. All other
-    surrounding bytes, including extra blank lines, are preserved.
-    """
-    b = text.find(POLICY_BEGIN)
-    e = text.find(POLICY_END)
-    before = text[:b]
-    after = text[e + len(POLICY_END) :]
-    eol = _detect_line_ending(text)
-    after = _strip_one_leading_eol(after, eol)
-    return before + after
-
-
 def remove_agents_rules(repo: Path) -> bool:
-    """Remove managed block if present. Fail closed on malformed/duplicate. Returns True if removed."""
+    """Remove only the managed block and positively-owned separators."""
     _, text = _read_agents_md(repo)
     if text is None:
         return False
@@ -174,30 +150,32 @@ def remove_agents_rules(repo: Path) -> bool:
     ends = text.count(POLICY_END)
     if begins == 0 and ends == 0:
         return False
-    if begins != 1 or ends != 1:
-        raise RuntimeError("malformed CodeSleuth AGENTS.md block: duplicate or missing marker; refusing to delete")
-    b = text.find(POLICY_BEGIN)
-    e = text.find(POLICY_END)
-    if e < b:
-        raise RuntimeError("malformed CodeSleuth AGENTS.md block: BEGIN without END")
-    inner = text[b + len(POLICY_BEGIN) : e]
-    if POLICY_BEGIN in inner or POLICY_END in inner:
-        raise RuntimeError("malformed CodeSleuth AGENTS.md block: nested markers")
+    validate_agents_rules(repo)
 
-    remaining = _remaining_after_block_removal(text)
+    b = text.find(POLICY_BEGIN)
+    e = text.find(POLICY_END) + len(POLICY_END)
+    before = text[:b]
+    after = text[e:]
+    owned_prefix, owned_suffix = _state_owned_boundaries(repo)
+
+    if owned_prefix and before.endswith(owned_prefix):
+        before = before[: -len(owned_prefix)]
+    if owned_suffix and after.startswith(owned_suffix):
+        after = after[len(owned_suffix) :]
+
+    remaining = before + after
     path = repo / "AGENTS.md"
     created = _state_created_by(repo)
-    if remaining.strip() == "" and created is True:
+    if remaining == "" and created is True:
         path.unlink(missing_ok=True)
-        _clear_state(repo)
-        return True
-    _write_agents_text(path, remaining)
+    else:
+        _write_agents_text(path, remaining)
     _clear_state(repo)
     return True
 
 
 def apply_agents_md_policy(repo: Path, *, enforce: bool, canonical_text: str | None = None) -> None:
-    """Fail-closed apply or remove. Callers must preflight via this function before persisting settings."""
+    """Fail-closed apply or remove. Callers should invoke before persisting the setting."""
     validate_agents_rules(repo)
     if enforce:
         ensure_agents_rules(repo, canonical_text)
@@ -213,38 +191,63 @@ def _state_path(repo: Path) -> Path:
     return repo / POLICY_STATE_REL
 
 
-def _record_state(repo: Path, created_by_codesleuth: bool | None, canonical_text: str) -> None:
+def _load_state(repo: Path) -> dict:
+    path = _state_path(repo)
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _record_state(
+    repo: Path,
+    created_by_codesleuth: bool | None,
+    canonical_text: str,
+    *,
+    owned_prefix: str | None = None,
+    owned_suffix: str | None = None,
+) -> None:
     path = _state_path(repo)
     path.parent.mkdir(parents=True, exist_ok=True)
-    existing: dict = {}
-    if path.is_file():
-        try:
-            existing = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            existing = {}
-    existing.update({
-        "schemaVersion": 1,
-        "createdByCodesleuth": created_by_codesleuth if created_by_codesleuth is not None else existing.get("createdByCodesleuth"),
+    existing = _load_state(repo)
+
+    created = created_by_codesleuth
+    if created is None:
+        prior_created = existing.get("createdByCodesleuth")
+        created = prior_created if isinstance(prior_created, bool) else None
+
+    prior_prefix = existing.get("ownedPrefix")
+    prior_suffix = existing.get("ownedSuffix")
+    prefix = owned_prefix if owned_prefix is not None else (prior_prefix if isinstance(prior_prefix, str) else "")
+    suffix = owned_suffix if owned_suffix is not None else (prior_suffix if isinstance(prior_suffix, str) else "")
+
+    payload = {
+        "schemaVersion": 2,
+        "createdByCodesleuth": created,
         "canonicalHash": _hash_canonical(canonical_text),
         "lastAppliedHash": _hash_canonical(canonical_text),
-    })
-    path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+        "ownedPrefix": prefix,
+        "ownedSuffix": suffix,
+    }
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 def _state_created_by(repo: Path) -> bool | None:
-    path = _state_path(repo)
-    if not path.is_file():
-        return None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return None
-    value = data.get("createdByCodesleuth")
-    if value is True:
-        return True
-    if value is False:
-        return False
-    return None
+    value = _load_state(repo).get("createdByCodesleuth")
+    return value if isinstance(value, bool) else None
+
+
+def _state_owned_boundaries(repo: Path) -> tuple[str, str]:
+    state = _load_state(repo)
+    prefix = state.get("ownedPrefix")
+    suffix = state.get("ownedSuffix")
+    return (
+        prefix if isinstance(prefix, str) else "",
+        suffix if isinstance(suffix, str) else "",
+    )
 
 
 def _clear_state(repo: Path) -> None:
