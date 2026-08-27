@@ -10,6 +10,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -669,6 +670,53 @@ def remove_graphify_provider_runtime(repo: Path) -> dict[str, Any]:
     }
 
 
+def install_graphify_provider_runtime(repo: Path) -> dict[str, Any]:
+    """Explicitly install the hash-locked optional Graphify runtime."""
+    root = git_root(repo).resolve()
+    lock = root / ".opencode" / "deps" / "graphify" / "requirements-lock.txt"
+    if not lock.is_file() or "--hash=sha256:" not in lock.read_text(encoding="utf-8"):
+        raise RuntimeError("managed hash-locked Graphify requirements are unavailable")
+    runtime_root = (root / ".runtime").resolve()
+    target = (runtime_root / "graphify-provider").resolve()
+    staging = (runtime_root / "graphify-provider.installing").resolve()
+    if target.parent != runtime_root or staging.parent != runtime_root:
+        raise RuntimeError("refusing unsafe Graphify runtime installation target")
+    if target.exists():
+        raise RuntimeError("Graphify runtime already exists; remove it explicitly before reinstalling")
+    if staging.exists():
+        shutil.rmtree(staging)
+    staging.mkdir(parents=True)
+    try:
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--require-hashes",
+                "--only-binary=:all:",
+                "--target",
+                str(staging),
+                "-r",
+                str(lock),
+            ],
+            text=True,
+            check=True,
+        )
+        staging.replace(target)
+    except Exception:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    return {
+        "action": "install_graphify_provider_runtime",
+        "path": ".runtime/graphify-provider",
+        "installed": True,
+        "lock": ".opencode/deps/graphify/requirements-lock.txt",
+        "hashesRequired": True,
+        "automatic": False,
+    }
+
+
 def main() -> int:
     """CLI entrypoint for project lifecycle operations."""
     parser = argparse.ArgumentParser(
@@ -687,6 +735,7 @@ def main() -> int:
     actions.add_argument("--unbind", action="store_true", help="remove the CodeSleuth dependency while keeping the installed runtime")
     actions.add_argument("--uninstall", action="store_true", help="restore pre-CodeSleuth config and remove CodeSleuth")
     actions.add_argument("--remove-graphify-runtime", action="store_true", help="remove only ignored .runtime/graphify-provider dependencies")
+    actions.add_argument("--install-graphify-runtime", action="store_true", help="explicitly install hash-locked dependencies under .runtime/graphify-provider")
     parser.add_argument("--purge-traces", action="store_true", help="delete CodeSleuth reports/settings/backups instead of archiving them")
     parser.add_argument("--keep-dependency", action="store_true", help="uninstall the runtime but leave the CodeSleuth gitlink")
     args = parser.parse_args()
@@ -702,6 +751,9 @@ def main() -> int:
         record_tracked_repository(repo)
     elif args.remove_graphify_runtime:
         result = remove_graphify_provider_runtime(repo)
+        record_tracked_repository(repo)
+    elif args.install_graphify_runtime:
+        result = install_graphify_provider_runtime(repo)
         record_tracked_repository(repo)
     else:
         result = uninstall_project(
@@ -740,6 +792,7 @@ __all__ = [
     "git_root",
     "host_state_dir",
     "is_self_target",
+    "install_graphify_provider_runtime",
     "lifecycle_state",
     "list_tracked_repositories",
     "main",

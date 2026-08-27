@@ -18,7 +18,7 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def test_disposable_install_carries_provider_tools_and_absent_profile(tmp_path: Path) -> None:
+def test_disposable_install_carries_provider_tools_and_lifecycle(tmp_path: Path, monkeypatch) -> None:
     run("git", "init", "-q", str(tmp_path))
     run("git", "-C", str(tmp_path), "config", "user.email", "test@example.invalid")
     run("git", "-C", str(tmp_path), "config", "user.name", "CodeSleuth Test")
@@ -37,6 +37,8 @@ def test_disposable_install_carries_provider_tools_and_absent_profile(tmp_path: 
     assert digest(installed_helper) == digest(
         ROOT / "pack" / ".opencode" / "bin" / "codesleuth_project" / "graphify_adapter.py"
     )
+    installed_lock = tmp_path / ".opencode" / "deps" / "graphify" / "requirements-lock.txt"
+    assert installed_lock.is_file() and "--hash=sha256:" in installed_lock.read_text(encoding="utf-8")
 
     status = run(
         "python",
@@ -50,11 +52,35 @@ def test_disposable_install_carries_provider_tools_and_absent_profile(tmp_path: 
     assert payload["installed"] is False and payload["compatible"] is False
     assert payload["defaultProvider"] is False
 
-    runtime = tmp_path / ".runtime" / "graphify-provider"
-    runtime.mkdir(parents=True)
-    (runtime / "marker.txt").write_text("optional", encoding="utf-8")
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(tmp_path / ".opencode" / "bin")
+    command = [
+        "python", "-m", "codesleuth_project", "--install-graphify-runtime", str(tmp_path)
+    ]
+    # Exercise the installed CLI contract without downloading in this unit test.
+    fake_pip = tmp_path / "fake_pip.py"
+    fake_pip.write_text(
+        "import pathlib,sys\n"
+        "target=pathlib.Path(sys.argv[sys.argv.index('--target')+1])\n"
+        "(target/'graphify').mkdir(parents=True)\n"
+        "(target/'graphify'/'__init__.py').write_text('')\n"
+        "meta=target/'graphifyy-0.9.50.dist-info'; meta.mkdir()\n"
+        "(meta/'METADATA').write_text('Name: graphifyy\\nVersion: 0.9.50\\n')\n",
+        encoding="utf-8",
+    )
+    lifecycle_script = tmp_path / ".opencode" / "bin" / "codesleuth_project" / "__init__.py"
+    lifecycle_text = lifecycle_script.read_text(encoding="utf-8")
+    lifecycle_text = lifecycle_text.replace(
+        "sys.executable,\n                \"-m\",\n                \"pip\",",
+        f"sys.executable,\n                {str(fake_pip)!r},",
+    )
+    lifecycle_script.write_text(lifecycle_text, encoding="utf-8")
+    installed_runtime = subprocess.run(command, capture_output=True, text=True, check=True, env=environment)
+    install_payload = json.loads(installed_runtime.stdout)
+    assert install_payload["installed"] is True and install_payload["hashesRequired"] is True
+
+    runtime = tmp_path / ".runtime" / "graphify-provider"
+    (runtime / "marker.txt").write_text("optional", encoding="utf-8")
     removed = subprocess.run(
         ["python", "-m", "codesleuth_project", "--remove-graphify-runtime", str(tmp_path)],
         capture_output=True,
