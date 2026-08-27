@@ -30,6 +30,10 @@ def canonical_policy_hash() -> str:
     return hashlib.sha256(canonical_policy_text().encode("utf-8")).hexdigest()
 
 
+def _text_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def _detect_line_ending(text: str) -> str:
     if "\r\n" in text:
         return "\r\n"
@@ -81,9 +85,9 @@ def _build_block(canonical_text: str, eol: str) -> str:
 def ensure_agents_rules(repo: Path, canonical_text: str | None = None) -> Path:
     """Ensure exactly one current managed block while preserving all user-owned bytes.
 
-    Any separator inserted solely to place the managed block on its own line is
-    recorded in policy state. Disable/uninstall removes only separators for which
-    CodeSleuth still has positive ownership evidence.
+    Separators inserted solely to put the block on its own lines are recorded
+    with hashes of the adjacent user-owned side. They are removed later only
+    while both the exact separator and its original anchor still match.
     """
     if canonical_text is None:
         canonical_text = canonical_policy_text()
@@ -101,6 +105,8 @@ def ensure_agents_rules(repo: Path, canonical_text: str | None = None) -> Path:
             canonical_text=canonical_text,
             owned_prefix="",
             owned_suffix=eol,
+            prefix_anchor="",
+            suffix_anchor=_text_hash(""),
         )
         return path
 
@@ -111,12 +117,15 @@ def ensure_agents_rules(repo: Path, canonical_text: str | None = None) -> Path:
     if begins == 0:
         if text == "":
             owned_prefix = ""
+            prefix_anchor = ""
             new_text = block + eol
         elif text.endswith("\n") or text.endswith("\r"):
             owned_prefix = ""
+            prefix_anchor = ""
             new_text = text + block + eol
         else:
             owned_prefix = eol
+            prefix_anchor = _text_hash(text)
             new_text = text + owned_prefix + block + eol
         _write_agents_text(path, new_text)
         _record_state(
@@ -125,6 +134,8 @@ def ensure_agents_rules(repo: Path, canonical_text: str | None = None) -> Path:
             canonical_text=canonical_text,
             owned_prefix=owned_prefix,
             owned_suffix=eol,
+            prefix_anchor=prefix_anchor,
+            suffix_anchor=_text_hash(""),
         )
         return path
 
@@ -142,7 +153,7 @@ def ensure_agents_rules(repo: Path, canonical_text: str | None = None) -> Path:
 
 
 def remove_agents_rules(repo: Path) -> bool:
-    """Remove only the managed block and positively-owned separators."""
+    """Remove the managed block and only still-provable CodeSleuth separators."""
     _, text = _read_agents_md(repo)
     if text is None:
         return False
@@ -156,12 +167,16 @@ def remove_agents_rules(repo: Path) -> bool:
     e = text.find(POLICY_END) + len(POLICY_END)
     before = text[:b]
     after = text[e:]
-    owned_prefix, owned_suffix = _state_owned_boundaries(repo)
+    owned_prefix, owned_suffix, prefix_anchor, suffix_anchor = _state_owned_boundaries(repo)
 
-    if owned_prefix and before.endswith(owned_prefix):
-        before = before[: -len(owned_prefix)]
-    if owned_suffix and after.startswith(owned_suffix):
-        after = after[len(owned_suffix) :]
+    if owned_prefix and before.endswith(owned_prefix) and prefix_anchor:
+        candidate = before[: -len(owned_prefix)]
+        if _text_hash(candidate) == prefix_anchor:
+            before = candidate
+    if owned_suffix and after.startswith(owned_suffix) and suffix_anchor:
+        candidate = after[len(owned_suffix) :]
+        if _text_hash(candidate) == suffix_anchor:
+            after = candidate
 
     remaining = before + after
     path = repo / "AGENTS.md"
@@ -209,6 +224,8 @@ def _record_state(
     *,
     owned_prefix: str | None = None,
     owned_suffix: str | None = None,
+    prefix_anchor: str | None = None,
+    suffix_anchor: str | None = None,
 ) -> None:
     path = _state_path(repo)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -221,16 +238,30 @@ def _record_state(
 
     prior_prefix = existing.get("ownedPrefix")
     prior_suffix = existing.get("ownedSuffix")
+    prior_prefix_anchor = existing.get("prefixAnchorHash")
+    prior_suffix_anchor = existing.get("suffixAnchorHash")
     prefix = owned_prefix if owned_prefix is not None else (prior_prefix if isinstance(prior_prefix, str) else "")
     suffix = owned_suffix if owned_suffix is not None else (prior_suffix if isinstance(prior_suffix, str) else "")
+    prefix_hash = (
+        prefix_anchor
+        if prefix_anchor is not None
+        else (prior_prefix_anchor if isinstance(prior_prefix_anchor, str) else "")
+    )
+    suffix_hash = (
+        suffix_anchor
+        if suffix_anchor is not None
+        else (prior_suffix_anchor if isinstance(prior_suffix_anchor, str) else "")
+    )
 
     payload = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "createdByCodesleuth": created,
         "canonicalHash": _hash_canonical(canonical_text),
         "lastAppliedHash": _hash_canonical(canonical_text),
         "ownedPrefix": prefix,
         "ownedSuffix": suffix,
+        "prefixAnchorHash": prefix_hash,
+        "suffixAnchorHash": suffix_hash,
     }
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
@@ -240,13 +271,17 @@ def _state_created_by(repo: Path) -> bool | None:
     return value if isinstance(value, bool) else None
 
 
-def _state_owned_boundaries(repo: Path) -> tuple[str, str]:
+def _state_owned_boundaries(repo: Path) -> tuple[str, str, str, str]:
     state = _load_state(repo)
     prefix = state.get("ownedPrefix")
     suffix = state.get("ownedSuffix")
+    prefix_anchor = state.get("prefixAnchorHash")
+    suffix_anchor = state.get("suffixAnchorHash")
     return (
         prefix if isinstance(prefix, str) else "",
         suffix if isinstance(suffix, str) else "",
+        prefix_anchor if isinstance(prefix_anchor, str) else "",
+        suffix_anchor if isinstance(suffix_anchor, str) else "",
     )
 
 

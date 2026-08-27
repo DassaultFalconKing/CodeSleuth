@@ -58,7 +58,7 @@ def test_existing_agents_round_trips_exact_bytes(original: bytes, tmp_path: Path
     assert agents.read_bytes() == original
 
 
-def test_boundary_ownership_is_explicit_and_exact(tmp_path: Path) -> None:
+def test_boundary_ownership_is_explicit_and_anchored(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     init_repo(repo)
     agents = repo / "AGENTS.md"
@@ -66,10 +66,12 @@ def test_boundary_ownership_is_explicit_and_exact(tmp_path: Path) -> None:
 
     ensure_agents_rules(repo, canonical_policy_text())
     state = json.loads((repo / ".opencode" / "state" / "agents-policy.json").read_text(encoding="utf-8"))
-    assert state["schemaVersion"] == 2
+    assert state["schemaVersion"] == 3
     assert state["createdByCodesleuth"] is False
     assert state["ownedPrefix"] == "\n"
     assert state["ownedSuffix"] == "\n"
+    assert state["prefixAnchorHash"]
+    assert state["suffixAnchorHash"]
 
     remove_agents_rules(repo)
     assert agents.read_bytes() == b"user text"
@@ -92,7 +94,7 @@ def test_lost_state_never_guesses_boundary_ownership_or_deletes_file(tmp_path: P
     assert POLICY_END.encode() not in remaining
 
 
-def test_user_edit_to_owned_separator_revokes_safe_removal_of_that_separator(tmp_path: Path) -> None:
+def test_user_edit_to_owned_prefix_revokes_separator_removal(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     init_repo(repo)
     agents = repo / "AGENTS.md"
@@ -106,3 +108,23 @@ def test_user_edit_to_owned_separator_revokes_safe_removal_of_that_separator(tmp
     remove_agents_rules(repo)
     assert agents.is_file()
     assert agents.read_bytes().startswith(b"user text\r\n")
+
+
+def test_user_insert_after_block_is_never_mistaken_for_owned_suffix(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    init_repo(repo)
+    agents = repo / "AGENTS.md"
+    agents.write_bytes(b"user text\n")
+    ensure_agents_rules(repo, canonical_policy_text())
+
+    text = agents.read_text(encoding="utf-8")
+    end = text.index(POLICY_END) + len(POLICY_END)
+    user_tail = "\n\n# user section after managed block\n"
+    agents.write_text(text[:end] + user_tail + text[end:], encoding="utf-8", newline="")
+
+    remove_agents_rules(repo)
+    restored = agents.read_text(encoding="utf-8")
+    assert restored.startswith("user text\n")
+    assert user_tail in restored
+    assert POLICY_BEGIN not in restored
+    assert POLICY_END not in restored
