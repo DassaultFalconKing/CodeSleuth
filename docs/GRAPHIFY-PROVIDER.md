@@ -11,17 +11,18 @@ providers, or credential paths.
 
 ## Explicit installation
 
-The provider is absent from normal CodeSleuth dependencies. For the verified Windows
-Python 3.14 profile, install its isolated lock explicitly:
+The provider is absent from normal CodeSleuth dependencies. An installed CodeSleuth
+instance carries the hash-locked manifest inside its managed pack and exposes one
+explicit lifecycle action (there is no automatic installation):
 
 ```text
-python -m pip install --target .runtime/graphify-provider -r tools/graphify-provider/requirements-lock.txt
+.opencode/bin/codesleuth-project --install-graphify-runtime .
 ```
 
-`.runtime/` is ignored and rebuildable. Other Python/platform profiles must resolve and
-record their own compatible exact lock before they can become supported; the shorter
-`requirements.txt` records the upstream top-level pin but is not a cross-platform
-transitive lock.
+The action executes pip with `--require-hashes --only-binary=:all:` into a staging
+directory and publishes `.runtime/graphify-provider` only after success. In a source
+checkout, the equivalent development command uses
+`tools/graphify-provider/requirements-lock.txt`. `.runtime/` is ignored and rebuildable.
 
 ## Adapter request
 
@@ -49,11 +50,15 @@ cannot produce `verified_source` candidates.
 Only exact `imports` and `calls` relations enter the initial closed mapping. Unknown
 relations are counted and dropped. `INFERRED` and `AMBIGUOUS` relations remain
 `review_inference`; an `EXTRACTED` relation is eligible for verified promotion only
-when both endpoints carry exact tracked source identity. Candidate output is bounded
+when both endpoints carry exact tracked source identity and the relation's source file
+and one-based line resolve inside the captured source. Bogus, zero, out-of-range, or
+wrong-file locations fail closed to `review_inference`. Candidate output is bounded
 before it becomes model-visible, and edges to omitted nodes are removed.
 
-Network socket creation is denied during extraction, parallel extraction is disabled,
-and provider cache is confined to a disposable temporary directory. The response
+Python socket `connect` and `create_connection` calls are denied before provider import
+and through extraction. This is narrow in-process socket isolation, not an OS sandbox
+or a universal no-network proof. Parallel extraction is disabled, and provider cache
+is confined to a disposable temporary directory. The response
 reports provider version/commit, exact input provenance, selection/truncation and
 bounded diagnostics. It remains a candidate structural projection: CodeSleuth Git/blob
 validation is authority.
@@ -90,10 +95,13 @@ same already bounded extraction. Returned nodes carry an optional community id a
 undirected degree-centrality score. These fields are `derivedSelectionHintsOnly`: they
 never enter node keys, projection identity, source provenance or evidence origin.
 
-`repo_context_graph_topology` matches those hints against an already saved projection
+`repo_context_graph_topology` accepts the bounded provider result rather than separate
+caller-authored version/commit strings, binds its output to a SHA-256 of that payload,
+and matches the embedded hints against an already saved projection
 by its existing closed `(kind, key)` identity. It drops and counts stale hints, then
 deterministically selects bounded `community_hubs` or validated `cross_community`
 bridge roots. When no cross-community projection edge exists it reports a fallback to
-community hubs. The returned roots must be passed unchanged to both
+community hubs. Ties use invariant Unicode code-point ordering rather than host locale.
+The returned roots must be passed unchanged to both
 `repo_context_graph_query` and `repo_context_graph_mermaid`; those tools continue to
 share the accepted M1 neighborhood traversal and omitted-node edge safety.

@@ -1375,11 +1375,28 @@ export const mermaid = tool({
   },
 })
 
-const topologyHintShape = {
-  kind: tool.schema.enum(NODE_KINDS),
-  key: tool.schema.string().min(1).max(KEY_MAX),
-  community: tool.schema.string().max(100).nullable().optional(),
-  centrality: tool.schema.number().min(0).max(1),
+const graphifyTopologyNodeShape = {
+  projectionInput: tool.schema.object({
+    kind: tool.schema.enum(NODE_KINDS),
+    key: tool.schema.string().min(1).max(KEY_MAX),
+  }),
+  topologyHint: tool.schema.object({
+    community: tool.schema.string().max(100).nullable().optional(),
+    centrality: tool.schema.number().min(0).max(1),
+  }),
+}
+
+function codePointCompare(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>
+    return `{${Object.keys(record).sort(codePointCompare).map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`
+  }
+  return JSON.stringify(value) ?? "null"
 }
 
 export const topology = tool({
@@ -1388,14 +1405,27 @@ export const topology = tool({
   args: {
     projectionId: tool.schema.string().optional(),
     reviewId: tool.schema.string().optional(),
-    provider: tool.schema.enum(["graphify"]),
-    providerVersion: tool.schema.string().min(1).max(50),
-    upstreamCommit: tool.schema.string().regex(/^[0-9a-f]{40}$/),
+    providerResult: tool.schema.object({
+      schemaVersion: tool.schema.number().int().min(1).max(1),
+      provider: tool.schema.object({
+        id: tool.schema.enum(["graphify"]),
+        version: tool.schema.enum(["0.9.50"]),
+        upstreamCommit: tool.schema.enum(["43d54acbfa9e731f7a592bb582c1f4b9d48ed73e"]),
+      }),
+      topology: tool.schema.object({ derivedSelectionHintsOnly: tool.schema.boolean() }),
+      nodes: tool.schema.array(tool.schema.object(graphifyTopologyNodeShape)).max(MAX_VIEW_NODES),
+    }),
     strategy: tool.schema.enum(["community_hubs", "cross_community"]).optional(),
     rootLimit: tool.schema.number().int().min(1).max(20).optional(),
-    hints: tool.schema.array(tool.schema.object(topologyHintShape)).max(MAX_VIEW_NODES),
   },
   async execute(args, context) {
+    if (
+      args.providerResult.provider.id !== "graphify" ||
+      args.providerResult.provider.version !== "0.9.50" ||
+      args.providerResult.provider.upstreamCommit !== "43d54acbfa9e731f7a592bb582c1f4b9d48ed73e"
+    ) {
+      throw new Error("topology provider result does not match the audited Graphify runtime identity")
+    }
     const resolution = args.projectionId || args.reviewId
       ? await resolveProjectionFile(context.worktree, { projectionId: args.projectionId, reviewId: args.reviewId })
       : await resolveDefaultProjectionFile(context.worktree, context.sessionID)
@@ -1405,7 +1435,11 @@ export const topology = tool({
     )
     const deduplicated = new Map<string, { node: ContextNode; community?: string; centrality: number }>()
     let staleHints = 0
-    for (const hint of args.hints) {
+    if (args.providerResult.topology.derivedSelectionHintsOnly !== true) {
+      throw new Error("provider topology must declare derivedSelectionHintsOnly")
+    }
+    const hints = args.providerResult.nodes.map((node) => ({ ...node.projectionInput, ...node.topologyHint }))
+    for (const hint of hints) {
       assertKnownKind(hint.kind)
       assertValidKey(hint.key)
       const semantic = semanticElementName(hint.kind, hint.key)
@@ -1424,7 +1458,7 @@ export const topology = tool({
     }
     const matched = [...deduplicated.values()]
     const rank = (a: typeof matched[number], b: typeof matched[number]) =>
-      b.centrality - a.centrality || semanticElementName(a.node.kind, a.node.key).localeCompare(semanticElementName(b.node.kind, b.node.key))
+      b.centrality - a.centrality || codePointCompare(semanticElementName(a.node.kind, a.node.key), semanticElementName(b.node.kind, b.node.key))
     matched.sort(rank)
     const rootLimit = Math.min(args.rootLimit ?? 8, 20)
     const strategy = args.strategy ?? "community_hubs"
@@ -1461,12 +1495,15 @@ export const topology = tool({
       {
         schemaVersion: 1,
         projectionId: projection.projectionId,
-        provider: { id: args.provider, version: args.providerVersion, upstreamCommit: args.upstreamCommit },
+        provider: {
+          ...args.providerResult.provider,
+          resultSha256: createHash("sha256").update(canonicalJson(args.providerResult)).digest("hex"),
+        },
         algorithm: { name: strategy, version: 1 },
         derivedSelectionHintsOnly: true,
         roots,
         selection: {
-          submittedHints: args.hints.length,
+          submittedHints: hints.length,
           matchedHints: matched.length,
           staleHints,
           communities: new Set(matched.map((item) => item.community).filter(Boolean)).size,

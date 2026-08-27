@@ -18,11 +18,11 @@ try {
   await git(root, ["init", "-q"])
   await git(root, ["config", "user.email", "test@example.invalid"])
   await git(root, ["config", "user.name", "CodeSleuth Test"])
-  for (const file of ["a.ts", "b.ts", "c.ts", "d.ts"]) await writeFile(path.join(root, file), `export const ${file[0]} = 1\n`)
-  await git(root, ["add", "a.ts", "b.ts", "c.ts", "d.ts"])
+  for (const file of ["a.ts", "b.ts", "c.ts", "d.ts", "z.ts", "ä.ts"]) await writeFile(path.join(root, file), `export const value = 1\n`)
+  await git(root, ["add", "a.ts", "b.ts", "c.ts", "d.ts", "z.ts", "ä.ts"])
   await git(root, ["commit", "-qm", "fixture"])
   const context = { worktree: root, sessionID: "topology-smoke", directory: root }
-  const nodes = ["a.ts", "b.ts", "c.ts", "d.ts"].map((file) => ({
+  const nodes = ["a.ts", "b.ts", "c.ts", "d.ts", "z.ts", "ä.ts"].map((file) => ({
     kind: "file" as const,
     key: file,
     label: file,
@@ -50,12 +50,22 @@ try {
     { kind: "file" as const, key: "d.ts", community: "right", centrality: 0.1 },
     { kind: "file" as const, key: "stale.ts", community: "ghost", centrality: 1.0 },
   ]
+  const providerResult = {
+    schemaVersion: 1,
+    provider: {
+      id: "graphify" as const,
+      version: "0.9.50" as const,
+      upstreamCommit: "43d54acbfa9e731f7a592bb582c1f4b9d48ed73e" as const,
+    },
+    topology: { derivedSelectionHintsOnly: true },
+    nodes: hints.map(({ kind, key, community, centrality }) => ({
+      projectionInput: { kind, key },
+      topologyHint: { community, centrality },
+    })),
+  }
   const common = {
     projectionId: saved.projectionId,
-    provider: "graphify" as const,
-    providerVersion: "0.9.50",
-    upstreamCommit: "43d54acbfa9e731f7a592bb582c1f4b9d48ed73e",
-    hints,
+    providerResult,
     rootLimit: 2,
   }
   const hubsOnce = JSON.parse(await topology.execute({ ...common, strategy: "community_hubs" }, context))
@@ -84,11 +94,37 @@ try {
 
   const noCross = JSON.parse(
     await topology.execute(
-      { ...common, strategy: "cross_community", hints: hints.map((hint) => ({ ...hint, community: "one" })) },
+      {
+        ...common,
+        strategy: "cross_community",
+        providerResult: {
+          ...providerResult,
+          nodes: providerResult.nodes.map((node) => ({ ...node, topologyHint: { ...node.topologyHint, community: "one" } })),
+        },
+      },
       context,
     ),
   )
   assert(noCross.selection.fallbackReason?.includes("used community_hubs"), "missing cross-community topology must report deterministic fallback")
+  const unicodeProvider = {
+    ...providerResult,
+    nodes: ["ä.ts", "z.ts"].map((key) => ({
+      projectionInput: { kind: "file" as const, key },
+      topologyHint: { community: "same", centrality: 0.5 },
+    })),
+  }
+  const unicode = JSON.parse(await topology.execute({ projectionId: saved.projectionId, providerResult: unicodeProvider, rootLimit: 2 }, context))
+  assert(unicode.roots.map((root: any) => root.key).join(",") === "z.ts,ä.ts", "topology ties use invariant Unicode code-point order")
+  let rejectedBogusIdentity = false
+  try {
+    await topology.execute(
+      { ...common, providerResult: { ...providerResult, provider: { ...providerResult.provider, version: "9.9.9" } } } as any,
+      context,
+    )
+  } catch {
+    rejectedBogusIdentity = true
+  }
+  assert(rejectedBogusIdentity, "topology must reject caller-supplied provider identity drift")
   console.log("CONTEXT GRAPH TOPOLOGY SMOKE PASS")
 } finally {
   await rm(root, { recursive: true, force: true })
