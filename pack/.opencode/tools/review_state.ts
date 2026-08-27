@@ -161,10 +161,10 @@ export const start = tool({
     const tracked = await trackedPaths(root)
     const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)
     const sessionSuffix = context.sessionID.replace(/[^A-Za-z0-9]/g, "").slice(-8) || "session"
-    const reviewId = `${stamp}-${headSha.slice(0, 12)}-${sessionSuffix}`
+    const reviewId = `${stamp}-${headSha.slice(0, 12)}-${sessionSuffix}-${randomUUID().slice(0, 8)}`
     const base = baseDir(root)
     await mkdir(path.join(base, "sessions"), { recursive: true })
-    await mkdir(reviewDir(root, reviewId), { recursive: true })
+    await mkdir(reviewDir(root, reviewId), { recursive: false })
 
     const state = {
       schemaVersion: 2,
