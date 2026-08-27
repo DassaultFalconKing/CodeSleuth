@@ -90,6 +90,9 @@ def default_settings(profiles: list[str] | None = None) -> dict[str, Any]:
             "profile": "native",
             "model": "",
         },
+        "policy": {
+            "enforceAgentsMdRules": False,
+        },
     }
 
 
@@ -195,6 +198,14 @@ def validate_settings(settings: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(model, str):
         raise ValueError("agent.model must be a string")
     agent["model"] = model.strip()
+    policy = merged.get("policy")
+    if not isinstance(policy, dict):
+        policy = {}
+        merged["policy"] = policy
+    val = policy.get("enforceAgentsMdRules", False)
+    if not isinstance(val, bool):
+        raise ValueError("policy.enforceAgentsMdRules must be a boolean")
+    policy["enforceAgentsMdRules"] = bool(val)
     return merged
 
 
@@ -407,6 +418,27 @@ def apply_settings_to_target(repo: Path, settings: dict[str, Any]) -> Path:
     import codesleuth_project as project_lifecycle
     project_lifecycle.ensure_reports_workspace(repo)
     project_lifecycle.ensure_agents_reports_pointer(repo)
+    # Managed AGENTS.md workflow block – opt-in, self-install skips maintainer file
+    try:
+        if not project_lifecycle.is_self_target(repo):
+            from codesleuth_project.agents_policy import (  # type: ignore
+                canonical_policy_text as _cpt,
+                ensure_agents_rules as _ear,
+                remove_agents_rules as _rar,
+            )
+
+            if bool(settings.get("policy", {}).get("enforceAgentsMdRules", False)):
+                _ear(repo, _cpt())
+            else:
+                try:
+                    _rar(repo)
+                except RuntimeError:
+                    # Fail closed on malformed – preserve user file, do not apply settings silently
+                    raise
+    except RuntimeError:
+        raise
+    except Exception:
+        pass
     return cfg_path
 
 
@@ -416,6 +448,7 @@ def settings_summary(settings: dict[str, Any]) -> str:
     p = settings["permissions"]
     r = settings["runtime"]
     agent = settings["agent"]
+    policy = settings.get("policy", {})
     model = agent["model"] or "OpenCode current model"
     return "\n".join([
         f"Profiles: {', '.join(settings['profiles'])} ({settings['profilesMode']})",
@@ -427,6 +460,7 @@ def settings_summary(settings: dict[str, Any]) -> str:
         f"Watchdog: stall={r['stallSeconds']}s, web={r['webStallSeconds']}s, recoveries={r['maxStallRecoveries']}",
         f"Compaction reserved tokens: {r['compactionReserved']}",
         f"Check updates when TUI opens: {'yes' if r['checkUpdatesOnStart'] else 'no'}",
+        f"Agents policy: {'enforced' if policy.get('enforceAgentsMdRules') else 'off'} — Maintain CodeSleuth workflow rules in root AGENTS.md",
     ])
 
 
@@ -442,6 +476,9 @@ def config_preview(settings: dict[str, Any]) -> str:
             "profile": settings["agent"]["profile"],
             "model": settings["agent"]["model"] or None,
             "controller": "OpenCode primary build; prompt left unset",
+        },
+        "policy": {
+            "enforceAgentsMdRules": bool(settings.get("policy", {}).get("enforceAgentsMdRules", False)),
         },
     }
     return json.dumps(preview, indent=2)
