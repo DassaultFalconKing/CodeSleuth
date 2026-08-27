@@ -11,9 +11,15 @@ required = [
     "agents/repo-profile-architect.md", "agents/repo-prompt-advisor.md",
     "commands/repo-review.md", "commands/repo-docs.md", "commands/repo-review-resume.md",
     "commands/repo-profile.md", "commands/repo-prompts.md", "commands/repo-report.md",
+    "commands/repo-map.md", "commands/repo-contracts.md", "commands/eha-test.md", "commands/eha-status.md",
+    "commands/eha-repair.md", "commands/playbook.md",
     "skills/repository-deep-review/SKILL.md", "skills/codesleuth-reports/SKILL.md",
+    "skills/protected-capability-registry/SKILL.md", "skills/eha-campaign-evidence/SKILL.md",
+    "playbooks/repository-map/playbook.json", "playbooks/protected-capability-assessment/playbook.json",
+    "playbooks/eha-sib-acceptance/playbook.json",
     "tools/repo_inventory.ts",
-    "tools/review_state.ts", "tools/eha_state.ts", "tools/repo_profile.ts", "plugins/review-compaction.ts",
+    "tools/review_state.ts", "tools/eha_state.ts", "tools/repo_profile.ts", "tools/repo_context_graph.ts",
+    "tools/protected_capability_graph.ts", "plugins/review-compaction.ts",
     "profiles/builtin/generic.json", "profiles/builtin/rust.json", "profiles/builtin/python.json",
     "profiles/builtin/node.json", "profiles/builtin/typescript.json",
     "bin/opencode-review", "bin/opencode-review.ps1",
@@ -23,7 +29,8 @@ required = [
     "bin/review-pack-update", "bin/review-pack-update.ps1", "bin/review-pack-update.py",
     "bin/review-pack-smoke.py", "themes/codesleuth.json", "tui.json",
     "opencode.json", "review-pack.json", "review-pack-user.json", "codesleuth-naming.json",
-    "CODESLEUTH-REPORTS.md"
+    "CODESLEUTH-REPORTS.md",
+    "policy/agents-rules.md",
 ]
 missing = [x for x in required if not (oc / x).is_file()]
 if missing:
@@ -151,6 +158,44 @@ if not (root / ".codesleuth" / "reports" / "README.md").is_file():
     raise SystemExit("missing .codesleuth/reports/README.md; report workspace was not seeded")
 if "CodeSleuth reports" not in (root / "AGENTS.md").read_text(encoding="utf-8"):
     raise SystemExit("AGENTS.md is missing the CodeSleuth reports discovery pointer")
+
+# Agents policy block Verify – only when enforcement is enabled on a non-self install
+enforce = bool(settings.get("policy", {}).get("enforceAgentsMdRules", False))
+if bool(meta.get("selfInstall")):
+    if enforce:
+        print(
+            "warning: policy.enforceAgentsMdRules is ignored for CodeSleuth self-install",
+            file=sys.stderr,
+        )
+    enforce = False
+agents_path = root / "AGENTS.md"
+BEGIN = "<!-- CODESLEUTH:AGENTS-RULES:BEGIN -->"
+END = "<!-- CODESLEUTH:AGENTS-RULES:END -->"
+if enforce:
+    canonical = oc / "policy" / "agents-rules.md"
+    if not canonical.is_file():
+        raise SystemExit("enforced AGENTS.md policy: missing canonical policy asset .opencode/policy/agents-rules.md")
+    canon_text = canonical.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n").strip() + "\n"
+    if not agents_path.is_file():
+        raise SystemExit("enforced AGENTS.md policy: AGENTS.md missing managed block")
+    text = agents_path.read_text(encoding="utf-8")
+    begins = text.count(BEGIN)
+    ends = text.count(END)
+    if begins != 1 or ends != 1:
+        raise SystemExit(f"enforced AGENTS.md policy: expected exactly one managed block, found BEGIN={begins} END={ends}")
+    b = text.find(BEGIN)
+    e = text.find(END)
+    if e < b:
+        raise SystemExit("enforced AGENTS.md policy: malformed block BEGIN without END")
+    inner = text[b + len(BEGIN): e].replace("\r\n", "\n").replace("\r", "\n").strip() + "\n"
+    if inner != canon_text:
+        raise SystemExit("enforced AGENTS.md policy: managed block does not match canonical .opencode/policy/agents-rules.md")
+else:
+    # When not enforced, do not require the block, but fail closed if malformed duplicate would be destructive
+    if agents_path.is_file():
+        _t = agents_path.read_text(encoding="utf-8")
+        if _t.count(BEGIN) > 1 or _t.count(END) > 1:
+            print("warning: AGENTS.md contains duplicate CodeSleuth policy markers while enforcement is off", file=sys.stderr)
 
 print("PACK SMOKE PASS")
 print("product: CodeSleuth")

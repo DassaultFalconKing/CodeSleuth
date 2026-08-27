@@ -2,7 +2,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { start as startReview } from "../pack/.opencode/tools/review_state"
-import { load, mermaid, record_repair, record_verdict, start_campaign } from "../pack/.opencode/tools/eha_state"
+import { load, mermaid, record_repair, record_verdict, renderEhaMermaid, start_campaign } from "../pack/.opencode/tools/eha_state"
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -168,6 +168,43 @@ async function main() {
   assert(diagram.includes(shaB.slice(0, 12)), "diagram must contain repaired target")
   assert(diagram.includes("SIB1: FAIL"), "diagram must retain failed SIB verdict")
   assert(diagram.includes("SIB2: PASS"), "diagram must show accepted repaired target")
+  assert(diagram.includes("eha.ndjson remains authority"), "diagram must identify the ledger as authority")
+  assert(diagram.includes("acceptance never transfers"), "diagram must not imply acceptance transfer between commits")
+
+  const manyCampaigns: any[] = []
+  for (let index = 0; index < 55; index += 1) {
+    manyCampaigns.push({
+      type: "campaign_started",
+      eventId: `E${index}`,
+      campaignId: `EHA-${index.toString().padStart(3, "0")}`,
+      reviewId: "bounded-history",
+      targetSha: index.toString(16).padStart(40, "0"),
+      targetBranch: `branch-${index}`,
+      scope: "bounded",
+      recordedAt: new Date(index * 1000).toISOString(),
+    })
+  }
+  manyCampaigns.push({
+    type: "repair",
+    eventId: "hostile-repair",
+    campaignId: "EHA-054",
+    reviewId: "bounded-history",
+    level: "SIB2",
+    classification: "composition_e2e",
+    decision: "repair",
+    failingSha: "36".padStart(40, "0"),
+    failingTest: "test",
+    failure: 'bad %%\n"<img>` failure',
+    reproduction: "run test",
+    repairBranch: 'fix/%%\n"<script>`',
+    recordedAt: new Date(60_000).toISOString(),
+  })
+  const bounded = renderEhaMermaid(manyCampaigns as any, { campaignLimit: 2, repairLimit: 1, direction: "LR" })
+  assert(bounded.includes("showing 2 of 55 campaign(s)"), "large EHA history must disclose campaign truncation")
+  assert(bounded.includes("bounded subset: 53 older campaign(s) omitted"), "large EHA history must render an omission marker")
+  assert(bounded.includes("flowchart LR"), "EHA presentation direction is bounded caller choice")
+  assert(!bounded.includes("<img>") && !bounded.includes("<script>"), "hostile EHA labels cannot emit raw markup")
+  assert(!bounded.includes("`"), "hostile EHA labels cannot emit backticks")
 
   const ledger = path.join(root, ".opencode", "state", "reviews", review.reviewId, "eha.ndjson")
   const raw = await readFile(ledger, "utf8")

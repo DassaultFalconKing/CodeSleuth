@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,7 @@ BIN = Path(__file__).resolve().parents[1] / "pack" / ".opencode" / "bin"
 sys.path.insert(0, str(BIN))
 
 from codesleuth_tui_runtime import CodeSleuthApp  # noqa: E402
+import review_pack_tui  # noqa: E402
 from textual.widgets import Button  # noqa: E402
 
 
@@ -104,3 +106,55 @@ async def test_update_button_dispatches_through_runtime_feedback_layer(tmp_path:
         await pilot.pause()
         assert calls == ["update"]
         assert any("Update started" in line for line in app.recorded_log)
+
+
+@pytest.mark.asyncio
+async def test_runtime_workers_never_touch_widgets_and_mutating_actions_are_single_flight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
+    repo = tmp_path / "target"
+    init_repo(repo)
+    main_thread = threading.get_ident()
+    validation_threads: list[int] = []
+    started = threading.Event()
+    release = threading.Event()
+    action_calls: list[list[str]] = []
+    original_run = review_pack_tui.subprocess.run
+
+    class ThreadCheckingApp(RecordingCodeSleuthApp):
+        def validate_target(self) -> Path:
+            validation_threads.append(threading.get_ident())
+            return super().validate_target()
+
+    def controlled_run(command, *args, **kwargs):
+        values = [str(value) for value in command]
+        if any(value.endswith("review-pack-smoke.py") for value in values):
+            action_calls.append(values)
+            started.set()
+            assert release.wait(5), "test did not release the runtime action"
+            return subprocess.CompletedProcess(command, 0, "PACK SMOKE PASS\n", "")
+        return original_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(review_pack_tui.subprocess, "run", controlled_run)
+    app = ThreadCheckingApp(repo, None)
+    async with app.run_test(size=(120, 35)) as pilot:
+        await pilot.pause()
+        assert app.run_runtime_action("smoke") is True
+        for _ in range(50):
+            await pilot.pause(0.02)
+            if started.is_set():
+                break
+        assert started.is_set(), "runtime worker did not start"
+        assert app.run_runtime_action("update") is False
+        assert len(action_calls) == 1, "a second lifecycle worker must not overlap the first"
+        assert any("already running" in line for line in app.recorded_log)
+        release.set()
+        for _ in range(50):
+            await pilot.pause(0.02)
+            if not app._runtime_action_active:
+                break
+        assert not app._runtime_action_active
+
+    assert validation_threads
+    assert set(validation_threads) == {main_thread}, "widget-backed target validation must remain on the Textual app thread"

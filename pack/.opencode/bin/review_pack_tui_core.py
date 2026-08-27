@@ -90,6 +90,9 @@ def default_settings(profiles: list[str] | None = None) -> dict[str, Any]:
             "profile": "native",
             "model": "",
         },
+        "policy": {
+            "enforceAgentsMdRules": False,
+        },
     }
 
 
@@ -195,6 +198,14 @@ def validate_settings(settings: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(model, str):
         raise ValueError("agent.model must be a string")
     agent["model"] = model.strip()
+    policy = merged.get("policy")
+    if not isinstance(policy, dict):
+        policy = {}
+        merged["policy"] = policy
+    val = policy.get("enforceAgentsMdRules", False)
+    if not isinstance(val, bool):
+        raise ValueError("policy.enforceAgentsMdRules must be a boolean")
+    policy["enforceAgentsMdRules"] = bool(val)
     return merged
 
 
@@ -383,30 +394,78 @@ def save_settings(repo: Path, settings: dict[str, Any]) -> Path:
     return path
 
 
-def apply_settings_to_target(repo: Path, settings: dict[str, Any]) -> Path:
-    """Apply settings onto the target OpenCode config on disk."""
+def coerce_self_install_agents_policy(settings: dict[str, Any], *, is_self: bool) -> dict[str, Any]:
+    """Self-install must not persist enforce=true; maintainer AGENTS.md is not a target policy file."""
     settings = validate_settings(settings)
+    if is_self:
+        settings.setdefault("policy", {})["enforceAgentsMdRules"] = False
+    return validate_settings(settings)
+
+
+def apply_settings_to_target(
+    repo: Path,
+    settings: dict[str, Any],
+    *,
+    source_root: Path | None = None,
+) -> Path:
+    """Apply settings onto the target OpenCode config on disk.
+
+    The managed AGENTS.md policy mutation is preflighted and applied before
+    persisting policy/config. On later failure, AGENTS.md and config are restored.
+    """
+    import codesleuth_project as project_lifecycle
+    from codesleuth_project.agents_policy import apply_agents_md_policy
+
+    is_self = project_lifecycle.is_self_target(repo, source_root=source_root)
+    meta_path = repo / ".opencode" / "review-pack.json"
+    if not is_self and meta_path.is_file():
+        try:
+            is_self = bool(json.loads(meta_path.read_text(encoding="utf-8")).get("selfInstall"))
+        except json.JSONDecodeError:
+            is_self = False
+    settings = coerce_self_install_agents_policy(settings, is_self=is_self)
     oc = repo / ".opencode"
     cfg_path = oc / "opencode.json"
     if not cfg_path.is_file():
         raise FileNotFoundError(f"{cfg_path} does not exist")
     cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+    settings_path = oc / "review-pack-user.json"
+    settings_backup = settings_path.read_bytes() if settings_path.is_file() else None
+    agents_path = repo / "AGENTS.md"
+    agents_backup = agents_path.read_bytes() if agents_path.is_file() else None
     backup_dir = oc / "state" / "tui-backups"
     backup_dir.mkdir(parents=True, exist_ok=True)
     (backup_dir / "opencode.json.before-tui").write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
     updated = apply_settings_to_config_dict(cfg, settings)
-    cfg_path.write_text(json.dumps(updated, indent=2) + "\n", encoding="utf-8")
-    save_settings(repo, settings)
-    detected = oc / "profiles" / "detected.json"
-    detected.parent.mkdir(parents=True, exist_ok=True)
-    detected.write_text(json.dumps({
-        "profiles": settings["profiles"],
-        "detectedFromTrackedFiles": settings.get("profilesMode") == "auto",
-        "exaLaunchDefault": "OPENCODE_ENABLE_EXA=1" if settings["runtime"]["exaEnabled"] else "disabled by review-pack-user.json",
-    }, indent=2) + "\n", encoding="utf-8")
-    import codesleuth_project as project_lifecycle
-    project_lifecycle.ensure_reports_workspace(repo)
-    project_lifecycle.ensure_agents_reports_pointer(repo)
+
+    def _restore() -> None:
+        cfg_path.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+        if settings_backup is None:
+            settings_path.unlink(missing_ok=True)
+        else:
+            settings_path.write_bytes(settings_backup)
+        if agents_backup is None:
+            agents_path.unlink(missing_ok=True)
+        else:
+            agents_path.write_bytes(agents_backup)
+
+    try:
+        if not is_self:
+            apply_agents_md_policy(repo, enforce=bool(settings["policy"]["enforceAgentsMdRules"]))
+        cfg_path.write_text(json.dumps(updated, indent=2) + "\n", encoding="utf-8")
+        save_settings(repo, settings)
+        detected = oc / "profiles" / "detected.json"
+        detected.parent.mkdir(parents=True, exist_ok=True)
+        detected.write_text(json.dumps({
+            "profiles": settings["profiles"],
+            "detectedFromTrackedFiles": settings.get("profilesMode") == "auto",
+            "exaLaunchDefault": "OPENCODE_ENABLE_EXA=1" if settings["runtime"]["exaEnabled"] else "disabled by review-pack-user.json",
+        }, indent=2) + "\n", encoding="utf-8")
+        project_lifecycle.ensure_reports_workspace(repo)
+        project_lifecycle.ensure_agents_reports_pointer(repo)
+    except Exception:
+        _restore()
+        raise
     return cfg_path
 
 
@@ -416,6 +475,7 @@ def settings_summary(settings: dict[str, Any]) -> str:
     p = settings["permissions"]
     r = settings["runtime"]
     agent = settings["agent"]
+    policy = settings.get("policy", {})
     model = agent["model"] or "OpenCode current model"
     return "\n".join([
         f"Profiles: {', '.join(settings['profiles'])} ({settings['profilesMode']})",
@@ -427,6 +487,7 @@ def settings_summary(settings: dict[str, Any]) -> str:
         f"Watchdog: stall={r['stallSeconds']}s, web={r['webStallSeconds']}s, recoveries={r['maxStallRecoveries']}",
         f"Compaction reserved tokens: {r['compactionReserved']}",
         f"Check updates when TUI opens: {'yes' if r['checkUpdatesOnStart'] else 'no'}",
+        f"Agents policy: {'enforced' if policy.get('enforceAgentsMdRules') else 'off'} — Maintain CodeSleuth workflow rules in root AGENTS.md",
     ])
 
 
@@ -442,6 +503,9 @@ def config_preview(settings: dict[str, Any]) -> str:
             "profile": settings["agent"]["profile"],
             "model": settings["agent"]["model"] or None,
             "controller": "OpenCode primary build; prompt left unset",
+        },
+        "policy": {
+            "enforceAgentsMdRules": bool(settings.get("policy", {}).get("enforceAgentsMdRules", False)),
         },
     }
     return json.dumps(preview, indent=2)

@@ -293,6 +293,7 @@ def preserve_merged_config_settings(repo: Path, settings: dict, profiles: list[s
     if isinstance(compaction, dict) and isinstance(compaction.get("reserved"), int):
         settings["runtime"]["compactionReserved"] = compaction["reserved"]
     settings["profiles"] = profiles
+    # Preserve policy setting already in settings (from validated persisted settings); do not overwrite with default
     settings = tui_core.validate_settings(settings)
     tui_core.save_settings(repo, settings)
     detected = repo / ".opencode" / "profiles" / "detected.json"
@@ -342,6 +343,8 @@ def parse_args():
     parser.add_argument("--uninstall", action="store_true", help="restore pre-CodeSleuth configuration and remove CodeSleuth runtime")
     parser.add_argument("--purge-traces", action="store_true", help="with --uninstall, delete CodeSleuth reports/settings/backups instead of archiving them")
     parser.add_argument("--keep-dependency", action="store_true", help="with --uninstall, keep the CodeSleuth submodule/gitlink")
+    parser.add_argument("--enforce-agents-md-rules", dest="enforce_agents_md_rules", action="store_true", default=None, help="maintain CodeSleuth workflow block in root AGENTS.md")
+    parser.add_argument("--no-enforce-agents-md-rules", dest="enforce_agents_md_rules", action="store_false", help="do not maintain CodeSleuth workflow block in AGENTS.md")
     parser.add_argument("--source-remote")
     parser.add_argument("--source-ref")
     parser.add_argument("--source-subdir")
@@ -381,12 +384,16 @@ def main():
     if args.uninstall:
         if args.update or args.adopt_existing_pack or args.bind_dependency or args.self_install:
             raise SystemExit("--uninstall is mutually exclusive with install/update/bind/self-install operations")
-        result = project_lifecycle.uninstall_project(
-            repo,
-            preserve_traces=not args.purge_traces,
-            remove_bound_dependency=not args.keep_dependency,
-            dependency_path=args.dependency_path,
-        )
+        try:
+            result = project_lifecycle.uninstall_project(
+                repo,
+                preserve_traces=not args.purge_traces,
+                remove_bound_dependency=not args.keep_dependency,
+                dependency_path=args.dependency_path,
+                source_root=ROOT,
+            )
+        except RuntimeError as exc:
+            raise SystemExit(f"AGENTS.md policy block conflict: {exc}") from exc
         project_lifecycle.record_tracked_repository(repo)
         print(json.dumps(result, indent=2))
         print("CodeSleuth uninstalled. Review staged Git changes before committing.")
@@ -412,14 +419,42 @@ def main():
         profiles.insert(0, "generic")
     profiles = list(dict.fromkeys(profiles))
     settings = resolve_settings(args, repo, profiles)
+    # Explicit CLI choice overrides persisted/settings-file value for this operation
+    if args.enforce_agents_md_rules is not None:
+        settings.setdefault("policy", {})["enforceAgentsMdRules"] = bool(args.enforce_agents_md_rules)
+        settings = tui_core.validate_settings(settings)
+    is_self = project_lifecycle.is_self_target(repo, source_root=ROOT)
+    if is_self and args.enforce_agents_md_rules is True:
+        raise SystemExit(
+            "--enforce-agents-md-rules is not valid for a CodeSleuth self-install; "
+            "the maintainer AGENTS.md is not a target-repository policy file"
+        )
+    if is_self:
+        if bool(settings.get("policy", {}).get("enforceAgentsMdRules", False)):
+            print(
+                "warning: policy.enforceAgentsMdRules is ignored for CodeSleuth self-install "
+                "and was normalized to false",
+                file=sys.stderr,
+            )
+        settings = tui_core.coerce_self_install_agents_policy(settings, is_self=True)
     profiles = settings["profiles"]
 
     managed, conflicts = install_files(target, old_meta, args.update, args.force_pack_files, args.adopt_existing_pack)
     base_config = update_config(target, old_meta, args.update)
-    if args.update and not args.settings_file:
-        preserve_merged_config_settings(repo, settings, profiles)
-    else:
-        tui_core.apply_settings_to_target(repo, settings)
+    try:
+        if args.update and not args.settings_file:
+            from codesleuth_project.agents_policy import apply_agents_md_policy
+
+            if not is_self:
+                apply_agents_md_policy(
+                    repo,
+                    enforce=bool(settings.get("policy", {}).get("enforceAgentsMdRules", False)),
+                )
+            preserve_merged_config_settings(repo, settings, profiles)
+        else:
+            tui_core.apply_settings_to_target(repo, settings, source_root=ROOT)
+    except RuntimeError as exc:
+        raise SystemExit(f"AGENTS.md policy block conflict: {exc}") from exc
 
     source = source_metadata(args)
     dependency = (old_meta or {}).get("dependency")

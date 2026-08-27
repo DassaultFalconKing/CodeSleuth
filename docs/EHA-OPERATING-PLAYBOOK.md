@@ -108,7 +108,12 @@ Use `/eha-status`.
 - failed levels;
 - repair decisions and candidate SHAs.
 
-`eha_state_mermaid` renders a bounded history diagram from that same ledger. The diagram is useful for humans but is not acceptance authority.
+`eha_state_mermaid` renders a bounded history diagram from that same ledger.
+Operators may choose campaign and per-campaign repair limits plus direction;
+headers and omission nodes report the shown/total window explicitly. Failed
+campaigns, pending levels, claimable levels, repair decisions, and candidate
+transitions remain visibly distinct. The diagram is useful for humans but is not
+acceptance authority and never transfers a verdict to another SHA.
 
 ## Claimability
 

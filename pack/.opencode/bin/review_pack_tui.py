@@ -13,13 +13,16 @@ from typing import TypeVar
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.css.query import NoMatches
 from textual.screen import ModalScreen
+from textual.worker import Worker
 from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, RichLog, Select, Static, Switch
 
 import codesleuth_project as project_lifecycle
 from review_pack_tui_core import (
     AGENT_PROFILE_OPTIONS,
     apply_settings_to_target,
+    coerce_self_install_agents_policy,
     config_preview,
     default_settings,
     detect_profiles,
@@ -27,7 +30,6 @@ from review_pack_tui_core import (
     installation_state,
     load_settings,
     recommended_operation,
-    save_settings,
     settings_summary,
     validate_settings,
     write_prompts,
@@ -178,6 +180,17 @@ class ConfigScreen(AbortableModalScreen[bool]):
             self.settings = default_settings(self.detected)
         self.state = installation_state(repo)
         self.dependency = project_lifecycle.dependency_status(repo)
+        self._apply_worker: Worker[None] | None = None
+        self._self_install_target = False
+        if distribution_root is not None:
+            self._self_install_target = project_lifecycle.is_self_target(repo, source_root=distribution_root)
+        if not self._self_install_target:
+            meta = repo / ".opencode" / "review-pack.json"
+            if meta.is_file():
+                try:
+                    self._self_install_target = bool(json.loads(meta.read_text(encoding="utf-8")).get("selfInstall"))
+                except json.JSONDecodeError:
+                    self._self_install_target = False
 
     def operation_options(self) -> tuple[list[tuple[str, str]], str]:
         if self.distribution_root is None:
@@ -271,7 +284,21 @@ class ConfigScreen(AbortableModalScreen[bool]):
                     yield Switch(value=r["checkUpdatesOnStart"], id="check-updates")
                     yield Label("Check updates on TUI start")
 
-                yield Label("6. Planned policy", classes="section")
+                yield Label("6. Repository policy", classes="section")
+                with Horizontal(classes="row"):
+                    yield Switch(
+                        value=False if self._self_install_target else bool(self.settings.get("policy", {}).get("enforceAgentsMdRules", False)),
+                        id="enforce-agents",
+                        disabled=self._self_install_target,
+                    )
+                    yield Label("Maintain CodeSleuth workflow rules in root AGENTS.md")
+                if self._self_install_target:
+                    yield Static(
+                        "Self-install: this switch is disabled. CodeSleuth will not rewrite the maintainer AGENTS.md.",
+                        classes="hint",
+                    )
+
+                yield Label("7. Planned policy", classes="section")
                 yield Static("", id="summary")
             with Horizontal(id="page-actions"):
                 yield Button("Apply", id="apply", variant="success")
@@ -323,8 +350,11 @@ class ConfigScreen(AbortableModalScreen[bool]):
                 "profile": self._select_value("#agent-profile"),
                 "model": (self.query_one("#agent-model", Input).value or "").strip(),
             },
+            "policy": {
+                "enforceAgentsMdRules": bool(self.query_one("#enforce-agents", Switch).value),
+            },
         }
-        return validate_settings(settings)
+        return coerce_self_install_agents_policy(validate_settings(settings), is_self=self._self_install_target)
 
     def _sync_profile_controls(self) -> None:
         auto = self.query_one("#profiles-auto", Switch).value
@@ -384,7 +414,7 @@ class ConfigScreen(AbortableModalScreen[bool]):
         operation = self._select_value("#operation")
         bind_dependency = self.query_one("#bind-dependency", Switch).value
         self.query_one("#apply", Button).disabled = True
-        self.perform_apply(settings, operation, bind_dependency)
+        self._apply_worker = self.perform_apply(settings, operation, bind_dependency)
 
     def _installed_source(self) -> dict | None:
         meta = self.repo / ".opencode" / "review-pack.json"
@@ -396,8 +426,7 @@ class ConfigScreen(AbortableModalScreen[bool]):
     def perform_apply(self, settings: dict, operation: str, bind_dependency: bool) -> None:
         try:
             if operation == "configure":
-                save_settings(self.repo, settings)
-                apply_settings_to_target(self.repo, settings)
+                apply_settings_to_target(self.repo, settings, source_root=self.distribution_root)
                 if bind_dependency and not project_lifecycle.dependency_status(self.repo)["bound"]:
                     project_lifecycle.bind_dependency(self.repo, source_metadata=self._installed_source())
                 elif not bind_dependency and project_lifecycle.dependency_status(self.repo)["bound"]:
@@ -430,12 +459,23 @@ class ConfigScreen(AbortableModalScreen[bool]):
                     settings_path.unlink(missing_ok=True)
                 if not bind_dependency and project_lifecycle.dependency_status(self.repo)["bound"]:
                     project_lifecycle.remove_dependency(self.repo)
+            actual_bound = bool(project_lifecycle.dependency_status(self.repo)["bound"])
+            if actual_bound != bind_dependency:
+                requested = "bound" if bind_dependency else "unbound"
+                actual = "bound" if actual_bound else "unbound"
+                raise RuntimeError(f"dependency transition did not complete: requested {requested}, observed {actual}")
             project_lifecycle.record_tracked_repository(self.repo)
-            self.app.call_from_thread(self.notify, output[-1200:] or "Applied", severity="information")
-            self.app.call_from_thread(self.dismiss, True)
+            self.app.call_from_thread(self._apply_succeeded, output)
         except Exception as exc:
-            self.app.call_from_thread(self.notify, str(exc), severity="error")
-            self.app.call_from_thread(setattr, self.query_one("#apply", Button), "disabled", False)
+            self.app.call_from_thread(self._apply_failed, str(exc))
+
+    def _apply_succeeded(self, output: str) -> None:
+        self.notify(output[-1200:] or "Applied", severity="information")
+        self.dismiss(True)
+
+    def _apply_failed(self, message: str) -> None:
+        self.notify(message, severity="error")
+        self.query_one("#apply", Button).disabled = False
 
 
 class ReviewPackApp(App[tuple[str, Path] | None]):
@@ -456,6 +496,7 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
         super().__init__()
         self.target = target.resolve()
         self.distribution_root = distribution_root.resolve() if distribution_root else None
+        self._runtime_action_active = False
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -591,22 +632,62 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
 
     def _uninstall_choice(self, choice: str | None) -> None:
         if choice:
-            self.perform_uninstall(choice)
+            repo = self._begin_runtime_action("uninstall")
+            if repo is not None:
+                self.perform_uninstall(choice, repo)
 
     @work(thread=True, exclusive=True)
-    def perform_uninstall(self, choice: str) -> None:
+    def perform_uninstall(self, choice: str, repo: Path) -> None:
         try:
-            repo = self.validate_target()
             result = project_lifecycle.uninstall_project(repo, preserve_traces=choice == "preserve")
             self.app.call_from_thread(self.write_ui_log, f"[green]uninstall[/]:\n{json.dumps(result, indent=2)}")
-            self.app.call_from_thread(self.refresh_status)
         except Exception as exc:
             self.app.call_from_thread(self.write_ui_log, f"[red]uninstall failed: {exc}[/red]")
+        finally:
+            self.app.call_from_thread(self._finish_runtime_action)
 
-    @work(thread=True, exclusive=False)
-    def run_runtime_action(self, action: str) -> None:
+    def _begin_runtime_action(self, action: str) -> Path | None:
+        if self._runtime_action_active:
+            self.write_ui_log(f"[yellow]{action} ignored: another lifecycle action is already running.[/yellow]")
+            self.notify("A lifecycle action is already running", severity="warning")
+            return None
         try:
             repo = self.validate_target()
+        except Exception as exc:
+            self.notify(str(exc), severity="error")
+            return None
+        self._runtime_action_active = True
+        for button_id in ("smoke", "check-update", "update", "uninstall"):
+            matches = self.query(f"#{button_id}")
+            if matches:
+                self.query_one(f"#{button_id}", Button).disabled = True
+        return repo
+
+    def _finish_runtime_action(self) -> None:
+        self._runtime_action_active = False
+        if not self.is_mounted:
+            return
+        try:
+            for button_id in ("smoke", "check-update", "update", "uninstall"):
+                matches = self.query(f"#{button_id}")
+                if matches:
+                    self.query_one(f"#{button_id}", Button).disabled = False
+            self.refresh_status()
+        except NoMatches:
+            # A background subprocess may finish while Textual is dismantling
+            # the screen. There is then no operator surface left to update.
+            return
+
+    def run_runtime_action(self, action: str) -> bool:
+        repo = self._begin_runtime_action(action)
+        if repo is None:
+            return False
+        self._run_runtime_action_worker(action, repo)
+        return True
+
+    @work(thread=True, exclusive=True)
+    def _run_runtime_action_worker(self, action: str, repo: Path) -> None:
+        try:
             ocbin = repo / ".opencode" / "bin"
             if action == "smoke":
                 command = [sys.executable, str(ocbin / "review-pack-smoke.py"), str(repo)]
@@ -622,10 +703,10 @@ class ReviewPackApp(App[tuple[str, Path] | None]):
             self.app.call_from_thread(self.write_ui_log, f"[{prefix}]{action}[/]:\n{text or '(no output)'}")
             if result.returncode != 0:
                 self.app.call_from_thread(self.notify, f"{action} failed", severity="error")
-            else:
-                self.app.call_from_thread(self.refresh_status)
         except Exception as exc:
             self.app.call_from_thread(self.write_ui_log, f"[red]{action} failed: {exc}[/red]")
+        finally:
+            self.app.call_from_thread(self._finish_runtime_action)
 
 
 def launch_opencode(repo: Path) -> int:

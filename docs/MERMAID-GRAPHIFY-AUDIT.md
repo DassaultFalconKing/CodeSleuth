@@ -449,6 +449,15 @@ Acceptance:
 
 ### M1 — scoped Mermaid rendering, no Graphify required
 
+**Current-native status:** complete. `repo_context_graph_query` and
+`repo_context_graph_mermaid` share `selectNeighborhood()` semantics for roots,
+hops, relation/origin filters and bounds. Regression coverage includes
+determinism, explicit truncation, omitted-node edge safety, hostile labels and
+comments, provenance styling, dirty rename/delete drift, large graphs,
+zero-match scopes, and Windows/newline path behavior. Protected-capability and
+EHA Mermaid views are separate derived projections over their existing registry
+and ledger authorities; they do not imply approval of an external provider.
+
 Extend CodeSleuth Mermaid generation so a caller can render an explicit bounded
 neighborhood rather than only the projection prefix.
 
@@ -623,7 +632,7 @@ permission model and be separately documented/tested.
 Graphify may graduate from `incubating` to `supported optional provider` only when all of
 the following are true:
 
-- [ ] M1 scoped Mermaid rendering is complete or explicitly shown unnecessary;
+- [x] M1 scoped Mermaid rendering is complete or explicitly shown unnecessary;
 - [ ] optional Graphify runtime is isolated and absent by default;
 - [ ] explicit tracked-file input policy is implemented;
 - [ ] exact relation/node mapping is documented and tested;

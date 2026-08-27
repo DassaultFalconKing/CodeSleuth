@@ -204,6 +204,19 @@ flowchart LR
 
 The graph selects gates; it never overrides exact source evidence. If source reading reveals an affected consumer missing from the graph, the registry is incomplete and must be corrected.
 
+`protected_capability_graph_query` and `protected_capability_graph_mermaid` read
+that same tracked registry on every call. Both use the same roots, forward-
+dependency option, reverse-consumer option, and node bound; the Mermaid renderer
+does not implement a second traversal. Tool output includes the registry path,
+index/working-tree blob identities, content digest, selection totals, and explicit
+truncation. Rendered edges are restricted to the selected node window.
+
+The impact view is derived navigation only. It may expose a contract's identifier,
+status, capability class, and relationship shape, but it cannot rewrite the
+registry, convert forbidden-regression prose into a second ledger, or declare a
+development gate complete. A missing root, invalid dependency, duplicate id, or
+malformed registry fails closed.
+
 ## Gate selection
 
 Ordinary feature development may use dependency-aware selection plus a small always-run invariant core:

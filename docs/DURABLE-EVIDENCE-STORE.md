@@ -204,12 +204,16 @@ finding evidence.
 
 ### Mermaid
 
-`repo_context_graph_mermaid` and `eha_state_mermaid` produce deterministic or
-bounded human-readable projections. Mermaid source is presentation, never a
-write path back into evidence state.
+`repo_context_graph_mermaid`, `protected_capability_graph_mermaid`, and
+`eha_state_mermaid` produce deterministic bounded human-readable projections.
+Their respective authorities remain tracked Git source plus context state,
+`docs/protected-capabilities.json`, and `eha.ndjson`. Each surface exposes its
+selection/provenance metadata and Mermaid source is presentation, never a write
+path back into evidence state.
 
 Do not parse edited Mermaid and write it back into `review_state`,
-`findings.ndjson`, `eha.ndjson`, or repository truth.
+`findings.ndjson`, `eha.ndjson`, `protected-capabilities.json`, or repository
+truth. A diagram also cannot transfer an EHA/SIB verdict between commit SHAs.
 
 ### Analytical reports
 

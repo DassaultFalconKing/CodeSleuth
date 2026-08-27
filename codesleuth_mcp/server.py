@@ -21,6 +21,9 @@ MAX_SEARCH_RESULTS = 200
 MAX_SEARCH_BYTES = 2_000_000
 MAX_DIFF_CHARS = 40_000
 MAX_GIT_STDERR_BYTES = 64_000
+MAX_OVERVIEW_STATUS = 100
+MAX_OVERVIEW_ROOT_FILES = 100
+MAX_OVERVIEW_SHAPES = 40
 REGULAR_FILE_MODES = frozenset({"100644", "100755"})
 
 
@@ -250,16 +253,32 @@ class RepositoryEvidence:
         top_level = Counter(path.split("/", 1)[0] if "/" in path else "<root>" for path in paths)
         extensions = Counter(self._extension(path) for path in paths)
         root_files = sorted(path for path in paths if "/" not in path)
+        top_level_items = top_level.most_common()
+        extension_items = extensions.most_common()
         return {
             "repositoryRoot": str(self.root),
             "headSha": self._git("rev-parse", "HEAD").strip(),
             "branch": self._git("branch", "--show-current").strip() or None,
             "dirty": bool(status_lines),
-            "status": status_lines[:100],
+            "status": status_lines[:MAX_OVERVIEW_STATUS],
+            "statusTotal": len(status_lines),
+            "statusTruncated": len(status_lines) > MAX_OVERVIEW_STATUS,
             "trackedFiles": len(records),
-            "rootFiles": root_files[:100],
-            "topLevel": [{"name": name, "count": count} for name, count in top_level.most_common(40)],
-            "extensions": [{"name": name, "count": count} for name, count in extensions.most_common(40)],
+            "rootFiles": root_files[:MAX_OVERVIEW_ROOT_FILES],
+            "rootFilesTotal": len(root_files),
+            "rootFilesTruncated": len(root_files) > MAX_OVERVIEW_ROOT_FILES,
+            "topLevel": [
+                {"name": name, "count": count}
+                for name, count in top_level_items[:MAX_OVERVIEW_SHAPES]
+            ],
+            "topLevelTotal": len(top_level_items),
+            "topLevelTruncated": len(top_level_items) > MAX_OVERVIEW_SHAPES,
+            "extensions": [
+                {"name": name, "count": count}
+                for name, count in extension_items[:MAX_OVERVIEW_SHAPES]
+            ],
+            "extensionsTotal": len(extension_items),
+            "extensionsTruncated": len(extension_items) > MAX_OVERVIEW_SHAPES,
         }
 
     def inventory(self, prefix: str = "", cursor: int = 0, limit: int = 100) -> dict[str, Any]:
