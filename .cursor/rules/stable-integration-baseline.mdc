@@ -55,6 +55,8 @@ SIB levels define **what is proven**; exact-head acceptance defines **which repo
 - A feature being green on an old branch or old base is not acceptance evidence for the current composition.
 - Only an exact tested commit may be treated as an accepted integration state.
 - When stale work overlaps files or contracts that changed after its source base, pursue **semantic refit** by inventorying evidenced historical claims and negative knowledge, resolving current normative authority, recording claim status separately from delivery disposition, and implementing only the target-native delta required by surviving claims. Do not treat branch age, conflict count, or a clean cherry-pick as semantic evidence.
+- For a material **negative claim**, do not preserve only `DO NOT X`. Record the forbidden state, the constructive invariant that should hold instead, and a recognizable violation witness/counterexample predicate. Review must actively try to produce the violation inside the stated scope; finite happy-path tests do not prove a universal negative.
+- When a change touches a boundary associated with a material negative claim, retrieve that claim and its constructive invariant back into active context rather than assuming an old prohibition remains salient through a long model context.
 - Preserve current accepted contracts when transplanting stale work. Never replace a newer file wholesale merely because the stale branch version applies more easily.
 - Never silently convert implementation difficulty into claim retirement or supersession. `SUPERSEDED` requires coverage evidence; `RETIRED` requires an explicit current authority.
 - Never weaken, skip, xfail, or rewrite acceptance tests to promote a change.
