@@ -232,6 +232,34 @@ def test_existing_repo_git_remote_failure_retained(tmp_path: Path, monkeypatch) 
     assert listed[0].get("source") is not None or listed[0].get("version") == "0.4.0"
 
 
+def test_malformed_metadata_retains_prior_source_when_reachable(tmp_path: Path, monkeypatch) -> None:
+    """EP-02 regression: malformed codesleuth.json with reachable==True must retain prior exact commit (FR-LIFE-005)."""
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
+    repo = tmp_path / "retain-source"
+    init_repo(repo)
+    subprocess.run(["git", "-C", str(repo), "remote", "add", "origin", "https://github.com/example/catalog-demo.git"], check=True, capture_output=True)
+    (repo / ".opencode").mkdir(parents=True, exist_ok=True)
+    # canonical state file (new naming) with exact commit
+    (repo / ".opencode" / "codesleuth.json").write_text(
+        json.dumps({"version": "0.4.0", "source": {"remote": "https://github.com/DassaultFalconKing/CodeSleuth.git", "ref": "main", "commit": "abc123def4567890abc123def4567890abc12345", "subdir": ""}}),
+        encoding="utf-8",
+    )
+    orig = lifecycle.record_tracked_repository(repo)
+    assert orig["source"]["commit"] == "abc123def4567890abc123def4567890abc12345"
+    assert orig["version"] == "0.4.0"
+    # corrupt canonical file — reachable stays True (lifecycle succeeds) but metadata unreadable
+    (repo / ".opencode" / "codesleuth.json").write_text("{ malformed json", encoding="utf-8")
+    listed = lifecycle.list_tracked_repositories(refresh=True)
+    assert len(listed) == 1
+    assert listed[0]["source"] is not None
+    assert listed[0]["source"]["commit"] == "abc123def4567890abc123def4567890abc12345"
+    assert listed[0]["version"] == "0.4.0"
+    assert "abc123" in lifecycle.format_tracked_label(listed[0])
+    # also via record (upsert) must retain
+    again = lifecycle.record_tracked_repository(repo)
+    assert again["source"]["commit"] == "abc123def4567890abc123def4567890abc12345"
+
+
 def test_registry_persistence_after_degraded_refresh(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
     repo = tmp_path / "repo"

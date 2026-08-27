@@ -305,7 +305,15 @@ def list_tracked_repositories(*, refresh: bool = True, prune_missing: bool | Non
                 changed = True
                 continue
             if live.get("reachable"):
-                # successful probe — update live fields, keep path
+                # successful probe — update live fields, keep path, but preserve prior exact identity when live is degraded (SC-04)
+                # EP-02 fix: malformed metadata / transient git returns None while file still exists -> retain prior, do not collapse failure into absence
+                for k in ("source", "version", "lifecycle", "dependencyBound"):
+                    if live.get(k) is None and entry.get(k) is not None:
+                        live[k] = entry.get(k)
+                if not live.get("origin") and entry.get("origin"):
+                    live["origin"] = entry.get("origin")
+                if live.get("name") == Path(path_str).name and entry.get("name") and entry.get("name") != Path(path_str).name:
+                    live["name"] = entry.get("name")
                 entry.update(live)
                 entry["path"] = path_str
             else:
@@ -345,17 +353,18 @@ def record_tracked_repository(repo: Path) -> dict[str, Any]:
             continue
         existing_path = _normalize_path(Path(str(raw["path"])))
         if existing_path == path_str:
-            # preserve addedAt, refresh other fields from live but keep previous source/version if live degraded
+            # preserve addedAt, refresh other fields from live but keep previous source/version if live degraded (SC-04 / EP-02)
             prev = dict(raw)
             merged = {**prev, **live, "path": path_str, "addedAt": prev.get("addedAt") or now, "lastSeenAt": now}
-            # if live is degraded (reachable False), keep previous source/version/lifecycle
-            if not live.get("reachable"):
-                for k in ("source", "version", "lifecycle", "dependencyBound"):
-                    if live.get(k) is None and prev.get(k) is not None:
-                        merged[k] = prev.get(k)
-                # keep previous name if live name is just folder fallback and prev had origin-derived name
-                if prev.get("name") and live.get("name") == Path(path_str).name:
-                    merged["name"] = prev.get("name")
+            # EP-02 fix: degraded metadata (malformed) or transient git returns None while file exists -> retain prior exact identity even when reachable==True
+            for k in ("source", "version", "lifecycle", "dependencyBound"):
+                if live.get(k) is None and prev.get(k) is not None:
+                    merged[k] = prev.get(k)
+            if not live.get("origin") and prev.get("origin"):
+                merged["origin"] = prev.get("origin")
+            # keep previous origin-derived name if live fell back to folder name
+            if live.get("name") == Path(path_str).name and prev.get("name") and prev.get("name") != Path(path_str).name:
+                merged["name"] = prev.get("name")
             updated = _stored_entry(merged)
             repos.append(updated)
         else:
