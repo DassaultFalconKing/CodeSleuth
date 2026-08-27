@@ -1,6 +1,6 @@
 # CodeSleuth workflow rules (managed block)
 
-This block is maintained by CodeSleuth when `policy.enforceAgentsMdRules` is enabled. Text outside this block is user-owned and preserved.
+This block is maintained by CodeSleuth when `policy.enforceAgentsMdRules` is enabled. This policy feature owns only the text between its markers. Repository/user instructions and other explicitly managed CodeSleuth blocks outside these markers are outside this feature's ownership and must be preserved.
 
 - Host owns model, controller, session, permissions, tool routing, and execution. CodeSleuth provides discipline and control surfaces; it does not replace the host controller.
 - Resolve exact Git identity (exact HEAD/SHA, dirty state, base branch) before interpreting changes or making integration/acceptance claims.
