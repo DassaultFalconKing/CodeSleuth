@@ -55,7 +55,7 @@ def test_semantic_refit_reuses_existing_codesleuth_authorities() -> None:
 def test_semantic_refit_preserves_negative_knowledge_and_oracle_limits() -> None:
     contract = text(CONTRACT)
     for token in (
-        "Negative claim",
+        "Negative / forbidden-state claim",
         "forbidden regressions",
         "Code oracle",
         "Behavioral oracle",
@@ -65,6 +65,34 @@ def test_semantic_refit_preserves_negative_knowledge_and_oracle_limits() -> None
         "Do not report a stronger semantic conclusion than the oracle actually supports",
     ):
         assert token in contract
+
+
+def test_negative_claims_have_constructive_and_adversarial_protocol() -> None:
+    contract = text(CONTRACT)
+    for token in (
+        "Negative-claim evidence protocol",
+        "Representation risk",
+        "Execution risk",
+        "Verification risk",
+        "Forbidden state",
+        "Constructive invariant",
+        "Violation witness / counterexample predicate",
+        "NO COUNTEREXAMPLE FOUND IN INSPECTED SCOPE",
+        "STRUCTURALLY GUARDED",
+        "Active-context retention",
+    ):
+        assert token in contract
+    assert "finite test suite did not trigger the state" in contract
+    assert "attempt the **violation**" in contract
+
+
+def test_semantic_refit_distinguishes_claims_from_supporting_records() -> None:
+    contract = text(CONTRACT)
+    for token in ("ASSUMPTION", "RATIONALE", "MECHANISM", "EVIDENCE", "PROVENANCE"):
+        assert token in contract
+    assert "Claim taxonomy is not a substitute for evidence" in contract
+    assert "Use **claim type** to describe the logical shape" in contract
+    assert "Use **domain tags** to describe where it belongs" in contract
 
 
 def test_eha_operator_uses_explicit_refit_axes() -> None:
