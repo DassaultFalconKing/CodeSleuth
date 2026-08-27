@@ -18,7 +18,7 @@ slash: true
 
 **Must not:** claim repository-wide coverage, persist a final report, promote scout/search summaries into findings, orchestrate later slices, or raw-rewrite append-only evidence ledgers.
 
-Use `repo_inventory`, search, exact reads, and bounded host-native scouts as navigation aids. Reopen exact current source before accepting any material claim. Context graphs/Mermaid may summarize verified structure but are not finding evidence.
+Use `repo_inventory`, search, exact reads, and bounded host-native scouts as navigation aids. When an accepted RepositoryContextProjection exists, selected agents should prefer `codesleuth_context_get` for machine-facing orientation because it requires an exact current-head, non-stale projection and returns structured SourceRefs from the canonical bounded query. Raw graph queries and Mermaid remain derived navigation/presentation. Reopen exact current source before accepting any material claim.
 
 When the task creates or consumes durable review evidence, read `docs/DURABLE-EVIDENCE-STORE.md`. `state.json` is mutable; `findings.ndjson` and `eha.ndjson` are append-only. Use `review_state_*` and `eha_state_*` rather than raw file edits.
 
