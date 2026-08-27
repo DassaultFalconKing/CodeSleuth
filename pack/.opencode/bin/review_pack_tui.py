@@ -271,7 +271,12 @@ class ConfigScreen(AbortableModalScreen[bool]):
                     yield Switch(value=r["checkUpdatesOnStart"], id="check-updates")
                     yield Label("Check updates on TUI start")
 
-                yield Label("6. Planned policy", classes="section")
+                yield Label("6. Repository policy", classes="section")
+                with Horizontal(classes="row"):
+                    yield Switch(value=bool(self.settings.get("policy", {}).get("enforceAgentsMdRules", False)), id="enforce-agents")
+                    yield Label("Maintain CodeSleuth workflow rules in root AGENTS.md")
+
+                yield Label("7. Planned policy", classes="section")
                 yield Static("", id="summary")
             with Horizontal(id="page-actions"):
                 yield Button("Apply", id="apply", variant="success")
@@ -322,6 +327,9 @@ class ConfigScreen(AbortableModalScreen[bool]):
             "agent": {
                 "profile": self._select_value("#agent-profile"),
                 "model": (self.query_one("#agent-model", Input).value or "").strip(),
+            },
+            "policy": {
+                "enforceAgentsMdRules": bool(self.query_one("#enforce-agents", Switch).value),
             },
         }
         return validate_settings(settings)

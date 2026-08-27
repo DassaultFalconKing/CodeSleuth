@@ -594,6 +594,22 @@ def uninstall_project(
     """Uninstall CodeSleuth from *repo* (runtime and optional dependency)."""
     repo = git_root(repo)
     archive = archive_traces(repo) if preserve_traces else None
+    # Remove managed AGENTS.md policy block first (preserve user content, fail closed on malformed)
+    try:
+        from .agents_policy import remove_agents_rules  # type: ignore
+
+        # Self-install uninstall must not delete maintainer AGENTS.md
+        try:
+            if not is_self_target(repo):
+                try:
+                    remove_agents_rules(repo)
+                except RuntimeError:
+                    # Fail closed – preserve file, surface via uninstall result
+                    pass
+        except Exception:
+            pass
+    except ImportError:
+        pass
     remove_agents_reports_pointer(repo)
     restored = restore_preinstall_snapshot(repo)
     dependency = (
