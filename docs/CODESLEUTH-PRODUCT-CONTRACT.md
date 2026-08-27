@@ -103,6 +103,8 @@ show origin/version
 
 Execution after installation remains host-native.
 
+The shared operator units for that manager are Catalog (loaded list), Detail (one item), and Load wizard (`Source → Inspect → Validate → Confirm → Result`). Playbooks is the first instance. Skills, profiles, tools/plugins, and host adapters MUST reuse those units rather than a second wizard family. See [`EXTENSION-LOAD-UNITS.md`](EXTENSION-LOAD-UNITS.md).
+
 ## 6. Allowed future UI growth
 
 Allowed without reopening the core architecture:

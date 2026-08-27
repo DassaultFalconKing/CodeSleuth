@@ -69,10 +69,10 @@ agent loop, or general-purpose tool router. See contract
 | Class | Feature population |
 | --- | --- |
 | `CC-CLI` | `verify`, `update --check`, `--list`, `--bind`, `--uninstall`, `--version` |
-| `CC-TUI` | Home/Review/Evidence/Tools/Settings surfaces, collapse rails, activity console |
-| `CC-LIFE` | self-install, bind-dependency, purge traces, restart request marker |
+| `CC-TUI` | Home/Review/Playbooks/Evidence/Tools/Settings surfaces, collapse rails, activity console, Catalog/Detail/Load-wizard units |
+| `CC-LIFE` | self-install, bind-dependency, purge traces, restart request marker, overlay install of user-loadable pack content |
 | `CC-PROF` | `generic` / `rust` / `python` / `node` / `typescript` builtins |
-| `CC-PACK` | individual Skills, `/repo-*` commands, plugins, themes |
+| `CC-PACK` | individual Skills, `/repo-*` commands, plugins, themes, overlay Playbooks (later Skills/tools via the same load units) |
 | `CC-STATE` | finding-amendment sibling ledger, review compaction fail-soft |
 | `CC-GRAPH` | relation kinds, neighborhood queries, Mermaid projection options |
 | `CC-REPORT` | `report-bug-closure` Skill, INDEX newest-first maintenance |
