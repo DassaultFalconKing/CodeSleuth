@@ -20,13 +20,14 @@ Normative acceptance semantics remain in:
 ```text
 GitHub owner / connector
         |
-        | workflow_dispatch
+        | workflow_dispatch from main
         | or owner-authored issue comment
         | /eha-test dev/release-X.Y.Z <exact SHA> [scope]
         v
 .github/workflows/eha.yml
         |
         | owner gate
+        | immutable controller SHA from the trigger event
         | trusted self-hosted runner: codesleuth-eha
         v
 scripts/eha_github_bridge.py
@@ -41,6 +42,7 @@ scripts/eha_github_bridge.py
         |       |
         |       +--> .opencode/state -> <persist-root>/state
         |       +--> .codesleuth/reports -> <persist-root>/reports
+        |       +--> private OpenCode transcript -> <persist-root>/bridge-logs
         |
         +--> OpenCode config from exact target pack/.opencode
         |
@@ -101,15 +103,19 @@ Provider credentials belong to the trusted OpenCode host. The repository workflo
 
 The bridge records the OpenCode version in its derived bridge-run metadata. OpenCode automatic updates are disabled during the campaign so the executable is not replaced in the middle of acceptance.
 
+The runner should be dedicated and minimally credentialed. The candidate is intentionally allowed to execute its own tests, so an EHA runner is a release-testing trust boundary, not a generic public-PR runner.
+
 ## Remote invocation
 
 ### GitHub UI / API
 
-Use the `CodeSleuth EHA` workflow and provide:
+Use the `CodeSleuth EHA` workflow from `main` and provide:
 
 - `release_branch`, for example `dev/release-0.4.0`;
 - `expected_sha`, always the full 40-character lowercase SHA;
 - optional `scope`.
+
+Manual dispatch from any ref other than `main` is rejected. The controller checkout uses the immutable `github.sha` captured by the trigger rather than resolving a movable `main` ref later on the runner.
 
 ### GitHub connector or issue comment
 
@@ -159,10 +165,24 @@ Therefore the existing `review_state` and `eha_state` tools continue to use thei
 `eha.ndjson` remains the authority. The bridge also writes a small derived record under:
 
 ```text
-<persist-root>/bridge-runs/<github-run-id>.json
+<persist-root>/bridge-runs/<github-run-id>-attempt-<n>.json
 ```
 
-That record contains target identity, campaign/review IDs, SIB verdict labels, OpenCode version, and adapter outcome. It intentionally does not duplicate finding excerpts or EHA evidence payloads.
+That record contains target identity, campaign/review IDs, SIB verdict labels, OpenCode version, adapter outcome, and a relative pointer to the private transcript record. It intentionally does not duplicate finding excerpts or EHA evidence payloads.
+
+## Private transcript boundary
+
+`opencode run --format json` can contain repository snippets, tool output, findings, prompts, and other evidence that does not belong in a public Actions log. The bridge therefore never streams the OpenCode process output to Actions stdout/stderr.
+
+The combined OpenCode stdout/stderr is stored with host-local restricted permissions under:
+
+```text
+<persist-root>/bridge-logs/<github-run-id>-attempt-<n>.log
+```
+
+Public Actions output is intentionally bounded to controller/runtime identity, exact candidate SHA, campaign/review identity, SIB verdict labels, and the adapter outcome. Operators inspect detailed evidence through the normal durable CodeSleuth state/report interfaces or directly on the trusted host.
+
+This transcript is diagnostic provenance, not acceptance authority. `eha.ndjson` remains authoritative.
 
 ## Failed SHA immutability
 
@@ -187,7 +207,7 @@ It then invokes the existing command through the shipped wrapper:
 pack/.opencode/bin/opencode-review run --command eha-test --format json ...
 ```
 
-The workflow checks out with `persist-credentials: false` and repository permission `contents: read`. OpenCode may inspect and test the candidate, but the EHA command contract forbids application/source mutation. The bridge re-checks worktree cleanliness after OpenCode exits and fails closed if tracked or untracked repository state was changed outside ignored runtime/evidence locations.
+The workflow checks out with `persist-credentials: false` and repository permission `contents: read`. OpenCode may inspect and test the candidate, but the EHA command contract forbids application/source mutation. The bridge additionally denies Git mutation commands in the headless permission overlay and re-checks worktree cleanliness after OpenCode exits. It fails closed if tracked or untracked repository state was changed outside ignored runtime/evidence locations.
 
 Only `.codesleuth/reports/**` is granted through OpenCode's edit permission override. The persistent state itself is written by the existing bounded CodeSleuth tools.
 
@@ -222,11 +242,14 @@ Self-hosted Actions runners and public repositories are an entertaining combinat
 
 - owner-only job condition;
 - no pull-request trigger;
+- manual dispatch only from `main`;
+- immutable event SHA for bridge/controller checkout;
 - no checkout of contributor code as bridge/controller source;
-- trusted bridge code is checked out from `main` first;
 - the candidate must be a literal numbered release-stream head;
 - `GITHUB_TOKEN` repository permission is read-only;
 - checkout credentials are not persisted;
+- Git mutation commands are denied to headless OpenCode;
+- detailed OpenCode transcript never enters public Actions logs;
 - runs are serialized per repository;
 - no automatic SIB/ref promotion.
 
@@ -240,7 +263,7 @@ For a new future-SIB candidate:
 1. Integrate work into dev/release-X.Y.Z.
 2. Capture its literal full head SHA.
 3. Run ordinary exact-head development gates as required.
-4. Dispatch CodeSleuth EHA, or post the owner-only /eha-test command.
+4. Dispatch CodeSleuth EHA from main, or post the owner-only /eha-test command.
 5. The bridge freezes that release head and invokes OpenCode.
 6. Inspect the durable campaign with /eha-status or eha_state_load.
 7. If any level FAILs, preserve the failed SHA and use /eha-repair.
