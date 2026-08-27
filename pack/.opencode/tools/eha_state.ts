@@ -204,10 +204,13 @@ function summarize(all: EhaEvent[]): CampaignSummary[] {
 
 function mermaidEscape(value: string): string {
   return value
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, "&quot;")
-    .replace(/[\r\n]+/g, " ")
-    .replace(/[<>]/g, "")
+    .replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ")
+    .replace(/&/g, "#amp;")
+    .replace(/"/g, "#quot;")
+    .replace(/</g, "#lt;")
+    .replace(/>/g, "#gt;")
+    .replace(/`/g, "")
+    .replace(/[{}[\]]/g, "()")
     .slice(0, 220)
 }
 
@@ -216,9 +219,25 @@ function statusLabel(summary: CampaignSummary, level: SibLevel): string {
   return `${level}: ${event?.verdict ?? "PENDING"}`
 }
 
-function renderMermaid(all: EhaEvent[]): string {
-  const campaigns = summarize(all).slice(-50)
-  const lines = ["flowchart TD"]
+export function renderEhaMermaid(
+  all: EhaEvent[],
+  options: { campaignLimit?: number; repairLimit?: number; direction?: "LR" | "TD" } = {},
+): string {
+  const allCampaigns = summarize(all)
+  const campaignLimit = Math.min(Math.max(1, options.campaignLimit ?? 50), 50)
+  const repairLimit = Math.min(Math.max(1, options.repairLimit ?? 20), 50)
+  const campaigns = allCampaigns.slice(-campaignLimit)
+  const totalRepairs = campaigns.reduce((count, campaign) => count + campaign.repairs.length, 0)
+  const shownRepairs = campaigns.reduce((count, campaign) => count + Math.min(campaign.repairs.length, repairLimit), 0)
+  const lines = [
+    "%% CodeSleuth EHA/SIB lineage (derived, bounded presentation; eha.ndjson remains authority)",
+    `%% showing ${campaigns.length} of ${allCampaigns.length} campaign(s) and ${shownRepairs} of ${totalRepairs} repair event(s) within the selected campaigns`,
+    "%% Exact-head acceptance never transfers across commits or repair transitions.",
+    `flowchart ${options.direction === "LR" ? "LR" : "TD"}`,
+    "  classDef csFailed stroke:#f07178,stroke-width:3px",
+    "  classDef csClaimable stroke:#62d394,stroke-width:3px",
+    "  classDef csPending stroke-dasharray: 4 4",
+  ]
   const bySha = new Map(campaigns.map((campaign, index) => [campaign.targetSha, `C${index}`]))
 
   campaigns.forEach((campaign, index) => {
@@ -231,7 +250,10 @@ function renderMermaid(all: EhaEvent[]): string {
       statusLabel(campaign, "SIB2"),
     ].join(" | ")
     lines.push(`  ${node}["${mermaidEscape(label)}"]`)
-    for (const [repairIndex, repair] of campaign.repairs.entries()) {
+    if (campaign.failedLevels.length > 0) lines.push(`  class ${node} csFailed`)
+    else if (campaign.claimable.SIB2) lines.push(`  class ${node} csClaimable`)
+    else lines.push(`  class ${node} csPending`)
+    for (const [repairIndex, repair] of campaign.repairs.slice(-repairLimit).entries()) {
       const edgeLabel = mermaidEscape(`${repair.level} ${repair.decision}: ${repair.failure}`)
       if (repair.candidateSha && bySha.has(repair.candidateSha)) {
         lines.push(`  ${node} -->|"${edgeLabel}"| ${bySha.get(repair.candidateSha)}`)
@@ -242,9 +264,23 @@ function renderMermaid(all: EhaEvent[]): string {
         lines.push(`  ${node} -->|"${edgeLabel}"| ${repairNode}`)
       }
     }
+    if (campaign.repairs.length > repairLimit) {
+      const omitted = campaign.repairs.length - repairLimit
+      const marker = `O${index}`
+      lines.push(`  ${marker}["bounded subset: ${omitted} older repair event(s) omitted"]`)
+      lines.push(`  ${marker} -.-> ${node}`)
+    }
   })
+  if (allCampaigns.length > campaigns.length) {
+    lines.push(`  omittedCampaigns["bounded subset: ${allCampaigns.length - campaigns.length} older campaign(s) omitted"]`)
+    if (campaigns.length > 0) lines.push("  omittedCampaigns -.-> C0")
+  }
   return `${lines.join("\n")}\n`
 }
+
+// Retain the accepted internal contract name while exporting a descriptive
+// helper for direct deterministic smoke coverage.
+const renderMermaid = renderEhaMermaid
 
 export const start_campaign = tool({
   description: "Start an Exact-Head Acceptance campaign inside the current durable review evidence ledger. The target must equal literal current HEAD.",
@@ -421,11 +457,18 @@ export const mermaid = tool({
   description: "Render a bounded Mermaid flowchart of EHA targets, SIB verdicts, and repair lineage. This is a derived presentation of the evidence ledger, never acceptance authority itself.",
   args: {
     reviewId: tool.schema.string().optional(),
+    campaignLimit: tool.schema.number().int().min(1).max(50).optional(),
+    repairLimit: tool.schema.number().int().min(1).max(50).optional(),
+    direction: tool.schema.enum(["LR", "TD"]).optional(),
   },
   async execute(args, context) {
     const root = context.worktree
     const reviewId = await resolveReviewId(root, context.sessionID, args.reviewId)
     const all = await events(root, reviewId)
-    return renderMermaid(all)
+    return renderMermaid(all, {
+      campaignLimit: args.campaignLimit,
+      repairLimit: args.repairLimit,
+      direction: args.direction,
+    })
   },
 })

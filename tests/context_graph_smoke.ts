@@ -939,8 +939,71 @@ async function main() {
         `every queried edge appears in the scoped diagram: ${compactEdge}`,
       )
     }
+
+    const zeroMatch = JSON.parse(
+      await mermaid.execute(
+        {
+          projectionId: scopeSaved.projectionId,
+          roots: [{ kind: "component", key: "loner" }],
+          hops: 3,
+          relation: "calls",
+        },
+        scoping.context,
+      ),
+    )
+    assert(zeroMatch.selection.totals.nodes === 1 && zeroMatch.selection.totals.edges === 0, "a zero-link scope remains explicit and bounded")
+    assert(zeroMatch.aliasCount === 1 && !zeroMatch.mermaidSource.includes('-->|"'), "zero-match selection emits no invented relationship")
+
+    const largeNodes = Array.from({ length: 205 }, (_, index) => ({
+      kind: "component" as const,
+      key: `large-${String(index).padStart(3, "0")}`,
+      origin: "verified_source" as const,
+      path: "README.md",
+    }))
+    const largeSaved = JSON.parse(
+      await save.execute({ scopePrefix: "large", nodes: largeNodes, edges: [], complete: true }, scoping.context),
+    )
+    const largeRendered = JSON.parse(
+      await mermaid.execute({ projectionId: largeSaved.projectionId, nodeLimit: 200 }, scoping.context),
+    )
+    assert(largeRendered.truncated === true && largeRendered.aliasCount === 200, "large diagrams enforce the hard model-visible node bound")
+    assert(largeRendered.mermaidSource.includes("showing 200 of 205 nodes"), "large-diagram truncation is truthful in presentation")
   } finally {
     await scoping.cleanup()
+  }
+
+  const crossPlatform = await makeFixture("cross-platform", "graph-session-cross-platform")
+  try {
+    const windowsNodes = baseNodes().map((node) => ({ ...node, path: node.path?.replace(/\//g, "\\") }))
+    const windowsEdges = baseEdges().map((edge) => ({ ...edge, path: edge.path?.replace(/\//g, "\\") }))
+    await expectFailure(
+      () =>
+        save.execute(
+          { scopePrefix: "src\\nested", scopeDescription: "newline\r\nscope", nodes: windowsNodes, edges: windowsEdges },
+          crossPlatform.context,
+        ),
+      "newline-bearing scope metadata must fail closed before Mermaid rendering",
+    )
+    const windowsSaved = JSON.parse(
+      await save.execute(
+        { scopePrefix: "src\\nested", scopeDescription: "Windows path scope", nodes: windowsNodes, edges: windowsEdges, complete: true },
+        crossPlatform.context,
+      ),
+    )
+    const windowsProjection = JSON.parse(await readFile(path.join(crossPlatform.root, windowsSaved.savedPath), "utf8"))
+    assert(windowsProjection.scope.prefix === "src/nested", "Windows separators normalize before projection identity/presentation")
+    assert(windowsProjection.nodes.every((node: any) => !node.sourceRef || !node.sourceRef.path.includes("\\")), "source provenance uses canonical Git separators")
+    const windowsMermaid = JSON.parse(await mermaid.execute({ projectionId: windowsSaved.projectionId }, crossPlatform.context))
+    assert(!windowsMermaid.mermaidSource.includes("\r"), "CRLF-like scope metadata cannot split Mermaid directives")
+
+    await git(crossPlatform.root, ["mv", "src/util.ts", "src/util-renamed.ts"])
+    await git(crossPlatform.root, ["rm", "src/app.ts"])
+    const drifted = JSON.parse(await load.execute({ projectionId: windowsSaved.projectionId }, crossPlatform.context))
+    const stalePaths = new Set(drifted.freshness.staleLinkage.map((item: any) => item.path))
+    assert(stalePaths.has("src/util.ts") && stalePaths.has("src/app.ts"), "rename/delete drift invalidates the exact original provenance paths")
+    assert(drifted.freshness.staleLinkageCount >= 2, "dirty rename/delete drift never remains presented as fresh verified source")
+  } finally {
+    await crossPlatform.cleanup()
   }
 
   console.log("CONTEXT GRAPH SMOKE PASS")

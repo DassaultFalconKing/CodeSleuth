@@ -329,9 +329,15 @@ Expected report content includes target identity, scope, findings with source lo
 
 Reports are local-only by default because they may contain source excerpts, diagnostics or credentials. `.codesleuth/reports/README.md` may be intentionally tracked to share the convention.
 
-### Repository context graph and Mermaid
+### Derived Mermaid navigation
 
-The context-graph tools maintain a bounded `RepositoryContextProjection` with closed node/relation vocabularies. Elements captured directly from tracked source may be marked verified; model/scout assertions remain inference.
+CodeSleuth exposes three deliberately separate Mermaid views:
+
+- `/repo-map` renders a bounded `RepositoryContextProjection` for repository navigation;
+- `/repo-contracts` renders bounded dependency and reverse-impact closure from the canonical `docs/protected-capabilities.json` registry;
+- `/eha-status` renders bounded campaign/SIB/repair lineage from the append-only `eha.ndjson` ledger.
+
+The context-graph tools maintain a bounded `RepositoryContextProjection` with closed node/relation vocabularies. Elements captured directly from tracked source may be marked verified; model/scout assertions remain inference. Scoped queries and Mermaid rendering use the same roots, hops, relation/origin filters, and node/edge bounds. Selection metadata reports totals and truncation explicitly, and rendered edges never point to omitted nodes.
 
 Use the graph for:
 
@@ -341,7 +347,7 @@ Use the graph for:
 - selective context rehydration;
 - optional Mermaid presentation.
 
-Do **not** use the graph or Mermaid as finding evidence. Material claims still require reopened exact source.
+Do **not** use any graph or Mermaid source as finding or acceptance evidence. Material repository claims still require reopened exact source and blob/line provenance; protected-capability meaning remains in the registry; EHA/SIB verdicts remain in the ledger and never transfer between commits through a diagram.
 
 ### OpenCode commands
 
@@ -356,6 +362,11 @@ Current installed commands are:
 | `/repo-docs` | produce evidence-first repository documentation |
 | `/repo-report` | persist analytical report material |
 | `/repo-map` | build/refresh a bounded architecture/context map, optionally render Mermaid |
+| `/repo-contracts` | inspect the protected-capability registry and render bounded dependency/impact Mermaid |
+| `/eha-test` | execute one isolated EHA test level for the exact campaign SHA |
+| `/eha-repair` | record and execute an isolated repair decision without transferring acceptance |
+| `/eha-status` | inspect authoritative EHA ledger state and its bounded derived Mermaid history |
+| `/playbook` | start or resume a stored multi-step Playbook through isolated Steps |
 
 ### OpenCode `build` controller
 
@@ -830,6 +841,12 @@ A profile can describe:
 - recommended verification;
 - review focus;
 - compatible configuration defaults.
+
+`repo_profile` resolves `extends` only within the installed canonical
+`.opencode/profiles/builtin/` directory. Parents are merged before children,
+object keys merge recursively, arrays are de-duplicated in stable order, and
+missing parents or cycles fail closed. Root-level historical profile copies are
+not a second profile authority.
 
 **Important:** adding a new profile file is not enough to make it a first-class TUI profile today. Current validation/detection explicitly knows `generic`, `rust`, `python`, `node`, and `typescript`; a new built-in profile contribution must also update the profile constants/detection/validation path and tests.
 

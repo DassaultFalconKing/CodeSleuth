@@ -187,7 +187,8 @@
       "protected_at": null,
       "public_contract": [
         "TUI control actions expose their result or failure to the operator and responsive navigation remains reversible across supported viewports.",
-        "Isolated Textual bootstrap derives the compatible range from requirements-tui.txt and records the actual installed Textual version."
+        "Isolated Textual bootstrap derives the compatible range from requirements-tui.txt and records the actual installed Textual version.",
+        "Background lifecycle work is single-flight and all widget access remains on the Textual application thread."
       ],
       "contract_fingerprint": {
         "control_feedback_required": true,
@@ -255,6 +256,15 @@
           "proof": [
             "tests/test_version_contract.py",
             "pack/.opencode/bin/review_pack_tui_bootstrap.py"
+          ]
+        },
+        {
+          "id": "FR-TUI-004",
+          "sib_origin": "SIB2",
+          "must_not": "Background validation/update work mutates Textual widgets off the application thread or overlapping lifecycle workers publish stale/interleaved operator status.",
+          "proof": [
+            "tests/test_tui_control_feedback.py",
+            "tests/test_tui_visual_regression.py"
           ]
         }
       ]
@@ -429,6 +439,7 @@
         "pack/.opencode/opencode.json",
         "pack/.opencode/skills/repository-deep-review/SKILL.md",
         "pack/.opencode/tools/repo_inventory.ts",
+        "pack/.opencode/bin/review-pack-smoke.py",
         "install.py"
       ],
       "doc_evidence": [
@@ -439,7 +450,9 @@
       "test_evidence": [
         "tests/test_lifecycle.py",
         "tests/test_docs_contract.py",
-        "tests/test_naming_cutover.py"
+        "tests/test_naming_cutover.py",
+        "tests/test_smoke_parity.py",
+        "tests/repo_inventory_smoke.ts"
       ],
       "affected_paths": [
         "pack/.opencode/**",
@@ -466,6 +479,24 @@
             "tests/test_lifecycle.py",
             "pack/.opencode/bin/review-pack-smoke.py"
           ]
+        },
+        {
+          "id": "FR-PACK-003",
+          "sib_origin": "SIB2",
+          "must_not": "Source or installed Verify omits an advertised required command, Playbook, Skill, or tool while the installed pack is presented complete.",
+          "proof": [
+            "smoke.py",
+            "pack/.opencode/bin/review-pack-smoke.py",
+            "tests/test_smoke_parity.py"
+          ]
+        },
+        {
+          "id": "FR-PACK-004",
+          "sib_origin": "SIB1",
+          "must_not": "Repository inventory hard-fails a valid unborn Git repository or invents a HEAD identity before the first commit.",
+          "proof": [
+            "tests/repo_inventory_smoke.ts"
+          ]
         }
       ]
     },
@@ -478,11 +509,13 @@
       "protected_at": null,
       "public_contract": [
         "Repository profiles are selected/detected through the pack profile mechanism and remain permission-neutral.",
-        "Builtin language/framework profiles are feature population inside this class, not new classes."
+        "Builtin language/framework profiles are feature population inside this class, not new classes.",
+        "Builtin profile inheritance resolves deterministically from the canonical installed pack and fails closed on missing parents or cycles."
       ],
       "contract_fingerprint": {
         "builtin_root": "pack/.opencode/profiles/builtin",
-        "permission_neutral": true
+        "permission_neutral": true,
+        "inheritance": "recursive-canonical-pack-fail-closed"
       },
       "code_evidence": [
         "pack/.opencode/profiles/builtin/generic.json",
@@ -496,7 +529,8 @@
       ],
       "test_evidence": [
         "tests/test_standalone_hardening.py",
-        "tests/test_apply_settings.py"
+        "tests/test_apply_settings.py",
+        "tests/profile_smoke.ts"
       ],
       "affected_paths": [
         "pack/.opencode/profiles/**",
@@ -524,6 +558,15 @@
           "proof": [
             "docs/SIB0-CAPABILITY-INVENTORY.md"
           ]
+        },
+        {
+          "id": "FR-PROF-003",
+          "sib_origin": "SIB1",
+          "must_not": "A documented builtin profile extends declaration is silently ignored, resolves from a non-canonical profile root, or loops through an inheritance cycle.",
+          "proof": [
+            "tests/profile_smoke.ts",
+            "README.md"
+          ]
         }
       ]
     },
@@ -540,7 +583,8 @@
       },
       "public_contract": [
         "Durable review state survives model-context compaction and records evidence identity independently of chat history.",
-        "Durable analytical state is review evidence/supporting state, not execution authority for the host."
+        "Durable analytical state is review evidence/supporting state, not execution authority for the host.",
+        "EHA Mermaid is a bounded derived view of append-only eha.ndjson history and never transfers acceptance between exact commits."
       ],
       "contract_fingerprint": {
         "state_role": "durable-review-evidence",
@@ -548,20 +592,28 @@
         "state_root": ".opencode/state/reviews"
       },
       "code_evidence": [
-        "pack/.opencode/tools/review_state.ts"
+        "pack/.opencode/tools/review_state.ts",
+        "pack/.opencode/tools/eha_state.ts"
       ],
       "doc_evidence": [
         "pack/.opencode/skills/repository-deep-review/SKILL.md",
         "docs/CONTEXT-GRAPH-DISCIPLINE.md",
-        "docs/SIB0-CAPABILITY-INVENTORY.md"
+        "docs/SIB0-CAPABILITY-INVENTORY.md",
+        "docs/DURABLE-EVIDENCE-STORE.md",
+        "docs/EHA-OPERATING-PLAYBOOK.md"
       ],
       "test_evidence": [
-        "tests/review_state_smoke.ts"
+        "tests/review_state_smoke.ts",
+        "tests/eha_state_smoke.ts"
       ],
       "affected_paths": [
         "pack/.opencode/tools/review_state.ts",
+        "pack/.opencode/tools/eha_state.ts",
         "tests/review_state_smoke.ts",
-        "pack/.opencode/plugins/review-compaction.ts"
+        "tests/eha_state_smoke.ts",
+        "pack/.opencode/plugins/review-compaction.ts",
+        "docs/DURABLE-EVIDENCE-STORE.md",
+        "docs/EHA-OPERATING-PLAYBOOK.md"
       ],
       "depends_on": [
         "codesleuth.host-execution-authority"
@@ -592,6 +644,24 @@
             "docs/CONTEXT-GRAPH-DISCIPLINE.md",
             "docs/SIB0-CAPABILITY-INVENTORY.md"
           ]
+        },
+        {
+          "id": "FR-STATE-004",
+          "sib_origin": "SIB0",
+          "must_not": "EHA Mermaid becomes a write path back into eha.ndjson or a second acceptance authority beside the append-only ledger.",
+          "proof": [
+            "docs/DURABLE-EVIDENCE-STORE.md",
+            "tests/eha_state_smoke.ts"
+          ]
+        },
+        {
+          "id": "FR-STATE-005",
+          "sib_origin": "SIB2",
+          "must_not": "A bounded EHA Mermaid view silently omits campaign/repair history or implies that acceptance transfers across failed SHA, repair, or candidate transitions.",
+          "proof": [
+            "tests/eha_state_smoke.ts",
+            "docs/EHA-OPERATING-PLAYBOOK.md"
+          ]
         }
       ]
     },
@@ -616,7 +686,8 @@
         "schema_version": 1
       },
       "code_evidence": [
-        "pack/.opencode/tools/repo_context_graph.ts"
+        "pack/.opencode/tools/repo_context_graph.ts",
+        "pack/.opencode/tools/protected_capability_graph.ts"
       ],
       "doc_evidence": [
         "docs/CONTEXT-GRAPH-DISCIPLINE.md",
@@ -624,14 +695,17 @@
         "pack/.opencode/skills/repository-deep-review/SKILL.md"
       ],
       "test_evidence": [
-        "tests/context_graph_smoke.ts"
+        "tests/context_graph_smoke.ts",
+        "tests/protected_capability_graph_smoke.ts"
       ],
       "affected_paths": [
         "pack/.opencode/tools/repo_context_graph.ts",
+        "pack/.opencode/tools/protected_capability_graph.ts",
         "pack/.opencode/commands/repo-map.md",
         "tests/context_graph_smoke.ts",
         "docs/CONTEXT-GRAPH-DISCIPLINE.md",
-        "docs/SIB0-CAPABILITY-INVENTORY.md"
+        "docs/SIB0-CAPABILITY-INVENTORY.md",
+        "tests/protected_capability_graph_smoke.ts"
       ],
       "depends_on": [
         "codesleuth.host-execution-authority",
@@ -662,6 +736,31 @@
           "must_not": "A generated graph silently diverges from its repository/review-state provenance while remaining presented as verified source structure.",
           "proof": [
             "tests/context_graph_smoke.ts"
+          ]
+        },
+        {
+          "id": "FR-GRAPH-003",
+          "sib_origin": "SIB1",
+          "must_not": "Scoped Mermaid uses traversal semantics different from the matching bounded query, emits edges to omitted nodes, or hides bounds/truncation.",
+          "proof": [
+            "tests/context_graph_smoke.ts"
+          ]
+        },
+        {
+          "id": "FR-GRAPH-004",
+          "sib_origin": "SIB1",
+          "must_not": "Inferred or ambiguous relationship data is rendered or styled as verified source evidence.",
+          "proof": [
+            "tests/context_graph_smoke.ts"
+          ]
+        },
+        {
+          "id": "FR-GRAPH-005",
+          "sib_origin": "SIB1",
+          "must_not": "Repository-controlled labels, comments, quotes, paths, or newlines escape Mermaid syntax or inject presentation directives.",
+          "proof": [
+            "tests/context_graph_smoke.ts",
+            "tests/protected_capability_graph_smoke.ts"
           ]
         }
       ]
@@ -751,13 +850,15 @@
         "docs/SIB0-CAPABILITY-INVENTORY.md"
       ],
       "test_evidence": [
-        "tests/test_mcp_server.py"
+        "tests/test_mcp_server.py",
+        "tests/test_mcp_bounded_read.py"
       ],
       "affected_paths": [
         "codesleuth_mcp/**",
         "codesleuth-mcp.ps1",
         "docs/NOVACLAW-MCP.md",
-        "tests/test_mcp_server.py"
+        "tests/test_mcp_server.py",
+        "tests/test_mcp_bounded_read.py"
       ],
       "depends_on": [
         "codesleuth.host-execution-authority"
@@ -779,6 +880,22 @@
           "proof": [
             "tests/test_mcp_server.py"
           ]
+        },
+        {
+          "id": "FR-MCP-003",
+          "sib_origin": "SIB1",
+          "must_not": "read_evidence performs an unbounded filesystem read before enforcing its configured byte cap.",
+          "proof": [
+            "tests/test_mcp_bounded_read.py"
+          ]
+        },
+        {
+          "id": "FR-MCP-004",
+          "sib_origin": "SIB1",
+          "must_not": "A bounded MCP overview silently clips status, root-file, directory, or extension collections without explicit totals and truncation state.",
+          "proof": [
+            "tests/test_mcp_server.py"
+          ]
         }
       ]
     },
@@ -791,7 +908,8 @@
       "protected_at": null,
       "public_contract": [
         "Canonical acceptance binds evidence to an exact commit SHA, not a branch name or synthetic PR merge commit.",
-        "The Protected Capability Registry and SIB0 inventory are executable contract surfaces with structural tests."
+        "The Protected Capability Registry and SIB0 inventory are executable contract surfaces with structural tests.",
+        "Protected-capability impact Mermaid is bounded derived navigation read directly from the tracked registry, never a second registry or acceptance verdict."
       ],
       "contract_fingerprint": {
         "workflow": ".github/workflows/acceptance.yml",
@@ -802,16 +920,22 @@
       "code_evidence": [
         ".github/workflows/acceptance.yml",
         "docs/protected-capabilities.json",
-        "docs/SIB0-CAPABILITY-INVENTORY.md"
+        "docs/SIB0-CAPABILITY-INVENTORY.md",
+        "pack/.opencode/tools/protected_capability_graph.ts",
+        "pack/.opencode/tools/eha_state.ts"
       ],
       "doc_evidence": [
         "docs/EXACT-HEAD-ACCEPTANCE.md",
         "docs/PROTECTED-CAPABILITY-CONTRACTS.md",
         "docs/SIB0-CAPABILITY-INVENTORY.md",
+        "docs/DURABLE-EVIDENCE-STORE.md",
+        "docs/EHA-OPERATING-PLAYBOOK.md",
         "CONTRIBUTING.md"
       ],
       "test_evidence": [
-        "tests/test_protected_capability_registry.py"
+        "tests/test_protected_capability_registry.py",
+        "tests/protected_capability_graph_smoke.ts",
+        "tests/eha_state_smoke.ts"
       ],
       "affected_paths": [
         ".github/workflows/acceptance.yml",
@@ -819,7 +943,13 @@
         "docs/SIB0-CAPABILITY-INVENTORY.md",
         "docs/PROTECTED-CAPABILITY-CONTRACTS.md",
         "docs/EXACT-HEAD-ACCEPTANCE.md",
-        "tests/test_protected_capability_registry.py"
+        "pack/.opencode/tools/protected_capability_graph.ts",
+        "pack/.opencode/tools/eha_state.ts",
+        "tests/test_protected_capability_registry.py",
+        "tests/protected_capability_graph_smoke.ts",
+        "tests/eha_state_smoke.ts",
+        "package.json",
+        "smoke.py"
       ],
       "depends_on": [],
       "forbidden_regressions": [
@@ -848,6 +978,24 @@
           "proof": [
             "docs/SIB0-CAPABILITY-INVENTORY.md",
             "docs/STABLE-INTEGRATION-BASELINE.md"
+          ]
+        },
+        {
+          "id": "FR-ACCEPT-004",
+          "sib_origin": "SIB0",
+          "must_not": "Protected-capability Mermaid becomes a second registry, changes contract lifecycle state, or overrides docs/protected-capabilities.json.",
+          "proof": [
+            "tests/protected_capability_graph_smoke.ts",
+            "docs/PROTECTED-CAPABILITY-CONTRACTS.md"
+          ]
+        },
+        {
+          "id": "FR-ACCEPT-005",
+          "sib_origin": "SIB2",
+          "must_not": "A bounded impact closure is used to reduce gates while changed paths are unmatched or a known consumer/dependency edge is missing from the registry.",
+          "proof": [
+            "tests/test_protected_capability_registry.py",
+            "tests/protected_capability_graph_smoke.ts"
           ]
         }
       ]

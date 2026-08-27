@@ -11,19 +11,25 @@ required = [
     "agents/repo-profile-architect.md", "agents/repo-prompt-advisor.md",
     "commands/repo-review.md", "commands/repo-docs.md", "commands/repo-review-resume.md",
     "commands/repo-profile.md", "commands/repo-prompts.md", "commands/repo-report.md",
-    "commands/repo-map.md",
+    "commands/repo-map.md", "commands/repo-contracts.md", "commands/eha-test.md", "commands/eha-status.md",
+    "commands/eha-repair.md", "commands/playbook.md",
     "skills/repository-deep-review/SKILL.md", "skills/codesleuth-reports/SKILL.md",
+    "skills/protected-capability-registry/SKILL.md", "skills/eha-campaign-evidence/SKILL.md",
+    "playbooks/repository-map/playbook.json", "playbooks/protected-capability-assessment/playbook.json",
+    "playbooks/eha-sib-acceptance/playbook.json",
     "tools/repo_inventory.ts",
-    "tools/review_state.ts", "tools/eha_state.ts", "tools/repo_profile.ts", "tools/repo_context_graph.ts", "plugins/review-compaction.ts",
+    "tools/review_state.ts", "tools/eha_state.ts", "tools/repo_profile.ts", "tools/repo_context_graph.ts",
+    "tools/protected_capability_graph.ts", "plugins/review-compaction.ts",
     "profiles/builtin/generic.json", "profiles/builtin/rust.json", "profiles/builtin/python.json",
     "profiles/builtin/node.json", "profiles/builtin/typescript.json",
     "bin/opencode-review", "bin/opencode-review.ps1",
     "bin/review-pack", "bin/review-pack.ps1",
     "bin/review_pack_tui.py", "bin/codesleuth_tui.py", "bin/review_pack_tui_core.py", "bin/review_pack_tui_bootstrap.py",
-    "bin/requirements-tui.txt",
+    "bin/codesleuth_version.py", "bin/codesleuth_naming.py", "bin/requirements-tui.txt",
     "bin/review-pack-update", "bin/review-pack-update.ps1", "bin/review-pack-update.py",
     "bin/review-pack-smoke.py", "themes/codesleuth.json", "tui.json",
-    "opencode.json", "review-pack.json", "review-pack-user.json", "CODESLEUTH-REPORTS.md"
+    "opencode.json", "review-pack.json", "review-pack-user.json", "codesleuth-naming.json",
+    "CODESLEUTH-REPORTS.md"
 ]
 missing = [x for x in required if not (oc / x).is_file()]
 if missing:

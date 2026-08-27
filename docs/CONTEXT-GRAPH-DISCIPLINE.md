@@ -186,15 +186,20 @@ existing ignored `.opencode/state/` boundary and stays rebuildable.
 
 ## Roadmap boundary
 
-The accepted slice above remains the production contract. Further Mermaid/context-graph
-growth is now explicitly gated through
+The accepted slice above remains the production contract. M1 current-native scoped
+rendering is implemented with the same selection semantics as graph queries,
+including roots, hops, relation/origin filters, deterministic bounds, explicit
+truncation, and omitted-node edge safety. Protected-capability and EHA Mermaid
+views are separate derived projections over their own existing authorities; they
+do not enlarge `RepositoryContextProjection` or create a common graph database.
+
+Further provider growth is explicitly gated through
 [`MERMAID-GRAPHIFY-AUDIT.md`](MERMAID-GRAPHIFY-AUDIT.md).
 
 The near-term roadmap is deliberately narrow:
 
-1. improve Mermaid selection so it can render an explicit bounded neighborhood rather
-   than only a deterministic projection prefix;
-2. spike an optional deterministic structural graph provider using Graphify's Python
+1. preserve and harden the current-native bounded neighborhood contract;
+2. only after a separate approval, spike an optional deterministic structural graph provider using Graphify's Python
    library without installing Graphify's host Skill, hooks, MCP server, global graph,
    semantic backend, or tracked `graphify-out/` state;
 3. normalize any provider output back through this CodeSleuth projection contract,

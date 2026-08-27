@@ -1,6 +1,6 @@
 # CodeSleuth LLM operator README
 
-<!-- README-SOURCE-BLOB: 7e529e2217d3d59e5e1bbae4d1f5f0c4dd069b71 -->
+<!-- README-SOURCE-BLOB: 47543d8bcfcac2b22a47839e64ab1a81eebd0376 -->
 
 This is the task-specific operating manual for a coding agent or LLM when a user asks it to install, configure, use, update, remove, or reason about CodeSleuth. Root [`AGENTS.md`](../AGENTS.md) is the compact cross-agent discovery entry point. [`../README.md`](../README.md) remains the canonical product/manual surface. When this guide and current source disagree, verify the source and follow the source.
 
@@ -346,11 +346,16 @@ Current OpenCode command entry points include:
 /repo-docs
 /repo-report
 /repo-map
+/repo-contracts
+/eha-test
+/eha-repair
+/eha-status
+/playbook
 ```
 
-Use `/repo-prompts` when the user wants help choosing the next repository-analysis task. Use `/repo-review` for an evidence-first whole-repository or PR review. Use `/repo-review-resume` only when durable review state already exists. Use `/repo-map` for the bounded context graph and optional Mermaid presentation.
+Use `/repo-prompts` when the user wants help choosing the next repository-analysis task. Use `/repo-review` for an evidence-first whole-repository or PR review. Use `/repo-review-resume` only when durable review state already exists. Use `/repo-map` for a bounded repository-context neighborhood, `/repo-contracts` for bounded protected-capability dependency/impact navigation, and `/eha-status` for bounded campaign/SIB/repair history. `/playbook` routes stored multi-step workflows without creating a second controller.
 
-Material findings still require exact current source evidence. A context graph, Mermaid diagram, scout summary, or prior report is context, not stronger evidence than source.
+All three Mermaid surfaces report their bounds and provenance, but remain derived presentation. Material findings still require exact current source evidence and blob/line identity. Protected meaning remains in `docs/protected-capabilities.json`; EHA/SIB verdicts remain in `eha.ndjson` and do not transfer between commits through a diagram.
 
 ### If you are not OpenCode
 
