@@ -31,6 +31,7 @@ Long-form explanatory material lives under [`articles/`](articles/). Articles ar
 ## Roadmap and evaluated extensions
 
 - [`MERMAID-GRAPHIFY-AUDIT.md`](MERMAID-GRAPHIFY-AUDIT.md) — audit of the current bounded Mermaid/context-graph implementation and gated evaluation of `Graphify-Labs/graphify` as an optional deterministic structural graph provider. This is a roadmap/incubation document, not approval of a production Graphify dependency.
+- [`MERMAID-QA.md`](MERMAID-QA.md) — explicit isolated parser/render QA for generated Mermaid source; normal CodeSleuth runtime remains browser-free.
 
 ## README language maintenance
 

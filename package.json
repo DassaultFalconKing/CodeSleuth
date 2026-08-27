@@ -9,7 +9,8 @@
     "test:review-state-amendments": "bun tests/review_state_amendments.ts",
     "test:context-graph": "bun tests/context_graph_smoke.ts",
     "test:eha-state": "bun tests/eha_state_smoke.ts",
-    "test:protected-graph": "bun tests/protected_capability_graph_smoke.ts"
+    "test:protected-graph": "bun tests/protected_capability_graph_smoke.ts",
+    "test:mermaid-qa": "bun tests/mermaid_qa_smoke.ts"
   },
   "devDependencies": {
     "@opencode-ai/plugin": "^1.14.48"

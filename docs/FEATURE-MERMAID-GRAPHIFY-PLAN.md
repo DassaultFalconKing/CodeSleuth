@@ -76,13 +76,13 @@ python -m pytest -q tests/test_eha_contract.py tests/test_durable_evidence_store
 
 ### D2 — optional Mermaid parser/render QA
 
-- [ ] A bounded QA command validates generated Mermaid source with an exact-pinned
+- [x] A bounded QA command validates generated Mermaid source with an exact-pinned
       renderer/parser dependency in an isolated subprocess.
-- [ ] Normal tool execution never launches Chromium or requires the QA dependency.
-- [ ] QA reports tool/version, source digest, exit state, diagnostics, and optional
+- [x] Normal tool execution never launches Chromium or requires the QA dependency.
+- [x] QA reports tool/version, source digest, exit state, diagnostics, and optional
       disposable SVG output metadata.
-- [ ] Hostile-label fixtures and all three Mermaid surfaces are parser-checked.
-- [ ] Absence of the optional runtime is reported as `unavailable`, never as PASS.
+- [x] Hostile-label fixtures and all three Mermaid surfaces are parser-checked.
+- [x] Absence of the optional runtime is reported as `unavailable`, never as PASS.
 
 Focused gate:
 
@@ -194,7 +194,7 @@ the feature delta only; it does not transfer SIB/EHA acceptance to the feature h
 | --- | --- | --- | --- |
 | D0 baseline | exact Git base/worktree | full baseline gate | complete |
 | D1 envelope | tool schemas and docs | EHA + graph smoke/contracts | complete |
-| D2 Mermaid QA | isolated QA helper/tool | parser and hostile-source tests | pending |
+| D2 Mermaid QA | isolated QA helper/tool | parser and hostile-source tests | complete |
 | D3 Graphify adapter | pinned adapter and closed schema | adapter/provider contracts | pending |
 | D4 corpus | deterministic harness/fixtures | corpus check | pending |
 | D5 provider UX | config/playbook/lifecycle integration | provider/lifecycle/parity | pending |

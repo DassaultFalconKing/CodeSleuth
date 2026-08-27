@@ -1,0 +1,8 @@
+{
+  "name": "codesleuth-mermaid-qa-runtime",
+  "private": true,
+  "description": "Explicitly installed, isolated Mermaid parser/render QA runtime for CodeSleuth development gates",
+  "dependencies": {
+    "@mermaid-js/mermaid-cli": "11.16.0"
+  }
+}
