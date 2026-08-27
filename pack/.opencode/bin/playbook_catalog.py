@@ -10,6 +10,7 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
+from uuid import uuid4
 
 # Inverse of tests/test_playbook_skill_contract.py::test_product_commands_route_broad_work_to_playbooks
 COMMAND_ALIASES: dict[str, str] = {
@@ -139,7 +140,11 @@ def playbook_summary(playbook_dir: Path) -> str:
     path = playbook_dir / "PLAYBOOK.md"
     if not path.is_file():
         return ""
-    for line in path.read_text(encoding="utf-8").splitlines():
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as exc:
+        raise PlaybookCatalogError(f"cannot read PLAYBOOK.md: {exc}") from exc
+    for line in lines:
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
@@ -157,16 +162,22 @@ def _as_tuple(value: Any) -> tuple[str, ...]:
     return ()
 
 
-def parse_playbook_dir(playbook_dir: Path, *, origin: str) -> PlaybookRecord:
+def _read_manifest(playbook_dir: Path) -> dict[str, Any]:
     manifest_path = playbook_dir / "playbook.json"
     if not manifest_path.is_file():
         raise PlaybookCatalogError(f"missing playbook.json in {playbook_dir}")
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
+        text = manifest_path.read_text(encoding="utf-8")
+        manifest = json.loads(text)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise PlaybookCatalogError(f"invalid playbook.json: {exc}") from exc
     if not isinstance(manifest, dict):
         raise PlaybookCatalogError("playbook.json must be an object")
+    return manifest
+
+
+def parse_playbook_dir(playbook_dir: Path, *, origin: str) -> PlaybookRecord:
+    manifest = _read_manifest(playbook_dir)
     playbook_id = str(manifest.get("id") or playbook_dir.name)
     steps: list[PlaybookStep] = []
     raw_steps = manifest.get("steps") or []
@@ -193,6 +204,8 @@ def parse_playbook_dir(playbook_dir: Path, *, origin: str) -> PlaybookRecord:
                 skill=str(skill) if skill else None,
             )
         )
+    raw_schema = manifest.get("schema_version", 1)
+    schema_version = raw_schema if isinstance(raw_schema, int) and not isinstance(raw_schema, bool) else -1
     return PlaybookRecord(
         id=playbook_id,
         description=str(manifest.get("description") or ""),
@@ -201,18 +214,8 @@ def parse_playbook_dir(playbook_dir: Path, *, origin: str) -> PlaybookRecord:
         steps=tuple(steps),
         summary=playbook_summary(playbook_dir),
         command_alias=COMMAND_ALIASES.get(playbook_id),
-        schema_version=int(manifest["schema_version"]) if "schema_version" in manifest else 1,
+        schema_version=schema_version,
     )
-
-
-def _manifest_bytes(playbook_dir: Path) -> bytes | None:
-    path = playbook_dir / "playbook.json"
-    if not path.is_file():
-        return None
-    try:
-        return path.read_bytes()
-    except OSError:
-        return None
 
 
 def _scan_root(root: Path) -> dict[str, Path]:
@@ -225,7 +228,7 @@ def _scan_root(root: Path) -> dict[str, Path]:
 
 
 def discover_playbooks(repo: Path, distribution_root: Path | None = None) -> list[PlaybookRecord]:
-    """Return overlay-over-pack Playbooks. Overlay content wins; origin is pack vs overlay."""
+    """Return overlay-over-pack Playbooks. An existing overlay always owns the resolved item."""
 
     overlay = _scan_root(overlay_playbooks_root(repo))
     pack: dict[str, Path] = {}
@@ -237,12 +240,7 @@ def discover_playbooks(repo: Path, distribution_root: Path | None = None) -> lis
     for playbook_id in sorted(set(overlay) | set(pack)):
         overlay_dir = overlay.get(playbook_id)
         pack_dir = pack.get(playbook_id)
-        if overlay_dir is not None and pack_dir is not None:
-            overlay_bytes = _manifest_bytes(overlay_dir)
-            pack_bytes = _manifest_bytes(pack_dir)
-            origin = "pack" if overlay_bytes == pack_bytes else "overlay"
-            source = overlay_dir
-        elif overlay_dir is not None:
+        if overlay_dir is not None:
             origin = "overlay"
             source = overlay_dir
         else:
@@ -294,17 +292,10 @@ def validate_playbook_dir(
     """
 
     result = PlaybookValidation()
-    manifest_path = playbook_dir / "playbook.json"
-    if not manifest_path.is_file():
-        result.errors.append("missing playbook.json")
-        return result
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        result.errors.append(f"invalid playbook.json: {exc}")
-        return result
-    if not isinstance(manifest, dict):
-        result.errors.append("playbook.json must be an object")
+        manifest = _read_manifest(playbook_dir)
+    except PlaybookCatalogError as exc:
+        result.errors.append(str(exc))
         return result
     if manifest.get("schema_version") != 1:
         result.errors.append("schema_version must be 1")
@@ -335,8 +326,14 @@ def validate_playbook_dir(
             result.errors.append(f"{step_id or '?'}: missing output contract")
         if step.get("isolation") != "fresh_subagent":
             result.errors.append(f"{step_id or '?'}: isolation must be fresh_subagent")
-        for dependency in step.get("depends_on") or []:
-            if dependency not in id_set:
+        dependencies = step.get("depends_on") or []
+        if not isinstance(dependencies, list):
+            result.errors.append(f"{step_id or '?'}: depends_on must be an array")
+            dependencies = []
+        for dependency in dependencies:
+            if not isinstance(dependency, str) or not dependency.strip():
+                result.errors.append(f"{step_id or '?'}: dependency names must be non-empty strings")
+            elif dependency not in id_set:
                 result.errors.append(f"{step_id or '?'}: unknown dependency {dependency}")
         tools_declared = "tools" in step
         tools = step.get("tools", [])
@@ -347,27 +344,37 @@ def validate_playbook_dir(
             tools = []
         elif tools_declared and not tools:
             result.warnings.append(f"{step_id or '?'}: empty tools[]")
+        elif any(not isinstance(tool, str) or not tool.strip() for tool in tools):
+            result.errors.append(f"{step_id or '?'}: tool names must be non-empty strings")
+            tools = [tool for tool in tools if isinstance(tool, str) and tool.strip()]
         skills: list[str] = []
         if execution == "skill":
             skill = step.get("skill")
-            if not skill:
+            if not isinstance(skill, str) or not skill.strip():
                 result.errors.append(f"{step_id or '?'}: Skill Step missing skill")
             else:
-                skills.append(str(skill))
+                skills.append(skill)
                 if known and skill not in known:
                     result.warnings.append(f"{step_id or '?'}: unknown skill {skill}")
             if step.get("prompt"):
                 result.errors.append(f"{step_id or '?'}: Skill Step must not duplicate a Step prompt")
         elif execution == "step":
             prompt = step.get("prompt")
-            if not prompt:
+            if not isinstance(prompt, str) or not prompt.strip():
                 result.errors.append(f"{step_id or '?'}: composite Step missing prompt")
             else:
                 prompt_path = playbook_dir / prompt
                 if not prompt_path.is_file():
                     result.errors.append(f"{step_id or '?'}: missing {prompt}")
-            for skill in step.get("skills") or []:
-                skills.append(str(skill))
+            declared_skills = step.get("skills") or []
+            if not isinstance(declared_skills, list):
+                result.errors.append(f"{step_id or '?'}: skills must be an array")
+                declared_skills = []
+            for skill in declared_skills:
+                if not isinstance(skill, str) or not skill.strip():
+                    result.errors.append(f"{step_id or '?'}: skill names must be non-empty strings")
+                    continue
+                skills.append(skill)
                 if known and skill not in known:
                     result.warnings.append(f"{step_id or '?'}: unknown skill {skill}")
         parsed_steps.append(
@@ -375,8 +382,8 @@ def validate_playbook_dir(
                 id=step_id,
                 execution=str(execution or ""),
                 skills=tuple(skills),
-                tools=tuple(str(item) for item in tools if str(item).strip()),
-                depends_on=_as_tuple(step.get("depends_on")),
+                tools=tuple(str(item) for item in tools if isinstance(item, str) and item.strip()),
+                depends_on=tuple(item for item in dependencies if isinstance(item, str) and item.strip()),
                 output=str(step.get("output") or ""),
                 isolation=str(step.get("isolation") or ""),
             )
@@ -388,23 +395,26 @@ def validate_playbook_dir(
 
 
 def _safe_extract_zip(archive: Path, dest: Path) -> None:
-    with zipfile.ZipFile(archive) as zf:
-        infos = zf.infolist()
-        if len(infos) > _MAX_ZIP_ENTRIES:
-            raise PlaybookCatalogError("zip has too many entries")
-        uncompressed = 0
-        for info in infos:
-            name = Path(info.filename)
-            if name.is_absolute() or ".." in name.parts:
-                raise PlaybookCatalogError(f"unsafe zip entry: {info.filename}")
-            uncompressed += info.file_size
-            if uncompressed > _MAX_ZIP_UNCOMPRESSED:
-                raise PlaybookCatalogError("zip is too large")
-        zf.extractall(dest)
+    try:
+        with zipfile.ZipFile(archive) as zf:
+            infos = zf.infolist()
+            if len(infos) > _MAX_ZIP_ENTRIES:
+                raise PlaybookCatalogError("zip has too many entries")
+            uncompressed = 0
+            for info in infos:
+                name = Path(info.filename)
+                if name.is_absolute() or ".." in name.parts:
+                    raise PlaybookCatalogError(f"unsafe zip entry: {info.filename}")
+                uncompressed += info.file_size
+                if uncompressed > _MAX_ZIP_UNCOMPRESSED:
+                    raise PlaybookCatalogError("zip is too large")
+            zf.extractall(dest)
+    except (OSError, zipfile.BadZipFile) as exc:
+        raise PlaybookCatalogError(f"invalid zip: {exc}") from exc
 
 
 def resolve_playbook_source(source: Path, unpack_dir: Path | None = None) -> Path:
-    """Return a directory containing playbook.json from a folder or zip."""
+    """Return a Playbook directory from a local folder or one-top-level-folder zip."""
 
     source = source.expanduser()
     if not source.exists():
@@ -417,13 +427,12 @@ def resolve_playbook_source(source: Path, unpack_dir: Path | None = None) -> Pat
         if unpack_dir is None:
             raise PlaybookCatalogError("zip install requires an unpack directory")
         _safe_extract_zip(source, unpack_dir)
-        direct = unpack_dir / "playbook.json"
-        if direct.is_file():
-            return unpack_dir
+        if (unpack_dir / "playbook.json").is_file():
+            raise PlaybookCatalogError("zip must contain one top-level Playbook folder, not root-level playbook.json")
         matches = [path.parent for path in unpack_dir.glob("*/playbook.json")]
         if len(matches) == 1:
             return matches[0]
-        raise PlaybookCatalogError("zip must contain exactly one playbook.json at the root or one folder down")
+        raise PlaybookCatalogError("zip must contain exactly one top-level Playbook folder")
     raise PlaybookCatalogError("source must be a Playbook directory or .zip")
 
 
@@ -438,21 +447,61 @@ def install_playbook(
     overwrite: bool = False,
     unpack_dir: Path | None = None,
 ) -> Path:
-    """Copy a validated-or-caller-confirmed package into repo/.opencode/playbooks/<id>/.
+    """Validate and transactionally install a package into repo/.opencode/playbooks/<id>/.
 
-    Does not start /playbook or materialize Steps.
+    Existing overlays are preserved until a complete staged copy is ready. Does not start
+    /playbook or materialize Steps.
     """
 
     package = resolve_playbook_source(source, unpack_dir)
     record = parse_playbook_dir(package, origin="overlay")
+    report = validate_playbook_dir(package)
+    if not report.ok:
+        raise PlaybookCatalogError("invalid Playbook package: " + "; ".join(report.errors))
+
     dest = overlay_playbooks_root(repo) / record.id
     if dest.exists() and not overwrite:
         raise PlaybookCatalogError(f"overlay already has {record.id}; confirm to replace")
     dest.parent.mkdir(parents=True, exist_ok=True)
-    if dest.exists():
-        shutil.rmtree(dest)
-    shutil.copytree(package, dest)
-    return dest
+
+    stage_root = Path(tempfile.mkdtemp(prefix=f".{record.id}.codesleuth-stage-", dir=dest.parent))
+    staged = stage_root / record.id
+    backup: Path | None = None
+    try:
+        try:
+            shutil.copytree(package, staged)
+        except (OSError, shutil.Error) as exc:
+            raise PlaybookCatalogError(f"could not stage Playbook install: {exc}") from exc
+        staged_report = validate_playbook_dir(staged)
+        if not staged_report.ok:
+            raise PlaybookCatalogError("staged Playbook failed validation: " + "; ".join(staged_report.errors))
+
+        if dest.exists():
+            backup = dest.parent / f".{record.id}.codesleuth-backup-{uuid4().hex}"
+            try:
+                dest.rename(backup)
+                staged.rename(dest)
+            except OSError as exc:
+                if backup.exists() and not dest.exists():
+                    try:
+                        backup.rename(dest)
+                    except OSError as rollback_exc:
+                        raise PlaybookCatalogError(
+                            f"overlay swap failed and rollback failed; previous copy remains at {backup}: {rollback_exc}"
+                        ) from exc
+                raise PlaybookCatalogError(f"overlay swap failed; previous copy restored: {exc}") from exc
+            shutil.rmtree(backup, ignore_errors=True)
+            backup = None
+        else:
+            try:
+                staged.rename(dest)
+            except OSError as exc:
+                raise PlaybookCatalogError(f"could not publish staged Playbook: {exc}") from exc
+        return dest
+    finally:
+        shutil.rmtree(stage_root, ignore_errors=True)
+        if backup is not None and backup.exists() and dest.exists():
+            shutil.rmtree(backup, ignore_errors=True)
 
 
 def skill_contract_excerpt(skill_id: str, repo: Path, distribution_root: Path | None = None) -> str:
