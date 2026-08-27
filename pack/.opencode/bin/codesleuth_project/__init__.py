@@ -590,26 +590,26 @@ def uninstall_project(
     preserve_traces: bool = True,
     remove_bound_dependency: bool = True,
     dependency_path: str = DEFAULT_DEPENDENCY_PATH,
+    source_root: Path | None = None,
 ) -> dict[str, Any]:
     """Uninstall CodeSleuth from *repo* (runtime and optional dependency)."""
     repo = git_root(repo)
     archive = archive_traces(repo) if preserve_traces else None
-    # Remove managed AGENTS.md policy block first (preserve user content, fail closed on malformed)
+    skip_maintainer = is_self_target(repo, source_root=source_root)
+    if not skip_maintainer:
+        meta_path = repo / ".opencode" / "review-pack.json"
+        if meta_path.is_file():
+            try:
+                skip_maintainer = bool(json.loads(meta_path.read_text(encoding="utf-8")).get("selfInstall"))
+            except json.JSONDecodeError:
+                skip_maintainer = False
     try:
-        from .agents_policy import remove_agents_rules  # type: ignore
-
-        # Self-install uninstall must not delete maintainer AGENTS.md
-        try:
-            if not is_self_target(repo):
-                try:
-                    remove_agents_rules(repo)
-                except RuntimeError:
-                    # Fail closed – preserve file, surface via uninstall result
-                    pass
-        except Exception:
-            pass
+        from .agents_policy import remove_agents_rules
     except ImportError:
         pass
+    else:
+        if not skip_maintainer:
+            remove_agents_rules(repo)
     remove_agents_reports_pointer(repo)
     restored = restore_preinstall_snapshot(repo)
     dependency = (

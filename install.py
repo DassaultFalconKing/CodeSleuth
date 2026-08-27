@@ -384,29 +384,16 @@ def main():
     if args.uninstall:
         if args.update or args.adopt_existing_pack or args.bind_dependency or args.self_install:
             raise SystemExit("--uninstall is mutually exclusive with install/update/bind/self-install operations")
-        # Remove managed AGENTS.md block before restoring (preserve user content, fail closed on malformed)
         try:
-            is_self_uninstall = project_lifecycle.is_self_target(repo, source_root=ROOT)
-            if not is_self_uninstall:
-                try:
-                    from codesleuth_project.agents_policy import remove_agents_rules  # type: ignore
-
-                    try:
-                        remove_agents_rules(repo)
-                    except RuntimeError as exc:
-                        raise SystemExit(f"AGENTS.md policy block conflict: {exc}") from exc
-                except ImportError:
-                    # Pack not installed yet – nothing to remove
-                    pass
-        except Exception as exc:
-            if isinstance(exc, SystemExit):
-                raise
-        result = project_lifecycle.uninstall_project(
-            repo,
-            preserve_traces=not args.purge_traces,
-            remove_bound_dependency=not args.keep_dependency,
-            dependency_path=args.dependency_path,
-        )
+            result = project_lifecycle.uninstall_project(
+                repo,
+                preserve_traces=not args.purge_traces,
+                remove_bound_dependency=not args.keep_dependency,
+                dependency_path=args.dependency_path,
+                source_root=ROOT,
+            )
+        except RuntimeError as exc:
+            raise SystemExit(f"AGENTS.md policy block conflict: {exc}") from exc
         project_lifecycle.record_tracked_repository(repo)
         print(json.dumps(result, indent=2))
         print("CodeSleuth uninstalled. Review staged Git changes before committing.")
@@ -436,14 +423,38 @@ def main():
     if args.enforce_agents_md_rules is not None:
         settings.setdefault("policy", {})["enforceAgentsMdRules"] = bool(args.enforce_agents_md_rules)
         settings = tui_core.validate_settings(settings)
+    is_self = project_lifecycle.is_self_target(repo, source_root=ROOT)
+    if is_self and args.enforce_agents_md_rules is True:
+        raise SystemExit(
+            "--enforce-agents-md-rules is not valid for a CodeSleuth self-install; "
+            "the maintainer AGENTS.md is not a target-repository policy file"
+        )
+    if is_self:
+        if bool(settings.get("policy", {}).get("enforceAgentsMdRules", False)):
+            print(
+                "warning: policy.enforceAgentsMdRules is ignored for CodeSleuth self-install "
+                "and was normalized to false",
+                file=sys.stderr,
+            )
+        settings = tui_core.coerce_self_install_agents_policy(settings, is_self=True)
     profiles = settings["profiles"]
 
     managed, conflicts = install_files(target, old_meta, args.update, args.force_pack_files, args.adopt_existing_pack)
     base_config = update_config(target, old_meta, args.update)
-    if args.update and not args.settings_file:
-        preserve_merged_config_settings(repo, settings, profiles)
-    else:
-        tui_core.apply_settings_to_target(repo, settings)
+    try:
+        if args.update and not args.settings_file:
+            from codesleuth_project.agents_policy import apply_agents_md_policy
+
+            if not is_self:
+                apply_agents_md_policy(
+                    repo,
+                    enforce=bool(settings.get("policy", {}).get("enforceAgentsMdRules", False)),
+                )
+            preserve_merged_config_settings(repo, settings, profiles)
+        else:
+            tui_core.apply_settings_to_target(repo, settings, source_root=ROOT)
+    except RuntimeError as exc:
+        raise SystemExit(f"AGENTS.md policy block conflict: {exc}") from exc
 
     source = source_metadata(args)
     dependency = (old_meta or {}).get("dependency")
@@ -476,51 +487,6 @@ def main():
     project_lifecycle.record_postinstall_snapshot(repo)
     project_lifecycle.ensure_reports_workspace(repo)
     project_lifecycle.ensure_agents_reports_pointer(repo)
-    # Managed AGENTS.md workflow block (opt-in, self-install skips to avoid corrupting maintainer file)
-    is_self = project_lifecycle.is_self_target(repo, source_root=ROOT)
-    if not is_self:
-        try:
-            from codesleuth_project.agents_policy import (  # type: ignore
-                canonical_policy_text as _canonical_text,
-                ensure_agents_rules as _ensure_rules,
-                remove_agents_rules as _remove_rules,
-            )
-
-            enforce = bool(settings.get("policy", {}).get("enforceAgentsMdRules", False))
-            if enforce:
-                try:
-                    _ensure_rules(repo, _canonical_text())
-                except RuntimeError as exc:
-                    raise SystemExit(f"AGENTS.md policy block conflict: {exc}") from exc
-            else:
-                try:
-                    _remove_rules(repo)
-                except RuntimeError as exc:
-                    raise SystemExit(f"AGENTS.md policy block conflict: {exc}") from exc
-        except SystemExit:
-            raise
-        except Exception:
-            # If agents policy module not yet installed (first install before files copied), try direct PACK read
-            try:
-                pack_policy = (PACK / "policy" / "agents-rules.md").read_text(encoding="utf-8")
-                # Fallback: use PACK source directly to manage block
-                import importlib.util as _ilu
-                import sys as _sys
-
-                spec = _ilu.spec_from_file_location(
-                    "codesleuth_project.agents_policy", str(PACK / "bin" / "codesleuth_project" / "agents_policy.py")
-                )
-                if spec and spec.loader:
-                    mod = _ilu.module_from_spec(spec)
-                    _sys.modules[spec.name] = mod
-                    spec.loader.exec_module(mod)  # type: ignore
-                    enforce = bool(settings.get("policy", {}).get("enforceAgentsMdRules", False))
-                    if enforce:
-                        mod.ensure_agents_rules(repo, pack_policy)
-                    else:
-                        mod.remove_agents_rules(repo)
-            except Exception:
-                pass
     project_lifecycle.record_tracked_repository(repo)
 
     print("profiles:", ", ".join(profiles))

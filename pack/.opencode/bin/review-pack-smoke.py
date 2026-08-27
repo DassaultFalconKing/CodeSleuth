@@ -153,8 +153,15 @@ if not (root / ".codesleuth" / "reports" / "README.md").is_file():
 if "CodeSleuth reports" not in (root / "AGENTS.md").read_text(encoding="utf-8"):
     raise SystemExit("AGENTS.md is missing the CodeSleuth reports discovery pointer")
 
-# Agents policy block Verify – only when enforcement is enabled
+# Agents policy block Verify – only when enforcement is enabled on a non-self install
 enforce = bool(settings.get("policy", {}).get("enforceAgentsMdRules", False))
+if bool(meta.get("selfInstall")):
+    if enforce:
+        print(
+            "warning: policy.enforceAgentsMdRules is ignored for CodeSleuth self-install",
+            file=sys.stderr,
+        )
+    enforce = False
 agents_path = root / "AGENTS.md"
 BEGIN = "<!-- CODESLEUTH:AGENTS-RULES:BEGIN -->"
 END = "<!-- CODESLEUTH:AGENTS-RULES:END -->"

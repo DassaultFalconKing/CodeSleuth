@@ -20,6 +20,7 @@ import codesleuth_project as project_lifecycle
 from review_pack_tui_core import (
     AGENT_PROFILE_OPTIONS,
     apply_settings_to_target,
+    coerce_self_install_agents_policy,
     config_preview,
     default_settings,
     detect_profiles,
@@ -27,7 +28,6 @@ from review_pack_tui_core import (
     installation_state,
     load_settings,
     recommended_operation,
-    save_settings,
     settings_summary,
     validate_settings,
     write_prompts,
@@ -178,6 +178,16 @@ class ConfigScreen(AbortableModalScreen[bool]):
             self.settings = default_settings(self.detected)
         self.state = installation_state(repo)
         self.dependency = project_lifecycle.dependency_status(repo)
+        self._self_install_target = False
+        if distribution_root is not None:
+            self._self_install_target = project_lifecycle.is_self_target(repo, source_root=distribution_root)
+        if not self._self_install_target:
+            meta = repo / ".opencode" / "review-pack.json"
+            if meta.is_file():
+                try:
+                    self._self_install_target = bool(json.loads(meta.read_text(encoding="utf-8")).get("selfInstall"))
+                except json.JSONDecodeError:
+                    self._self_install_target = False
 
     def operation_options(self) -> tuple[list[tuple[str, str]], str]:
         if self.distribution_root is None:
@@ -273,8 +283,17 @@ class ConfigScreen(AbortableModalScreen[bool]):
 
                 yield Label("6. Repository policy", classes="section")
                 with Horizontal(classes="row"):
-                    yield Switch(value=bool(self.settings.get("policy", {}).get("enforceAgentsMdRules", False)), id="enforce-agents")
+                    yield Switch(
+                        value=False if self._self_install_target else bool(self.settings.get("policy", {}).get("enforceAgentsMdRules", False)),
+                        id="enforce-agents",
+                        disabled=self._self_install_target,
+                    )
                     yield Label("Maintain CodeSleuth workflow rules in root AGENTS.md")
+                if self._self_install_target:
+                    yield Static(
+                        "Self-install: this switch is disabled. CodeSleuth will not rewrite the maintainer AGENTS.md.",
+                        classes="hint",
+                    )
 
                 yield Label("7. Planned policy", classes="section")
                 yield Static("", id="summary")
@@ -332,7 +351,7 @@ class ConfigScreen(AbortableModalScreen[bool]):
                 "enforceAgentsMdRules": bool(self.query_one("#enforce-agents", Switch).value),
             },
         }
-        return validate_settings(settings)
+        return coerce_self_install_agents_policy(validate_settings(settings), is_self=self._self_install_target)
 
     def _sync_profile_controls(self) -> None:
         auto = self.query_one("#profiles-auto", Switch).value
@@ -404,8 +423,7 @@ class ConfigScreen(AbortableModalScreen[bool]):
     def perform_apply(self, settings: dict, operation: str, bind_dependency: bool) -> None:
         try:
             if operation == "configure":
-                save_settings(self.repo, settings)
-                apply_settings_to_target(self.repo, settings)
+                apply_settings_to_target(self.repo, settings, source_root=self.distribution_root)
                 if bind_dependency and not project_lifecycle.dependency_status(self.repo)["bound"]:
                     project_lifecycle.bind_dependency(self.repo, source_metadata=self._installed_source())
                 elif not bind_dependency and project_lifecycle.dependency_status(self.repo)["bound"]:
