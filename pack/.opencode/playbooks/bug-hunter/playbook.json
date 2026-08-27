@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "bug-hunter",
+  "description": "Read-only exact-head repository bug hunt focused on recurring error classes, canonical-gate gaps, and independently verified witnesses before repair.",
+  "steps": [
+    {"id": "capture-target", "execution": "skill", "skill": "exact-target-identity", "depends_on": [], "output": "target_identity", "isolation": "fresh_subagent"},
+    {"id": "authority-and-scope", "execution": "step", "prompt": "steps/02-authority-and-scope.md", "skills": ["repository-deep-review", "protected-capability-registry", "contract-triangulation"], "depends_on": ["capture-target"], "output": "hunt_scope", "isolation": "fresh_subagent"},
+    {"id": "pattern-hunt", "execution": "step", "prompt": "steps/03-pattern-hunt.md", "skills": ["repository-deep-review", "dependency-impact-closure", "forbidden-regression-ledger"], "depends_on": ["authority-and-scope"], "output": "pattern_candidates", "isolation": "fresh_subagent"},
+    {"id": "verify-and-ledger", "execution": "step", "prompt": "steps/04-verify-and-ledger.md", "skills": ["repository-deep-review", "contract-triangulation", "acceptance-matrix-design"], "depends_on": ["pattern-hunt"], "output": "verified_bug_hunt", "isolation": "fresh_subagent"},
+    {"id": "persist-report", "execution": "skill", "skill": "codesleuth-reports", "depends_on": ["verify-and-ledger"], "output": "report_path", "isolation": "fresh_subagent"}
+  ]
+}
