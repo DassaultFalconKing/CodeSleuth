@@ -138,6 +138,14 @@ def test_root_level_zip_is_rejected_with_clear_layout_contract(tmp_path: Path) -
     with pytest.raises(PlaybookCatalogError, match="top-level Playbook folder"):
         resolve_playbook_source(archive, unpack)
 
+    nested_archive = tmp_path / "nested.zip"
+    with zipfile.ZipFile(nested_archive, "w") as zf:
+        for path in package.rglob("*"):
+            if path.is_file():
+                zf.write(path, Path(package.name) / path.relative_to(package))
+    resolved = resolve_playbook_source(nested_archive, unpack)
+    assert resolved.name == "zip-root"
+
 
 def test_install_writes_overlay_and_does_not_execute(tmp_path: Path) -> None:
     repo = tmp_path / "target"
