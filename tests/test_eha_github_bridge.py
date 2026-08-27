@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -142,6 +143,48 @@ def test_persistence_root_must_live_outside_disposable_checkout(tmp_path: Path) 
     assert external.is_dir()
 
 
+def test_private_transcript_is_host_local_unique_and_not_public_stdout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bridge = load_bridge()
+    persist_root = tmp_path / "eha"
+    persist_root.mkdir()
+    monkeypatch.setenv("GITHUB_RUN_ID", "12345")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "2")
+
+    path = bridge.private_transcript_path(persist_root)
+    assert path == persist_root / "bridge-logs" / "12345-attempt-2.log"
+    assert path.exists()
+    if os.name != "nt":
+        assert path.stat().st_mode & 0o777 == 0o600
+    with pytest.raises(bridge.BridgeError):
+        bridge.private_transcript_path(persist_root)
+
+
+def test_headless_opencode_permission_denies_git_mutation() -> None:
+    bridge = load_bridge()
+    permissions = json.loads(bridge.opencode_environment(ROOT)["OPENCODE_PERMISSION"])
+    assert permissions["edit"]["*"] == "deny"
+    assert permissions["edit"][".codesleuth/reports/**"] == "allow"
+    assert permissions["bash"]["*"] == "allow"
+    for pattern in (
+        "git add*",
+        "git checkout*",
+        "git clean*",
+        "git commit*",
+        "git merge*",
+        "git push*",
+        "git rebase*",
+        "git reset*",
+        "git restore*",
+        "git switch*",
+        "git tag*",
+        "git update-ref*",
+        "git worktree*",
+    ):
+        assert permissions["bash"][pattern] == "deny"
+
+
 def test_workflow_is_a_delegating_owner_gated_self_hosted_bridge() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     script = SCRIPT.read_text(encoding="utf-8")
@@ -164,6 +207,9 @@ def test_workflow_is_a_delegating_owner_gated_self_hosted_bridge() -> None:
     assert "prior_failed_sha" in script
     assert "post-EHA exact-target check" in script
     assert "state/reviews/<reviewId>/eha.ndjson" in script
+    assert "stdout=transcript" in script
+    assert "stderr=subprocess.STDOUT" in script
+    assert "PRIVATE EHA TRANSCRIPT AND BRIDGE STATUS RECORDED ON TRUSTED HOST" in script
 
 
 def test_bridge_document_is_discoverable_from_docs_index() -> None:
