@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -142,6 +143,42 @@ async def test_console_is_operable_at_supported_sizes(tmp_path: Path, size: tupl
         assert "codesleuth-project --uninstall" in help_text
         assert "--self-install" in help_text
         assert "codesleuth-project --list" in help_text
+        assert "CodeSleuth source" in help_text
+
+
+@pytest.mark.asyncio
+async def test_tracked_repo_select_shows_name_and_source_not_lifecycle(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
+    repo = tmp_path / "target"
+    init_repo(repo)
+    subprocess.run(
+        ["git", "-C", str(repo), "remote", "add", "origin", "https://github.com/example/catalog-demo.git"],
+        check=True,
+        capture_output=True,
+    )
+    (repo / ".opencode").mkdir()
+    (repo / ".opencode" / "review-pack.json").write_text(
+        json.dumps(
+            {
+                "version": "0.4.0",
+                "complete": True,
+                "source": {
+                    "remote": "https://github.com/DassaultFalconKing/CodeSleuth.git",
+                    "ref": "main",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    app = CodeSleuthApp(repo, None)
+    async with app.run_test(size=(120, 35)) as pilot:
+        await pilot.pause()
+        await pilot.click("#track-repo")
+        await pilot.pause()
+        labels = [label for label, _ in app._tracked_select_options()]
+        assert labels == ["example/catalog-demo · DassaultFalconKing/CodeSleuth@main · 0.4.0"]
+        assert all("unbound-active" not in label for label in labels)
+        assert all("(missing)" not in label for label in labels)
 
 
 @pytest.mark.asyncio

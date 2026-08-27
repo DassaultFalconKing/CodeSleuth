@@ -339,6 +339,15 @@
           "proof": [
             "tests/test_project_lifecycle.py"
           ]
+        },
+        {
+          "id": "FR-LIFE-004",
+          "sib_origin": "SIB1",
+          "must_not": "The host-tracked repository catalog presents only an installed version with no repository name and no CodeSleuth source, or keeps deleted test/install paths as version-only rows after refresh.",
+          "proof": [
+            "pack/.opencode/bin/codesleuth_project/tracked_repos.py",
+            "tests/test_tracked_repos.py"
+          ]
         }
       ]
     },

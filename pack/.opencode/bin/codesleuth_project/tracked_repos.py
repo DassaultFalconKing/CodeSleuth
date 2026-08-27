@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -78,14 +79,105 @@ def _normalize_path(repo: Path) -> str:
     return str(Path(repo).expanduser().resolve())
 
 
+def _git_output(repo: Path, *args: str) -> str | None:
+    proc = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        text=True,
+        capture_output=True,
+    )
+    if proc.returncode != 0:
+        return None
+    value = proc.stdout.strip()
+    return value or None
+
+
+def short_remote(url: str | None) -> str | None:
+    """Return a compact remote identity such as ``owner/repo`` or a directory name."""
+    if not url:
+        return None
+    original = str(url).strip()
+    cleaned = original.rstrip("/").replace("\\", "/")
+    if cleaned.endswith(".git"):
+        cleaned = cleaned[:-4]
+    if "://" not in cleaned and ":" in cleaned.split("/")[0]:
+        cleaned = cleaned.split(":", 1)[-1]
+    parts = [part for part in cleaned.split("/") if part]
+    if not parts:
+        return None
+    hostish = original.lower()
+    if len(parts) >= 2 and any(host in hostish for host in ("github.com", "gitlab.com", "bitbucket.org")):
+        return "/".join(parts[-2:])
+    return parts[-1]
+
+
+def source_label(source: Any) -> str:
+    """Return a compact CodeSleuth source label, or ``no source`` when unknown."""
+    if not isinstance(source, dict):
+        return "no source"
+    remote = source.get("remote")
+    short = short_remote(str(remote) if remote else None)
+    if not short:
+        return "no source"
+    ref = str(source.get("ref") or "").strip()
+    return f"{short}@{ref}" if ref else short
+
+
+def format_tracked_label(entry: dict[str, Any]) -> str:
+    """Return the operator-visible catalog line for a tracked repository."""
+    path = str(entry.get("path") or "")
+    name = str(entry.get("name") or Path(path).name or "unnamed")
+    version = str(entry.get("version") or "n/a")
+    mark = "" if entry.get("reachable", True) else " (missing)"
+    return f"{name} · {source_label(entry.get('source'))} · {version}{mark}"
+
+
+def _installed_metadata(path: Path) -> dict[str, Any] | None:
+    try:
+        from codesleuth_naming import resolve_state_file
+
+        meta_path = resolve_state_file(path / ".opencode", "metadata", fail_on_conflict=False)
+    except Exception:
+        return None
+    if meta_path is None or not meta_path.is_file():
+        return None
+    try:
+        payload = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _source_from_metadata(payload: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not payload:
+        return None
+    source = payload.get("source")
+    if not isinstance(source, dict):
+        return None
+    remote = source.get("remote")
+    ref = source.get("ref")
+    commit = source.get("commit")
+    if not remote and not ref and not commit:
+        return None
+    return {
+        "remote": remote,
+        "ref": ref,
+        "subdir": source.get("subdir") or "",
+        "commit": commit,
+    }
+
+
 def _probe_entry(path_str: str) -> dict[str, Any]:
     """Build a registry entry from the current on-disk lifecycle, when available."""
     from . import dependency_status, lifecycle_state  # local import avoids cycle at module load
 
     path = Path(path_str)
+    folder_name = path.name or path_str
     entry: dict[str, Any] = {
         "path": path_str,
         "exists": path.is_dir(),
+        "name": folder_name,
+        "origin": None,
+        "source": None,
         "lifecycle": None,
         "version": None,
         "dependencyBound": None,
@@ -93,24 +185,45 @@ def _probe_entry(path_str: str) -> dict[str, Any]:
     }
     if not path.is_dir():
         return entry
+    origin = _git_output(path, "remote", "get-url", "origin")
+    entry["origin"] = origin
+    entry["name"] = short_remote(origin) or folder_name
     try:
         entry["lifecycle"] = lifecycle_state(path)
         entry["dependencyBound"] = bool(dependency_status(path).get("bound"))
         entry["reachable"] = True
     except Exception:
         return entry
-    meta = path / ".opencode" / "review-pack.json"
-    if meta.is_file():
-        try:
-            payload = json.loads(meta.read_text(encoding="utf-8"))
-            entry["version"] = payload.get("version")
-        except (OSError, json.JSONDecodeError):
-            pass
+    payload = _installed_metadata(path)
+    if payload:
+        entry["version"] = payload.get("version")
+        entry["source"] = _source_from_metadata(payload)
     return entry
 
 
-def list_tracked_repositories(*, refresh: bool = True) -> list[dict[str, Any]]:
-    """Return tracked repositories, optionally refreshing live lifecycle fields."""
+def _stored_entry(item: dict[str, Any]) -> dict[str, Any]:
+    source = item.get("source")
+    return {
+        "path": item["path"],
+        "addedAt": item.get("addedAt"),
+        "lastSeenAt": item.get("lastSeenAt"),
+        "name": item.get("name"),
+        "origin": item.get("origin"),
+        "source": source if isinstance(source, dict) else None,
+        "lifecycle": item.get("lifecycle"),
+        "version": item.get("version"),
+        "dependencyBound": item.get("dependencyBound"),
+    }
+
+
+def list_tracked_repositories(*, refresh: bool = True, prune_missing: bool | None = None) -> list[dict[str, Any]]:
+    """Return tracked repositories, optionally refreshing live identity fields.
+
+    Refresh drops paths that no longer exist so the operator catalog cannot keep
+    stale version-only rows from deleted test/install targets.
+    """
+    if prune_missing is None:
+        prune_missing = refresh
     data = load_registry()
     results: list[dict[str, Any]] = []
     changed = False
@@ -122,25 +235,21 @@ def list_tracked_repositories(*, refresh: bool = True) -> list[dict[str, Any]]:
         entry["path"] = path_str
         if refresh:
             live = _probe_entry(path_str)
-            for key, value in live.items():
-                if value is not None or key in {"exists", "reachable"}:
-                    entry[key] = value
+            if prune_missing and not live.get("reachable"):
+                changed = True
+                continue
+            if live.get("reachable"):
+                entry.update(live)
+                entry["path"] = path_str
+            else:
+                entry["exists"] = False
+                entry["reachable"] = False
             entry["lastSeenAt"] = utc_iso()
             changed = True
         results.append(entry)
     results.sort(key=lambda item: str(item.get("lastSeenAt") or item.get("addedAt") or ""), reverse=True)
     if changed:
-        data["repositories"] = [
-            {
-                "path": item["path"],
-                "addedAt": item.get("addedAt"),
-                "lastSeenAt": item.get("lastSeenAt"),
-                "lifecycle": item.get("lifecycle"),
-                "version": item.get("version"),
-                "dependencyBound": item.get("dependencyBound"),
-            }
-            for item in results
-        ]
+        data["repositories"] = [_stored_entry(item) for item in results]
         save_registry(data)
     return results
 
@@ -158,26 +267,19 @@ def record_tracked_repository(repo: Path) -> dict[str, Any]:
             continue
         existing_path = _normalize_path(Path(str(raw["path"])))
         if existing_path == path_str:
-            updated = {
-                "path": path_str,
-                "addedAt": raw.get("addedAt") or now,
-                "lastSeenAt": now,
-                "lifecycle": live.get("lifecycle"),
-                "version": live.get("version"),
-                "dependencyBound": live.get("dependencyBound"),
-            }
+            updated = _stored_entry(
+                {
+                    **live,
+                    "path": path_str,
+                    "addedAt": raw.get("addedAt") or now,
+                    "lastSeenAt": now,
+                }
+            )
             repos.append(updated)
         else:
-            repos.append({**raw, "path": existing_path})
+            repos.append(_stored_entry({**raw, "path": existing_path}))
     if updated is None:
-        updated = {
-            "path": path_str,
-            "addedAt": now,
-            "lastSeenAt": now,
-            "lifecycle": live.get("lifecycle"),
-            "version": live.get("version"),
-            "dependencyBound": live.get("dependencyBound"),
-        }
+        updated = _stored_entry({**live, "path": path_str, "addedAt": now, "lastSeenAt": now})
         repos.append(updated)
     data["repositories"] = repos
     save_registry(data)

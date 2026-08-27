@@ -71,6 +71,7 @@ def test_llm_operator_guide_keeps_install_config_and_removal_contracts() -> None
         "--purge-traces",
         "--keep-dependency",
         "codesleuth-project --list",
+        "codesleuth-project /path/to/repo --forget",
         "permissions.managePolicy",
         "review-safe",
         "balanced",

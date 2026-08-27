@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -29,6 +30,7 @@ def init_target(path: Path, files):
 def main():
     with tempfile.TemporaryDirectory(prefix="review-pack-test-") as td:
         tmp = Path(td)
+        os.environ["CODESLEUTH_HOST_STATE_DIR"] = str(tmp / "host-state")
 
         target = tmp / "target"
         init_target(target, {

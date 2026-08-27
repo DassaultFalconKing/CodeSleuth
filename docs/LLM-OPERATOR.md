@@ -100,6 +100,12 @@ Successful installs upsert the target into the host-local tracked-repository reg
 .opencode/bin/codesleuth-project --list
 ```
 
+Each row includes repository name, CodeSleuth source, and version. `--list` and the TUI catalog drop paths that no longer exist. To remove a still-reachable entry:
+
+```bash
+.opencode/bin/codesleuth-project /path/to/repo --forget
+```
+
 ### Reproducibly pinned development dependency
 
 Use `--bind-dependency` only when the user wants the target repository to record the exact CodeSleuth source revision.

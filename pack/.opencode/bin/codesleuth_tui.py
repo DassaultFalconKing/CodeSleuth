@@ -137,7 +137,8 @@ HELP_SECTIONS = [
         "4. Open CodeSleuth to launch normal OpenCode execution with managed project-local defaults when applicable.\n"
         "5. Start with /repo-prompts for advice or /repo-review for a deep evidence-first review.\n"
         "6. Use /repo-map for bounded repository topology, /repo-contracts for protected impact, and /eha-status for exact-head lineage.\n"
-        "7. List host-tracked repos anytime with codesleuth-project --list.",
+        "7. List host-tracked repos anytime with codesleuth-project --list. "
+        "The catalog shows repository name, CodeSleuth source, and version; missing paths are dropped on refresh.",
     ),
     (
         "Self-install",
@@ -606,13 +607,9 @@ class CodeSleuthApp(ReviewPackApp):
         options: list[tuple[str, str]] = []
         for entry in project_lifecycle.list_tracked_repositories(refresh=True):
             path = str(entry.get("path") or "")
-            if not path:
+            if not path or not entry.get("reachable", True):
                 continue
-            name = Path(path).name or path
-            lifecycle = entry.get("lifecycle") or "unknown"
-            version = entry.get("version") or "n/a"
-            mark = "" if entry.get("reachable") else " (missing)"
-            options.append((f"{name} · {lifecycle} · {version}{mark}", path))
+            options.append((project_lifecycle.format_tracked_label(entry), path))
         return options
 
     def _refresh_tracked_repos(self) -> None:

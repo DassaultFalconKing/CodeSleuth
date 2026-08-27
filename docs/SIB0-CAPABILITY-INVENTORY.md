@@ -68,7 +68,7 @@ agent loop, or general-purpose tool router. See contract
 
 | Class | Feature population |
 | --- | --- |
-| `CC-CLI` | `verify`, `update --check`, `--list`, `--bind`, `--uninstall`, `--version` |
+| `CC-CLI` | `verify`, `update --check`, `--list`, `--forget`, `--bind`, `--uninstall`, `--version` |
 | `CC-TUI` | Home/Review/Evidence/Tools/Settings surfaces, collapse rails, activity console |
 | `CC-LIFE` | self-install, bind-dependency, purge traces, restart request marker |
 | `CC-PROF` | `generic` / `rust` / `python` / `node` / `typescript` builtins |
@@ -142,7 +142,7 @@ flowchart TD
 - **Derived only:** context graphs and Mermaid.
 - **Lifecycle metadata:** installed `review-pack.json` / `codesleuth.json`.
 - **Reports:** OpenCode `build` writes; CodeSleuth owns folder conventions.
-- **Host registry:** machine-local path list for install targeting; not project source of truth.
+- **Host registry:** machine-local catalog of install targets (path, name, CodeSleuth source, version); not project source of truth.
 
 ## SIB protection inheritance
 
