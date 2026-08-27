@@ -43,6 +43,8 @@ jobs:
       - name: Verify exact checked-out commit
         run: >-
           python -c "import os, subprocess; expected=os.environ['CODESLEUTH_ACCEPTANCE_SHA']; actual=subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(); assert actual == expected, f'acceptance checkout mismatch: expected {expected}, got {actual}'; print(f'EXACT HEAD {actual}')"
+      - name: Contributor anti-pattern gate
+        run: python scripts/contributor_antipatterns.py scan --strict
       - name: Install acceptance dependencies
         run: python -m pip install -r requirements-dev.txt
       - name: Lint

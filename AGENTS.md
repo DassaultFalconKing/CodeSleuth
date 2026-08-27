@@ -2,6 +2,24 @@
 
 CodeSleuth is a discipline layer and control panel around a host coding agent. The host owns the model, primary controller, session, permissions, tool routing, and execution. Do not introduce a second CodeSleuth runtime, supervisor, scheduler, model runtime, general-purpose tool router, or independent execution authority.
 
+## Mandatory pre-write anti-pattern gate
+
+Before the first repository modification in a work session, run:
+
+```bash
+python scripts/contributor_antipatterns.py prewrite
+```
+
+Read [`docs/CONTRIBUTOR-ERROR-PATTERNS.md`](docs/CONTRIBUTOR-ERROR-PATTERNS.md) and resolve every relevant semantic checklist item before editing code, tests, workflows, packaging, lifecycle behavior, or acceptance/support documentation. If a relevant item is unresolved, record that part as `UNRESOLVED`, `DEFER`, or `BLOCK` instead of guessing a convenient contract.
+
+After modifications and before ordinary focused tests, run:
+
+```bash
+python scripts/contributor_antipatterns.py scan --strict
+```
+
+Mechanical `ERROR` findings block the change. Heuristic `WARN` findings require semantic review. This gate supplements, rather than replaces, current contract triangulation, protected-capability assessment, Semantic Refit, and Exact-Head Acceptance.
+
 ## Read the right authority
 
 Before changing the repository, resolve the current authority for the task instead of treating branch names, old PRs, generated reports, or green historical CI as truth.
@@ -186,6 +204,7 @@ Commands are entry points. Playbooks own multi-step order. Skills own atomic rea
 For ordinary Python/documentation changes:
 
 ```bash
+python scripts/contributor_antipatterns.py scan --strict
 python -m pytest
 ruff check .
 ```
