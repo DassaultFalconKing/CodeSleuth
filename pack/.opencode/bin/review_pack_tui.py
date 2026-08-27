@@ -15,6 +15,7 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
+from textual.worker import Worker
 from textual.widgets import Button, Checkbox, Footer, Header, Input, Label, RichLog, Select, Static, Switch
 
 import codesleuth_project as project_lifecycle
@@ -179,6 +180,7 @@ class ConfigScreen(AbortableModalScreen[bool]):
             self.settings = default_settings(self.detected)
         self.state = installation_state(repo)
         self.dependency = project_lifecycle.dependency_status(repo)
+        self._apply_worker: Worker[None] | None = None
 
     def operation_options(self) -> tuple[list[tuple[str, str]], str]:
         if self.distribution_root is None:
@@ -385,7 +387,7 @@ class ConfigScreen(AbortableModalScreen[bool]):
         operation = self._select_value("#operation")
         bind_dependency = self.query_one("#bind-dependency", Switch).value
         self.query_one("#apply", Button).disabled = True
-        self.perform_apply(settings, operation, bind_dependency)
+        self._apply_worker = self.perform_apply(settings, operation, bind_dependency)
 
     def _installed_source(self) -> dict | None:
         meta = self.repo / ".opencode" / "review-pack.json"
@@ -431,11 +433,19 @@ class ConfigScreen(AbortableModalScreen[bool]):
                     settings_path.unlink(missing_ok=True)
                 if not bind_dependency and project_lifecycle.dependency_status(self.repo)["bound"]:
                     project_lifecycle.remove_dependency(self.repo)
+            actual_bound = bool(project_lifecycle.dependency_status(self.repo)["bound"])
+            if actual_bound != bind_dependency:
+                requested = "bound" if bind_dependency else "unbound"
+                actual = "bound" if actual_bound else "unbound"
+                raise RuntimeError(f"dependency transition did not complete: requested {requested}, observed {actual}")
             project_lifecycle.record_tracked_repository(self.repo)
-            self.app.call_from_thread(self.notify, output[-1200:] or "Applied", severity="information")
-            self.app.call_from_thread(self.dismiss, True)
+            self.app.call_from_thread(self._apply_succeeded, output)
         except Exception as exc:
             self.app.call_from_thread(self._apply_failed, str(exc))
+
+    def _apply_succeeded(self, output: str) -> None:
+        self.notify(output[-1200:] or "Applied", severity="information")
+        self.dismiss(True)
 
     def _apply_failed(self, message: str) -> None:
         self.notify(message, severity="error")

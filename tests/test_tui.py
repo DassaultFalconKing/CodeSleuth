@@ -94,11 +94,13 @@ async def test_pilot_can_unbind_dependency_without_uninstalling_runtime(tmp_path
         dialog = app.screen.query_one("#config-dialog")
         dialog.scroll_end(animate=False)
         await pilot.pause()
+        config_screen = app.screen
         await pilot.click("#apply")
-        for _ in range(20):
-            await pilot.pause(0.1)
-            if not isinstance(app.screen, ConfigScreen):
-                break
+        assert isinstance(config_screen, ConfigScreen)
+        assert config_screen._apply_worker is not None
+        await config_screen._apply_worker.wait()
+        await pilot.pause()
+        assert not isinstance(app.screen, ConfigScreen)
         assert not lifecycle.dependency_status(target)["bound"]
         assert runtime.is_file()
 
