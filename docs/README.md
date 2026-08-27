@@ -31,6 +31,7 @@ Long-form explanatory material lives under [`articles/`](articles/). Articles ar
 ## Roadmap and evaluated extensions
 
 - [`MERMAID-GRAPHIFY-AUDIT.md`](MERMAID-GRAPHIFY-AUDIT.md) — audit of the current bounded Mermaid/context-graph implementation and gated evaluation of `Graphify-Labs/graphify` as an optional deterministic structural graph provider. This is a roadmap/incubation document, not approval of a production Graphify dependency.
+- [`PLAYBOOKS-CATALOG-TUI.md`](PLAYBOOKS-CATALOG-TUI.md) — design sketch for a Playbooks catalog surface (clickable steps/skills/tools plus a load wizard). Incubation only; Cursor canvas sources live under [`sketches/`](sketches/). Not a product-contract or live-TUI manual change.
 
 ## README language maintenance
 
