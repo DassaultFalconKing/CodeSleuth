@@ -48,7 +48,9 @@
       "codesleuth-reports": "allow",
       "eha-candidate-selection": "allow",
       "eha-campaign-evidence": "allow",
-      "eha-repair-protocol": "allow"
+      "eha-repair-protocol": "allow",
+      "findings-ledger-update": "allow",
+      "report-bug-closure": "allow"
     },
     "question": "allow",
     "doom_loop": "ask"

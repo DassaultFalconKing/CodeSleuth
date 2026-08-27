@@ -4,6 +4,7 @@ import { appendFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/prom
 import path from "node:path"
 
 const ID_RE = /^[A-Za-z0-9._-]+$/
+const AMENDMENT_TYPES = ["correct", "supersede", "retract", "close", "reopen"] as const
 
 type ReviewedPathEvidence = {
   path: string
@@ -85,6 +86,44 @@ async function findingLines(root: string, reviewId: string): Promise<any[]> {
     .split("\n")
     .filter(Boolean)
     .map((line) => JSON.parse(line))
+}
+
+function amendmentLedgerPath(root: string, reviewId: string): string {
+  return path.join(reviewDir(root, reviewId), "findings-amendments.ndjson")
+}
+
+async function amendmentLines(root: string, reviewId: string): Promise<any[]> {
+  const raw = await readOptional(amendmentLedgerPath(root, reviewId))
+  if (!raw?.trim()) return []
+  return raw
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line))
+}
+
+function latestAmendmentForFinding(amendments: any[], findingId: string): any | undefined {
+  const filtered = amendments.filter((a) => a.amends === findingId)
+  return filtered.length ? filtered[filtered.length - 1] : undefined
+}
+
+function derivedFindingStatus(amendments: any[], findingId: string): string {
+  const latest = latestAmendmentForFinding(amendments, findingId)
+  if (!latest) return "OPEN"
+  switch (latest.amendmentType) {
+    case "correct":
+      return "CORRECTED"
+    case "supersede":
+      return "SUPERSEDED"
+    case "retract":
+      return "RETRACTED"
+    case "close":
+      return "CLOSED"
+    case "reopen":
+      return "REOPENED"
+    default:
+      return "AMENDED"
+  }
 }
 
 function normalizeWorktreePath(root: string, input: string): string {
@@ -203,6 +242,7 @@ export const load = tool({
     const reviewId = await resolveReviewId(root, context.sessionID, args.reviewId)
     const state = await loadState(root, reviewId)
     const findings = await findingLines(root, reviewId)
+    const amendments = await amendmentLines(root, reviewId)
     const coverage = await verifyReviewedPathEvidence(root, state)
     return JSON.stringify(
       {
@@ -210,6 +250,7 @@ export const load = tool({
         coverageEvidenceComplete: coverage.complete,
         staleReviewedPaths: coverage.stale,
         findingCount: findings.length,
+        amendmentCount: amendments.length,
         findings: findings.slice(-50).map((finding) => ({
           id: finding.id,
           severity: finding.severity,
@@ -218,6 +259,19 @@ export const load = tool({
           startLine: finding.startLine,
           endLine: finding.endLine,
           blobHash: finding.blobHash,
+          derivedStatus: derivedFindingStatus(amendments, finding.id),
+          latestAmendmentId: latestAmendmentForFinding(amendments, finding.id)?.id ?? null,
+        })),
+        amendments: amendments.slice(-50).map((a) => ({
+          id: a.id,
+          amends: a.amends,
+          amendmentType: a.amendmentType,
+          path: a.path ?? null,
+          startLine: a.startLine ?? null,
+          endLine: a.endLine ?? null,
+          blobHash: a.blobHash ?? null,
+          headSha: a.headSha,
+          supersededBy: a.supersededBy ?? null,
         })),
       },
       null,
@@ -331,6 +385,133 @@ export const get_finding = tool({
     const findings = await findingLines(root, reviewId)
     const finding = findings.find((item) => item.id === args.findingId)
     if (!finding) throw new Error(`finding not found: ${args.findingId}`)
-    return JSON.stringify(finding, null, 2)
+    const amendments = await amendmentLines(root, reviewId)
+    const related = amendments.filter((a) => a.amends === args.findingId)
+    return JSON.stringify({ ...finding, derivedStatus: derivedFindingStatus(amendments, finding.id), amendments: related }, null, 2)
+  },
+})
+
+export const amend_finding = tool({
+  description: "Append a versioned amendment to an existing finding without rewriting findings.ndjson history. Use for correct/supersede/retract/close/reopen.",
+  args: {
+    reviewId: tool.schema.string().optional(),
+    findingId: tool.schema.string().min(1).describe("Original F-... to amend"),
+    amendmentType: tool.schema.enum(AMENDMENT_TYPES as unknown as [string, ...string[]]),
+    explanation: tool.schema.string().min(1).describe("Why amendment and what changed/verified"),
+    newSeverity: tool.schema.enum(["blocker", "high", "medium", "low", "info"]).optional(),
+    newTitle: tool.schema.string().optional(),
+    path: tool.schema.string().optional().describe("New tracked path for corrected/close evidence; defaults to original path"),
+    startLine: tool.schema.number().int().min(1).optional(),
+    endLine: tool.schema.number().int().min(1).optional(),
+    supersededBy: tool.schema.string().optional().describe("New F-... that supersedes this finding (for supersede)"),
+    verification: tool.schema.string().optional().describe("Commands/tests actually run and their result for close/retract"),
+    regressionTests: tool.schema.array(tool.schema.string()).optional(),
+  },
+  async execute(args, context) {
+    const root = context.worktree
+    const reviewId = await resolveReviewId(root, context.sessionID, args.reviewId)
+    const findings = await findingLines(root, reviewId)
+    const original = findings.find((item) => item.id === args.findingId)
+    if (!original) throw new Error(`original finding not found: ${args.findingId}`)
+
+    if (args.amendmentType === "supersede" && !args.supersededBy) throw new Error("supersede requires supersededBy: new F-... id")
+    if (args.supersededBy) {
+      const replacement = findings.find((item) => item.id === args.supersededBy)
+      if (!replacement) throw new Error(`supersededBy finding not found: ${args.supersededBy}`)
+    }
+    if ((args.startLine !== undefined) !== (args.endLine !== undefined)) throw new Error("provide both startLine and endLine or neither")
+    if (args.startLine !== undefined && args.endLine !== undefined) {
+      if (args.endLine < args.startLine) throw new Error("endLine must be >= startLine")
+      if (args.endLine - args.startLine + 1 > 80) throw new Error("amendment evidence is limited to 80 lines")
+    }
+    if (args.amendmentType === "close" && !args.verification) throw new Error("close requires verification: tests/commands actually run")
+
+    let amendmentPath: string | undefined
+    let amendmentStartLine: number | undefined = args.startLine
+    let amendmentEndLine: number | undefined = args.endLine
+    let excerpt: string | undefined
+    let blobHash: string | undefined
+    let fileStatus: string | undefined
+
+    const needsExcerpt = args.path !== undefined || args.startLine !== undefined || args.amendmentType === "correct" || args.amendmentType === "reopen"
+    if (args.path !== undefined || args.startLine !== undefined) {
+      const relativePath = normalizeWorktreePath(root, args.path ?? original.path)
+      const tracked = await trackedPaths(root)
+      if (!tracked.has(relativePath)) throw new Error(`amendment path is not a tracked file: ${relativePath}`)
+      if (amendmentStartLine === undefined || amendmentEndLine === undefined) throw new Error("path amendment requires startLine and endLine")
+      const absolute = path.resolve(root, relativePath)
+      const text = await readFile(absolute, "utf8")
+      if (text.includes("\0")) throw new Error("binary evidence is not supported")
+      const lines = text.split(/\r?\n/)
+      if (amendmentStartLine > lines.length || amendmentEndLine > lines.length) throw new Error(`line range exceeds file length ${lines.length}`)
+      amendmentPath = relativePath
+      excerpt = lines.slice(amendmentStartLine - 1, amendmentEndLine).join("\n")
+      blobHash = (await git(root, ["hash-object", "--", relativePath])).trim()
+      fileStatus = (await git(root, ["status", "--porcelain=v1", "--", relativePath])).trim()
+    } else if (needsExcerpt && args.amendmentType === "correct") {
+      throw new Error("correct requires path + startLine + endLine with verified current excerpt")
+    } else if (amendmentPath === undefined && original.path) {
+      // for close/retract without new range, capture current blob of original path for staleness reference (optional)
+      try {
+        const tracked = await trackedPaths(root)
+        if (tracked.has(original.path)) blobHash = (await git(root, ["hash-object", "--", original.path])).trim()
+      } catch {}
+    }
+
+    const headSha = (await git(root, ["rev-parse", "HEAD"])).trim()
+    const id = `FA-${randomUUID()}`
+    const amendment = {
+      id,
+      amends: args.findingId,
+      amendmentType: args.amendmentType,
+      explanation: args.explanation,
+      newSeverity: args.newSeverity ?? null,
+      newTitle: args.newTitle ?? null,
+      path: amendmentPath ?? null,
+      startLine: amendmentStartLine ?? null,
+      endLine: amendmentEndLine ?? null,
+      excerpt: excerpt ?? null,
+      supersededBy: args.supersededBy ?? null,
+      verification: args.verification ?? "",
+      regressionTests: [...new Set(args.regressionTests ?? [])],
+      blobHash: blobHash ?? null,
+      headSha,
+      worktreeStatus: fileStatus ?? (await git(root, ["status", "--porcelain=v1"])).trim(),
+      recordedAt: new Date().toISOString(),
+    }
+    await mkdir(reviewDir(root, reviewId), { recursive: true })
+    await appendFile(amendmentLedgerPath(root, reviewId), `${JSON.stringify(amendment)}\n`, "utf8")
+    return JSON.stringify(amendment, null, 2)
+  },
+})
+
+export const get_amendment = tool({
+  description: "Rehydrate one amendment event by FA-... id from findings-amendments.ndjson.",
+  args: {
+    reviewId: tool.schema.string().optional(),
+    amendmentId: tool.schema.string().min(1),
+  },
+  async execute(args, context) {
+    const root = context.worktree
+    const reviewId = await resolveReviewId(root, context.sessionID, args.reviewId)
+    const amendments = await amendmentLines(root, reviewId)
+    const found = amendments.find((a) => a.id === args.amendmentId)
+    if (!found) throw new Error(`amendment not found: ${args.amendmentId}`)
+    return JSON.stringify(found, null, 2)
+  },
+})
+
+export const list_amendments = tool({
+  description: "List amendment events for a finding or all findings in the review.",
+  args: {
+    reviewId: tool.schema.string().optional(),
+    findingId: tool.schema.string().optional(),
+  },
+  async execute(args, context) {
+    const root = context.worktree
+    const reviewId = await resolveReviewId(root, context.sessionID, args.reviewId)
+    const amendments = await amendmentLines(root, reviewId)
+    const filtered = args.findingId ? amendments.filter((a) => a.amends === args.findingId) : amendments
+    return JSON.stringify({ reviewId, count: filtered.length, amendments: filtered.slice(-50) }, null, 2)
   },
 })
