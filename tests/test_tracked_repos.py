@@ -214,6 +214,52 @@ def test_existing_repo_not_pruned_on_malformed_metadata(tmp_path: Path, monkeypa
     assert listed[0]["path"] == str(repo.resolve())
 
 
+def test_malformed_canonical_metadata_retains_prior_exact_identity(tmp_path: Path, monkeypatch) -> None:
+    """FR-LIFE-005: a degraded canonical metadata probe must not erase exact identity."""
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
+    repo = tmp_path / "canonical-metadata"
+    init_repo(repo)
+    subprocess.run(
+        ["git", "-C", str(repo), "remote", "add", "origin", "https://github.com/example/catalog-demo.git"],
+        check=True,
+        capture_output=True,
+    )
+    opencode = repo / ".opencode"
+    opencode.mkdir(parents=True)
+    exact_commit = "abc123def4567890abc123def4567890abc12345"
+    canonical = opencode / "codesleuth.json"
+    canonical.write_text(
+        json.dumps(
+            {
+                "version": "0.4.0",
+                "source": {
+                    "remote": "https://github.com/DassaultFalconKing/CodeSleuth.git",
+                    "ref": "dev/release-0.4.0",
+                    "commit": exact_commit,
+                    "subdir": "",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert not (opencode / "review-pack.json").exists()
+
+    original = lifecycle.record_tracked_repository(repo)
+    assert original["source"]["commit"] == exact_commit
+    assert original["version"] == "0.4.0"
+
+    canonical.write_text("{ malformed json", encoding="utf-8")
+    listed = lifecycle.list_tracked_repositories(refresh=True)
+    assert len(listed) == 1
+    assert listed[0]["source"]["commit"] == exact_commit
+    assert listed[0]["version"] == "0.4.0"
+    assert "abc123" in lifecycle.format_tracked_label(listed[0])
+
+    recorded_again = lifecycle.record_tracked_repository(repo)
+    assert recorded_again["source"]["commit"] == exact_commit
+    assert recorded_again["version"] == "0.4.0"
+
+
 def test_existing_repo_git_remote_failure_retained(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
     repo = tmp_path / "existing3"
