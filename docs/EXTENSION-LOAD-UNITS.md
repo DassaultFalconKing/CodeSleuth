@@ -54,7 +54,8 @@ A kind adapter MUST declare:
 | `validate(package)` | kind invariants; errors block install, warnings do not |
 | `detail_model` | what Detail renders (steps/skills/tools for Playbooks) |
 | `host_command(item)` | copyable route into the host, or none |
-| `origin` | `pack` or `overlay` after merge |
+
+`origin` is not adapter configuration. It is resolved per Catalog item after overlay/pack merge, together with the selected path and other provenance.
 
 A new kind is a new adapter, not a new wizard architecture.
 
@@ -65,7 +66,8 @@ The loaded list. Mandatory for every kind that has a load wizard.
 The catalog MUST:
 
 - list overlay items and pack items in one table;
-- let **overlay win** on the same id when content differs;
+- let **overlay win** whenever the same id exists in overlay and pack;
+- report the resolved source truthfully: an item selected from the overlay is `origin=overlay` even if its manifest bytes happen to equal the pack manifest;
 - show `id`, origin, and enough columns to choose a row (Playbooks: step count, `/playbook` or alias);
 - treat each row as a control (not a log dump);
 - open Detail on select;
@@ -108,13 +110,17 @@ Source → Inspect → Validate → Confirm → Result
 
 Abort/Escape on Source–Confirm writes nothing.
 
-Install copies into the overlay root. Pack builtins are not mutated. A user id absent from the pack manifest is not a managed overwrite on update.
+Install copies into the overlay root. Replacement MUST be staged before the existing overlay is moved, and a failed stage/publish MUST preserve or restore the previous usable overlay. Pack builtins are not mutated. A user id absent from the pack manifest is not a managed overwrite on update.
+
+For the first Playbook slice, zip input contains exactly one top-level Playbook directory. Root-level `playbook.json` archives are rejected rather than being normalized implicitly.
 
 ## Shared invariants
 
 - Inspect before write.
-- Overlay wins over pack on id when bytes differ.
+- Overlay wins over pack on id whenever an overlay item exists.
+- Resolved origin describes the selected source path, not manifest-byte equality.
 - Silent overwrite of a pack id is forbidden.
+- Failed replacement does not destroy the previous usable overlay.
 - Catalog/Detail/Wizard never execute the loaded object.
 - Tool/Skill names are never invented from prose when the manifest omits them.
 - Zip extract is bounded (entry count, uncompressed size, no `..` / absolute paths).
@@ -130,7 +136,7 @@ Install copies into the overlay root. Pack builtins are not mutated. A user id a
 | Tool / plugin | planned reuse | `.opencode/tools/`, plugin config | host tool/plugin execution |
 | Host adapter | planned reuse | adapter-specific overlay | that host, never a CodeSleuth controller |
 
-Do not start a Skill or profile wizard by forking `PlaybookLoadWizard` into a parallel undocumented state machine. Extract or copy the **phase unit** and swap the kind adapter.
+Do not start a Skill or profile wizard by forking or copying `PlaybookLoadWizard` into a parallel state machine. Extract one shared phase machine and supply a different kind adapter.
 
 ## What this must never become
 
