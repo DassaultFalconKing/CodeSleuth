@@ -28,4 +28,4 @@ Use `eha_state_start_campaign`, `eha_state_record_verdict`, `eha_state_record_re
 
 For SIB2 interface composition, the canonical `TUI visual regression / Ubuntu` job in `docs/TUI-VISUAL-REGRESSION.md` is required evidence. Inspect `screen.svg`, `ui.log`, `events.log`, and `analysis.json` when a visual scenario fails.
 
-When stale or divergent work is involved, apply `docs/SEMANTIC-REFIT.md` before starting a new campaign on the integrated `dev/release-X.Y.Z` head.
+When stale or divergent work is involved, apply `docs/SEMANTIC-REFIT.md` (`semantic-refit`) before starting a new campaign on the integrated `dev/release-X.Y.Z` head.
