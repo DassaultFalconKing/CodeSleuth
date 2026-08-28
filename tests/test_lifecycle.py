@@ -62,8 +62,10 @@ def main():
         assert "right-close" not in branded_source
         assert "CodeSleuthHelpScreen" in branded_source
         assert '("h", "help", "Help")' in branded_source
-        assert "CodeSleuth Playbooks" in branded_source
-        assert "Playbooks are prompts, not OpenCode Skills" in branded_source
+        assert "Playbooks · stored workflows" in branded_source
+        assert "Playbooks are prompts, not OpenCode Skills" not in branded_source
+        assert "does not run Playbook Steps" in branded_source
+        assert "Suggested prompts" in branded_source
         assert "codesleuth-project --uninstall" in branded_source
         assert "There is no automated uninstaller yet." not in branded_source
         assert "CodeSleuth Review Prompts" not in branded_source

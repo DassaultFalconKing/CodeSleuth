@@ -20,6 +20,7 @@
 - [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) — post-SIB2 protection model: protected capabilities, contract-owned forbidden regressions, Mermaid dependency/impact graphs, dependency-aware development gates, and full-suite SIB2/RC/release preservation.
 - [`protected-capabilities.json`](protected-capabilities.json) — machine-readable Protected Capability Registry with code/docs/test provenance, contract fingerprints, dependency/impact metadata, and each contract's own forbidden-regression ledger.
 - [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md) — reusable-instruction model: atomic on-demand Skills, isolated Playbook Steps, Playbooks as orchestration, Commands as user entry points, and Tools as bounded execution primitives.
+- [`EXTENSION-LOAD-UNITS.md`](EXTENSION-LOAD-UNITS.md) — shared Catalog, Detail, and Load-wizard units for user-loadable pack content; Playbooks is the first instance.
 - [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — normative semantic-continuity criterion: preserve or explicitly reconcile the product's evidenced semantic surface across implementation and architectural change.
 
 ## Engineering articles
@@ -34,6 +35,7 @@ Long-form explanatory material lives under [`articles/`](articles/). Articles ar
 - [`MERMAID-QA.md`](MERMAID-QA.md) — explicit isolated parser/render QA for generated Mermaid source; normal CodeSleuth runtime remains browser-free.
 - [`GRAPHIFY-PROVIDER.md`](GRAPHIFY-PROVIDER.md) — isolated, explicitly enabled Graphify structural-provider contract, provenance and fail-closed mapping rules.
 - [`GRAPHIFY-CORPUS.md`](GRAPHIFY-CORPUS.md) — deterministic representative-corpus comparison, hardening cases and honest measurement limits for the optional provider.
+- [`PLAYBOOKS-CATALOG-TUI.md`](PLAYBOOKS-CATALOG-TUI.md) — first-instance notes and sketches for the Playbooks Catalog/Detail/Load-wizard surface. Shared unit contract: [`EXTENSION-LOAD-UNITS.md`](EXTENSION-LOAD-UNITS.md). Sketches under [`sketches/`](sketches/) are incubation, not live-TUI manuals.
 
 ## README language maintenance
 
@@ -94,6 +96,7 @@ CodeSleuth documentation is text-first and terminal-native.
 - [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) — required preservation discipline for accepted capabilities and their contract-owned forbidden regressions during release feature population.
 - [`protected-capabilities.json`](protected-capabilities.json) — queryable machine contract/forbidden-regression registry used for impact selection and preservation review.
 - [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md) — required design contract for atomic Skills and step-isolated Playbooks.
+- [`EXTENSION-LOAD-UNITS.md`](EXTENSION-LOAD-UNITS.md) — required shared Catalog, Detail, and Load-wizard units for user-loadable pack content.
 - [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — semantic-refit authority and refit-readiness criteria for preserving product claims across future change.
 - [`LESSONS-LEARNED-SIB2-SEMANTIC-REFIT.md`](LESSONS-LEARNED-SIB2-SEMANTIC-REFIT.md) — non-normative retrospective on the 0.4.0 SIB2 assembly: exact-head identity, Semantic Refit, repair discipline, hardening, promotion, branch archaeology, and preserved negative knowledge.
 - [`LESSONS-LEARNED-VIEWPORT-HARDENING.md`](LESSONS-LEARNED-VIEWPORT-HARDENING.md) — TUI collapse/Tools viewport acceptance lessons and anti-patterns (paired with `.cursor/rules/tui-viewport-acceptance.mdc`).
@@ -113,6 +116,7 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         +--> ../AGENTS.md                                 (compact cross-agent entry point)
         +--> LLM-OPERATOR.md                              (task-specific operator surface)
         +--> PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md      (Playbook/Step/Skill/Command/Tool composition)
+        +--> EXTENSION-LOAD-UNITS.md                      (Catalog / Detail / Load wizard; Playbooks first)
         +--> STABLE-INTEGRATION-BASELINE.md               (SIB0 -> SIB1 -> SIB2)
         |       +--> SIB0-CAPABILITY-INVENTORY.md         (frozen capability-class inventory)
         |       +--> EXACT-HEAD-ACCEPTANCE.md             (what is proven -> exact SHA carrying the proof)

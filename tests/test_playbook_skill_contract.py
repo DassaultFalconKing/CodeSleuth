@@ -96,6 +96,10 @@ def test_playbook_manifests_reference_real_atomic_skills_and_steps() -> None:
                 assert prompt_path.is_file(), f"{manifest_path}: missing {prompt}"
                 for skill in step.get("skills", []):
                     assert skill in skill_ids, f"{manifest_path}: unknown skill {skill}"
+            if "tools" in step:
+                assert isinstance(step["tools"], list), f"{manifest_path}: {step['id']} tools must be an array"
+                for tool in step["tools"]:
+                    assert isinstance(tool, str) and tool.strip(), f"{manifest_path}: blank tool name"
 
         _assert_acyclic(steps)
 
@@ -112,6 +116,8 @@ def test_playbook_command_requires_one_step_at_a_time_and_host_native_isolation(
     text = (COMMANDS / "playbook.md").read_text(encoding="utf-8")
     assert "PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md" in text
     assert "playbook.json" in text
+    assert ".opencode/playbooks/$1/playbook.json" in text
+    assert "pack/.opencode/playbooks/$1/playbook.json" in text
     assert "exactly one Step" in text
     assert "fresh host-native subagent" in text
     assert "STEP_ISOLATION_UNPROVEN" in text

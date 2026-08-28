@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Footer, Header, Input, Label, RichLog, Select, Static
 
 import codesleuth_tui as _base
@@ -48,17 +48,7 @@ class CodeSleuthApp(_base.CodeSleuthApp):
                             allow_blank=False,
                             id="compact-nav",
                         )
-                        with Vertical(id="operation"):
-                            yield Static("", id="surface")
-                            with Grid(id="actions"):
-                                yield Button("Configure", id="configure", variant="primary")
-                                yield Button("Verify", id="smoke")
-                                yield Button("Check Updates", id="check-update")
-                                yield Button("Update", id="update")
-                                yield Button("Playbooks", id="playbooks")
-                                yield Button("Help", id="help")
-                                yield Button("Uninstall", id="uninstall", variant="error")
-                                yield Button("Open CodeSleuth", id="launch", variant="primary")
+                        yield from _base.compose_surface_operation()
                         yield Label("Repository")
                         with Horizontal(id="repo-row"):
                             yield Input(str(self.target), id="target")

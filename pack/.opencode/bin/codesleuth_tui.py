@@ -7,7 +7,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from textual import work
+from textual import events, work
 from textual.app import ComposeResult
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
 from textual.css.query import NoMatches
@@ -29,6 +29,19 @@ from textual.widgets import (
 
 import codesleuth_project as project_lifecycle
 from constants import AGENT_PROFILE_OPTIONS
+from playbook_catalog import (
+    PlaybookCatalogError,
+    PlaybookRecord,
+    discover_playbooks,
+    inspect_playbook_source,
+    install_playbook,
+    known_skill_ids,
+    pack_playbook_ids,
+    skill_contract_excerpt,
+    tool_purpose,
+    unpack_workspace,
+    validate_playbook_dir,
+)
 from review_pack_tui import AbortableModalScreen, ConfigScreen, PromptScreen, ReviewPackApp, launch_opencode
 from review_pack_tui_core import (
     detect_profiles,
@@ -78,6 +91,10 @@ NAV_SURFACES = {
         "Review · OpenCode execution",
         "Discover and invoke repository review commands and Playbooks. OpenCode owns the model session, agent loop, and review execution; CodeSleuth does not run a second review engine.",
     ),
+    "playbooks": (
+        "Playbooks · stored workflows",
+        "Inspect installed overlay and pack Playbooks. Copy /playbook <id> or Open CodeSleuth; this console does not run Steps.",
+    ),
     "evidence": (
         "Evidence · OpenCode state",
         "Inspect durable review state, findings/coverage hints, and checkpoint provenance where available. CodeSleuth only presents this state.",
@@ -94,7 +111,8 @@ NAV_SURFACES = {
 
 SURFACE_ACTIONS = {
     "home": ("configure", "smoke", "playbooks", "help", "launch"),
-    "review": ("playbooks", "launch"),
+    "review": ("suggested-prompts", "launch"),
+    "playbooks": ("load-playbook", "copy-playbook", "launch"),
     "evidence": ("help", "launch"),
     "tools": ("smoke", "check-update", "update", "launch"),
     "settings": ("configure", "uninstall"),
@@ -147,16 +165,15 @@ HELP_SECTIONS = [
     ),
     (
         "Skills, Playbooks, Tools, and Profiles",
-        "Skill = reusable OpenCode capability/protocol. Playbook = task recipe for a concrete repository operation. "
+        "Skill = reusable OpenCode capability/protocol. Playbook = ordered/DAG orchestration of stored Steps. "
         "Tool/plugin = OpenCode-native executable capability or integration. Profile = repository-specific detection/configuration metadata. "
         "CodeSleuth may discover and manage these surfaces, but OpenCode executes them.",
     ),
     (
         "Playbooks",
-        "Playbooks are ready-to-run task recipes generated from the repository profile. "
-        "They are intentionally not called Skills because they are prompts/command templates, not reusable OpenCode capabilities. "
-        "Open Playbooks from this console, copy a useful recipe into OpenCode, or save the generated set to "
-        ".opencode/state/tui/suggested-prompts.md (compatibility path retained for now).",
+        "The Playbooks surface lists stored workflows from .opencode/playbooks (overlay) and pack/.opencode/playbooks. "
+        "Select a row to inspect steps, Skills, and declared tools. Copy /playbook <id> or Open CodeSleuth to run them; "
+        "this console does not run Playbook Steps or load Skills. Suggested prompts remain under Review.",
     ),
     (
         "Agent profile",
@@ -211,9 +228,9 @@ HELP_SECTIONS = [
 ]
 
 
-class CodeSleuthPlaybookScreen(PromptScreen):
+class CodeSleuthSuggestedPromptsScreen(PromptScreen):
     CSS = """
-    CodeSleuthPlaybookScreen { align: center middle; background: rgba(0,0,0,0.58); }
+    CodeSleuthSuggestedPromptsScreen { align: center middle; background: rgba(0,0,0,0.58); }
     #prompt-dialog { width: 92%; height: 88%; border: round #3e718a; background: #0e1822; padding: 1 2; }
     #page-chrome { height: 3; align: left middle; }
     #page-chrome Label { width: 1fr; height: auto; color: #63d5f4; text-style: bold; }
@@ -225,16 +242,255 @@ class CodeSleuthPlaybookScreen(PromptScreen):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="prompt-dialog"):
-            yield from self.compose_chrome("CodeSleuth Playbooks", title_id="prompt-title", abort_label="Close")
+            yield from self.compose_chrome("Suggested prompts", title_id="prompt-title", abort_label="Close")
             yield Static(
-                "Ready-to-run review task recipes generated from active repository profiles. "
-                "Playbooks are prompts, not OpenCode Skills; OpenCode executes the selected recipe.",
+                "Profile-generated /repo-* recipes. Save writes suggested-prompts.md. "
+                "Stored Playbooks live on the Playbooks surface and run through OpenCode /playbook.",
                 classes="hint",
             )
             yield RichLog(id="prompt-log", wrap=True, markup=True)
             with Horizontal(id="prompt-actions"):
-                yield Button("Save playbooks", id="save-prompts", variant="primary")
+                yield Button("Save prompts", id="save-prompts", variant="primary")
                 yield Button("Close", id="close-prompts")
+
+
+WIZARD_PHASES = ("source", "inspect", "validate", "confirm", "result")
+
+
+class PlaybookLoadWizard(AbortableModalScreen[bool]):
+    CSS = """
+    PlaybookLoadWizard { align: center middle; background: rgba(0,0,0,0.62); }
+    #wizard-dialog { width: 92%; height: 88%; border: round #3e718a; background: #0e1822; padding: 1 2; }
+    PlaybookLoadWizard.compact #wizard-dialog { width: 100%; height: 100%; padding: 1; }
+    #page-chrome { height: 3; align: left middle; }
+    #page-chrome Label { width: 1fr; height: auto; color: #63d5f4; text-style: bold; }
+    #page-chrome Button { min-width: 8; width: auto; }
+    #wizard-phase { color: #63d5f4; text-style: bold; }
+    #wizard-body { height: 1fr; border: solid #29404f; padding: 1; }
+    #wizard-source { width: 100%; }
+    #wizard-actions { height: auto; align-horizontal: right; margin-top: 1; }
+    .hint { color: #71879a; }
+    .warning { color: #f0c36a; }
+    """
+
+    def abort_result(self) -> bool:
+        return False
+
+    def __init__(self, repo: Path, distribution_root: Path | None) -> None:
+        super().__init__()
+        self.repo = repo
+        self.distribution_root = distribution_root
+        self.phase = "source"
+        self.source_path = ""
+        self.record: PlaybookRecord | None = None
+        self.package_dir: Path | None = None
+        self.validation_text = ""
+        self.can_install = False
+        self.pack_collision = False
+        self.overlay_exists = False
+        self.result_text = ""
+        self._unpack = unpack_workspace()
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="wizard-dialog"):
+            yield from self.compose_chrome("Load playbook", title_id="wizard-title", abort_label="Abort")
+            yield Static("Source → Inspect → Validate → Confirm → Result", id="wizard-phase")
+            yield Static("", id="wizard-body")
+            yield Input(placeholder="Local Playbook directory or .zip", id="wizard-source")
+            with Horizontal(id="wizard-actions"):
+                next_btn = Button("Next", id="wizard-next", variant="primary")
+                next_btn.active_effect_duration = 0
+                yield next_btn
+                confirm = Button("Install", id="wizard-confirm", variant="primary")
+                confirm.active_effect_duration = 0
+                yield confirm
+                close = Button("Close", id="wizard-close")
+                close.active_effect_duration = 0
+                yield close
+
+    def on_mount(self) -> None:
+        self.set_class(self.app.size.width < 80 or self.app.size.height < 24, "compact")
+        self._render_phase()
+
+    def on_unmount(self) -> None:
+        self._unpack.cleanup()
+
+    def _set_action_visibility(self) -> None:
+        next_btn = self.query_one("#wizard-next", Button)
+        confirm = self.query_one("#wizard-confirm", Button)
+        close = self.query_one("#wizard-close", Button)
+        source = self.query_one("#wizard-source", Input)
+        if self.phase == "source":
+            next_btn.display = True
+            confirm.display = False
+            close.display = False
+            source.display = True
+        elif self.phase in {"inspect", "validate"}:
+            next_btn.display = True
+            next_btn.disabled = self.phase == "validate" and not self.can_install
+            confirm.display = False
+            close.display = False
+            source.display = False
+        elif self.phase == "confirm":
+            next_btn.display = False
+            confirm.display = True
+            close.display = False
+            source.display = False
+        else:
+            next_btn.display = False
+            confirm.display = False
+            close.display = True
+            source.display = False
+
+    def _render_phase(self) -> None:
+        body = self.query_one("#wizard-body", Static)
+        phase = self.query_one("#wizard-phase", Static)
+        labels = " → ".join(item.upper() if item == self.phase else item for item in WIZARD_PHASES)
+        phase.update(labels)
+        if self.phase == "source":
+            body.update(
+                "Choose a local Playbook folder (contains playbook.json) or a .zip. "
+                "Remote registry install is not in this slice. Abort writes nothing."
+            )
+        elif self.phase == "inspect" and self.record is not None:
+            step_lines = "\n".join(
+                f"  {step.id} · {step.execution} · skills={', '.join(step.skills) or 'none'} · "
+                f"tools={', '.join(step.tools) or 'none'}"
+                for step in self.record.steps
+            )
+            body.update(
+                f"id: {self.record.id}\n{self.record.description}\n"
+                f"steps: {len(self.record.steps)}\n{step_lines}"
+            )
+        elif self.phase == "validate":
+            body.update(self.validation_text)
+        elif self.phase == "confirm":
+            warnings = []
+            if self.pack_collision:
+                warnings.append(
+                    f"Pack already has {self.record.id if self.record else 'this id'}. "
+                    "Installing writes the overlay and shadows the pack copy. Confirm or Abort."
+                )
+            if self.overlay_exists:
+                warnings.append("An overlay copy already exists and will be replaced if you confirm.")
+            extra = "\n".join(warnings) or "Install into .opencode/playbooks/<id>/. This does not start /playbook."
+            body.update(extra)
+        else:
+            body.update(self.result_text)
+        self._set_action_visibility()
+
+    def _advance_from_source(self) -> None:
+        raw = (self.query_one("#wizard-source", Input).value or "").strip()
+        if not raw:
+            self.notify("Enter a Playbook directory or .zip", severity="error")
+            return
+        self.source_path = raw
+        unpack = Path(self._unpack.name)
+        try:
+            self.record = inspect_playbook_source(Path(raw), unpack)
+            self.package_dir = self.record.path
+        except PlaybookCatalogError as exc:
+            self.notify(str(exc), severity="error")
+            return
+        self.phase = "inspect"
+        self._render_phase()
+
+    def _advance_from_inspect(self) -> None:
+        if self.package_dir is None:
+            return
+        skills = known_skill_ids(self.repo, self.distribution_root)
+        report = validate_playbook_dir(self.package_dir, skill_ids=skills)
+        lines = []
+        if report.errors:
+            lines.append("Errors:")
+            lines.extend(f"  - {item}" for item in report.errors)
+        if report.warnings:
+            lines.append("Warnings:")
+            lines.extend(f"  - {item}" for item in report.warnings)
+        if report.ok:
+            lines.append("Validation passed. Missing skills and empty tools[] are warnings only.")
+        self.validation_text = "\n".join(lines) or "Validation passed."
+        self.can_install = report.ok
+        self.phase = "validate"
+        self._render_phase()
+
+    def _advance_from_validate(self) -> None:
+        if not self.can_install or self.record is None:
+            self.notify("Fix validation errors before installing", severity="error")
+            return
+        self.pack_collision = self.record.id in pack_playbook_ids(self.repo, self.distribution_root)
+        overlay = self.repo / ".opencode" / "playbooks" / self.record.id
+        self.overlay_exists = overlay.exists()
+        self.phase = "confirm"
+        self._render_phase()
+
+    def _install(self) -> None:
+        if self.record is None or self.package_dir is None or not self.can_install:
+            return
+        if self.pack_collision or self.overlay_exists:
+            overwrite = True
+        else:
+            overwrite = False
+        try:
+            dest = install_playbook(
+                self.package_dir,
+                self.repo,
+                overwrite=overwrite or self.overlay_exists,
+                unpack_dir=Path(self._unpack.name),
+            )
+        except PlaybookCatalogError as exc:
+            self.notify(str(exc), severity="error")
+            return
+        self.result_text = (
+            f"Installed overlay copy at {dest}.\n"
+            "Open CodeSleuth and run /playbook "
+            f"{self.record.id}. This wizard does not start /playbook."
+        )
+        self.phase = "result"
+        self._render_phase()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if self._abort_from_button(event):
+            return
+        if event.button.id == "wizard-next":
+            event.stop()
+            if self.phase == "source":
+                self._advance_from_source()
+            elif self.phase == "inspect":
+                self._advance_from_inspect()
+            elif self.phase == "validate":
+                self._advance_from_validate()
+        elif event.button.id == "wizard-confirm":
+            event.stop()
+            self._install()
+        elif event.button.id == "wizard-close":
+            event.stop()
+            self.dismiss(self.phase == "result")
+
+
+def compose_surface_operation() -> ComposeResult:
+    with Vertical(id="operation"):
+        yield Static("", id="surface")
+        with Grid(id="actions"):
+            yield Button("Configure", id="configure", variant="primary")
+            yield Button("Verify", id="smoke")
+            yield Button("Check Updates", id="check-update")
+            yield Button("Update", id="update")
+            yield Button("Playbooks", id="playbooks")
+            yield Button("Load playbook", id="load-playbook")
+            yield Button("Copy /playbook", id="copy-playbook")
+            yield Button("Suggested prompts", id="suggested-prompts")
+            yield Button("Help", id="help")
+            yield Button("Uninstall", id="uninstall", variant="error")
+            yield Button("Open CodeSleuth", id="launch", variant="primary")
+        with Vertical(id="playbooks-panel"):
+            with Horizontal(id="playbooks-body"):
+                with VerticalScroll(id="playbooks-catalog"):
+                    yield Static("No stored Playbooks discovered.", id="playbooks-empty")
+                with VerticalScroll(id="playbooks-detail"):
+                    yield Static("Select a Playbook to inspect its steps.", id="playbooks-detail-body")
+                    yield Vertical(id="playbooks-steps")
+                    yield Static("", id="chip-contract")
 
 
 class CodeSleuthHelpScreen(AbortableModalScreen[None]):
@@ -488,7 +744,7 @@ class CodeSleuthApp(ReviewPackApp):
     #nav-chrome { height: 3; width: 100%; }
     #nav-title { width: 1fr; }
     #nav-collapse { min-width: 5; width: 5; margin-left: 1; }
-    #wide-nav .nav-button { width: 100%; margin-bottom: 1; }
+    #wide-nav .nav-button { width: 100%; margin-bottom: 0; height: 3; }
     #wide-nav.collapsed { width: 8; min-width: 8; max-width: 8; padding: 1 1; margin-right: 1; overflow: hidden; }
     #wide-nav.collapsed #nav-title,
     #wide-nav.collapsed .nav-button { display: none; }
@@ -504,6 +760,14 @@ class CodeSleuthApp(ReviewPackApp):
     #tracked-repos { width: 100%; margin-bottom: 1; }
     #security { color: #f0c36a; margin: 1 0; }
     #surface { border-left: thick #3e718a; padding-left: 1; margin: 0 0 1 0; color: #d8e3eb; }
+    #playbooks-panel { display: none; height: 10; margin: 0 0 1 0; }
+    #playbooks-panel.surface-visible { display: block; }
+    #playbooks-body { height: 1fr; }
+    #playbooks-catalog { width: 42%; height: 1fr; border: solid #29404f; background: #0e1822; padding: 0 1; }
+    #playbooks-detail { width: 1fr; height: 1fr; border: solid #29404f; background: #0e1822; padding: 0 1; }
+    .playbook-row { width: 100%; min-width: 0; margin: 0; height: 1; }
+    .chip-row { height: auto; }
+    .skill-chip, .tool-chip { min-width: 0; margin: 0 1 1 0; }
     #status { border: round #29404f; padding: 1; margin: 1 0; background: #0e1822; }
     #actions { grid-size: 5 1; grid-gutter: 0 1; height: 3; margin-bottom: 1; }
     #actions Button { width: 100%; min-width: 0; }
@@ -514,7 +778,12 @@ class CodeSleuthApp(ReviewPackApp):
     #workspace.compact #wide-nav { display: none; }
     #workspace.compact #main-scroll { height: auto; max-height: 1fr; }
     #workspace.compact #compact-nav { display: block; }
-    #workspace.compact #actions { grid-size: 2 3; height: 9; }
+    #workspace.compact #actions { grid-size: 5; height: auto; }
+    #workspace.compact #playbooks-panel { height: 7; }
+    #workspace.compact #playbooks-body { layout: vertical; }
+    #workspace.compact #playbooks-catalog { width: 100%; height: 1fr; }
+    #workspace.compact #playbooks-detail { width: 100%; height: 1fr; }
+    #workspace.compact #playbooks-detail-body { display: none; }
     """
     BINDINGS = [
         ("q", "quit", "Quit"),
@@ -535,6 +804,10 @@ class CodeSleuthApp(ReviewPackApp):
         self.keys_visible = True
         self.left_nav_collapsed = False
         self.right_panel_collapsed = False
+        self.selected_playbook_id: str | None = None
+        self._playbook_records: dict[str, PlaybookRecord] = {}
+        self._syncing_nav = False
+        self._detail_id: str | None = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -555,17 +828,7 @@ class CodeSleuthApp(ReviewPackApp):
                     )
                     # Surface copy and the actions for that surface stay together so Tools/Review
                     # controls are reachable without scrolling past status.
-                    with Vertical(id="operation"):
-                        yield Static("", id="surface")
-                        with Grid(id="actions"):
-                            yield Button("Configure", id="configure", variant="primary")
-                            yield Button("Verify", id="smoke")
-                            yield Button("Check Updates", id="check-update")
-                            yield Button("Update", id="update")
-                            yield Button("Playbooks", id="playbooks")
-                            yield Button("Help", id="help")
-                            yield Button("Uninstall", id="uninstall", variant="error")
-                            yield Button("Open CodeSleuth", id="launch", variant="primary")
+                    yield from compose_surface_operation()
                     yield Label("Repository")
                     with Horizontal(id="repo-row"):
                         yield Input(str(self.target), id="target")
@@ -768,8 +1031,10 @@ class CodeSleuthApp(ReviewPackApp):
         elif route == "review":
             extra = (
                 "OpenCode commands:\n  " + "\n  ".join(OPEN_CODE_COMMANDS) + "\n"
-                "Playbooks are task recipes that route into the same OpenCode execution path."
+                "Suggested prompts are profile-generated recipes. Stored Playbooks are on the Playbooks surface."
             )
+        elif route == "playbooks":
+            extra = "Overlay wins over pack. Chips inspect contracts only."
         elif route == "evidence":
             extra = self._evidence_state_summary(repo)
         elif route == "tools":
@@ -806,8 +1071,21 @@ class CodeSleuthApp(ReviewPackApp):
         for name in NAV_SURFACES:
             self.query_one(f"#nav-{name}", Button).variant = "primary" if name == route else "default"
         selector = self.query_one("#compact-nav", Select)
-        if selector.value != route:
-            selector.value = route
+        self._syncing_nav = True
+        try:
+            if selector.value != route:
+                selector.value = route
+        finally:
+            self._syncing_nav = False
+        panel = self.query_one("#playbooks-panel")
+        panel.set_class(route == "playbooks", "surface-visible")
+        if route == "playbooks":
+            self._refresh_playbooks_catalog()
+        else:
+            try:
+                self.query_one("#copy-playbook", Button).disabled = True
+            except NoMatches:
+                pass
         self.query_one("#main-scroll", VerticalScroll).scroll_to_widget(
             self.query_one("#operation"), animate=False
         )
@@ -912,14 +1190,174 @@ class CodeSleuthApp(ReviewPackApp):
         self.push_screen(CodeSleuthConfigScreen(repo, self.distribution_root), self._configured)
 
     def action_playbooks(self) -> None:
+        if isinstance(self.screen, AbortableModalScreen):
+            return
+        if self.current_surface == "playbooks":
+            self.selected_playbook_id = None
+            self._detail_id = None
+        self.show_surface("playbooks")
+
+    def action_suggested_prompts(self) -> None:
         if isinstance(self.screen, PromptScreen):
             return
         try:
             repo = self.validate_target()
             profiles = load_settings(repo, detect_profiles(repo))["profiles"]
-            self.push_screen(CodeSleuthPlaybookScreen(repo, profiles))
+            self.push_screen(CodeSleuthSuggestedPromptsScreen(repo, profiles))
         except Exception as exc:
             self.notify(str(exc), severity="error")
+
+    def action_load_playbook(self) -> None:
+        if isinstance(self.screen, AbortableModalScreen):
+            return
+        try:
+            repo = self.validate_target()
+        except Exception as exc:
+            self.notify(str(exc), severity="error")
+            return
+        self.push_screen(PlaybookLoadWizard(repo, self.distribution_root), self._playbook_loaded)
+
+    def action_copy_playbook(self) -> None:
+        record = self._selected_playbook()
+        if record is None:
+            self.notify("Select a Playbook first", severity="warning")
+            return
+        self.copy_to_clipboard(record.playbook_command)
+        self.notify(f"Copied {record.playbook_command}")
+
+    def _playbook_loaded(self, changed: bool) -> None:
+        if changed:
+            self._refresh_playbooks_catalog()
+            self.write_ui_log("[green]Playbook installed into overlay catalog.[/green]")
+
+    def _selected_playbook(self) -> PlaybookRecord | None:
+        if not self.selected_playbook_id:
+            return None
+        return self._playbook_records.get(self.selected_playbook_id)
+
+    def _highlight_playbook_rows(self) -> None:
+        for button in self.query(".playbook-row"):
+            button.variant = "primary" if button.id == f"pb-row-{self.selected_playbook_id}" else "default"
+        try:
+            self.query_one("#copy-playbook", Button).disabled = self.selected_playbook_id is None
+        except NoMatches:
+            pass
+
+    def _refresh_playbooks_catalog(self) -> None:
+        try:
+            repo = self.validate_target()
+            records = discover_playbooks(repo, self.distribution_root)
+        except Exception as exc:
+            records = []
+            self.notify(str(exc), severity="error")
+        self._playbook_records = {record.id: record for record in records}
+        if self.selected_playbook_id not in self._playbook_records:
+            self.selected_playbook_id = None
+        catalog = self.query_one("#playbooks-catalog", VerticalScroll)
+        empty = self.query_one("#playbooks-empty", Static)
+        empty.display = not records
+        seen: set[str] = set()
+        for record in records:
+            widget_id = f"pb-row-{record.id}"
+            seen.add(widget_id)
+            alias = record.command_alias or "/playbook"
+            label = f"{record.id} · {len(record.steps)} steps · {alias} · {record.origin}"
+            try:
+                button = self.query_one(f"#{widget_id}", Button)
+                button.label = label
+                button.display = True
+            except NoMatches:
+                button = Button(label, id=widget_id, classes="playbook-row", compact=True)
+                catalog.mount(button)
+        for button in list(catalog.query(".playbook-row")):
+            if button.id not in seen:
+                button.display = False
+        compact = self.size.width < 100 or self.size.height < 30
+        catalog.display = not (compact and self.selected_playbook_id)
+        self._highlight_playbook_rows()
+        self._render_playbook_detail()
+
+    def _render_playbook_detail(self) -> None:
+        body = self.query_one("#playbooks-detail-body", Static)
+        steps_box = self.query_one("#playbooks-steps", Vertical)
+        record = self._selected_playbook()
+        if record is None:
+            for child in steps_box.children:
+                child.display = False
+            body.update("Select a Playbook to inspect its steps.")
+            self.query_one("#chip-contract", Static).update("")
+            self._detail_id = None
+            return
+        body.update(
+            f"{record.id}\n{record.description}\n"
+            f"origin: {record.origin} · {record.command_alias or record.playbook_command}\n{record.summary}"
+        )
+        if self._detail_id == record.id and any(child.display for child in steps_box.children):
+            return
+        self._detail_id = record.id
+        for child in steps_box.children:
+            child.display = False
+        for chip in steps_box.query(".skill-chip, .tool-chip"):
+            chip.remove_class("skill-chip")
+            chip.remove_class("tool-chip")
+        first_chip: Button | None = None
+        for step in record.steps:
+            steps_box.mount(Static(f"{step.id} · {step.execution} · {step.isolation} · {step.output}", classes="hint"))
+            row = Horizontal(classes="chip-row")
+            steps_box.mount(row)
+            for skill in step.skills:
+                chip = Button(f"skill:{skill}", classes="skill-chip", compact=True)
+                first_chip = first_chip or chip
+                row.mount(chip)
+            for tool in step.tools:
+                chip = Button(f"tool:{tool}", classes="tool-chip", compact=True)
+                first_chip = first_chip or chip
+                row.mount(chip)
+            if not step.skills and not step.tools:
+                row.mount(Static("no declared skills/tools", classes="hint"))
+        self.query_one("#chip-contract", Static).update("")
+        if self.size.width >= 100 and self.size.height >= 30:
+            self.query_one("#main-scroll", VerticalScroll).scroll_to_widget(
+                self.query_one("#playbooks-detail"), animate=False
+            )
+        else:
+            main_scroll = self.query_one("#main-scroll", VerticalScroll)
+            self.call_after_refresh(main_scroll.scroll_home, animate=False)
+            if first_chip is not None:
+                detail = self.query_one("#playbooks-detail", VerticalScroll)
+                self.call_after_refresh(detail.scroll_to_widget, first_chip, animate=False)
+
+    def _show_chip_contract(self, button: Button) -> None:
+        label = str(button.label)
+        repo = self.target
+        if label.startswith("skill:"):
+            skill_id = label.split(":", 1)[1]
+            text = skill_contract_excerpt(skill_id, repo, self.distribution_root)
+        elif label.startswith("tool:"):
+            text = tool_purpose(label.split(":", 1)[1])
+        else:
+            return
+        try:
+            self.query_one("#chip-contract", Static).update(text)
+        except NoMatches:
+            pass
+        self.notify("Catalog chips do not invoke Skills or tools")
+
+    def _select_playbook(self, playbook_id: str) -> None:
+        self.selected_playbook_id = playbook_id
+        compact = self.size.width < 100 or self.size.height < 30
+        self.query_one("#playbooks-catalog").display = not compact
+        self._highlight_playbook_rows()
+        self._render_playbook_detail()
+
+    def on_click(self, event: events.Click) -> None:
+        if self.current_surface != "playbooks":
+            return
+        for row in self.query(".playbook-row"):
+            if row.region.contains(event.screen_x, event.screen_y):
+                event.stop()
+                self._select_playbook(row.id.removeprefix("pb-row-"))
+                return
 
     def action_help(self) -> None:
         if isinstance(self.screen, CodeSleuthHelpScreen):
@@ -1065,6 +1503,21 @@ class CodeSleuthApp(ReviewPackApp):
         elif event.button.id == "playbooks":
             event.stop()
             self.action_playbooks()
+        elif event.button.id == "suggested-prompts":
+            event.stop()
+            self.action_suggested_prompts()
+        elif event.button.id == "load-playbook":
+            event.stop()
+            self.action_load_playbook()
+        elif event.button.id == "copy-playbook":
+            event.stop()
+            self.action_copy_playbook()
+        elif event.button.id and event.button.id.startswith("pb-row-"):
+            event.stop()
+            self._select_playbook(event.button.id.removeprefix("pb-row-"))
+        elif event.button.has_class("skill-chip") or event.button.has_class("tool-chip"):
+            event.stop()
+            self._show_chip_contract(event.button)
         elif event.button.id == "help":
             event.stop()
             self.action_help()
@@ -1079,6 +1532,8 @@ class CodeSleuthApp(ReviewPackApp):
 
     def on_select_changed(self, event: Select.Changed) -> None:
         if event.select.id == "compact-nav" and isinstance(event.value, str):
+            if self._syncing_nav:
+                return
             self.show_surface(event.value)
         elif event.select.id == "tracked-repos" and isinstance(event.value, str):
             self.query_one("#target", Input).value = event.value
