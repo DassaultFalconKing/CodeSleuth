@@ -201,7 +201,8 @@
       "public_contract": [
         "TUI control actions expose their result or failure to the operator and responsive navigation remains reversible across supported viewports.",
         "Isolated Textual bootstrap derives the compatible range from requirements-tui.txt and records the actual installed Textual version.",
-        "Background lifecycle work is single-flight and all widget access remains on the Textual application thread."
+        "Background lifecycle work is single-flight and all widget access remains on the Textual application thread.",
+        "The Playbooks catalog, detail view, and load wizard remain operator controls over stored host workflows; they do not execute Playbook Steps, Skills, or tools."
       ],
       "contract_fingerprint": {
         "control_feedback_required": true,
@@ -212,22 +213,26 @@
       "code_evidence": [
         "pack/.opencode/bin/codesleuth_tui.py",
         "pack/.opencode/bin/codesleuth_tui_runtime.py",
+        "pack/.opencode/bin/playbook_catalog.py",
         "pack/.opencode/bin/review_pack_tui_bootstrap.py",
         "pack/.opencode/bin/requirements-tui.txt"
       ],
       "doc_evidence": [
         "docs/SIB0-CAPABILITY-INVENTORY.md",
         "docs/CODESLEUTH-BRANDING.md",
-        "docs/LESSONS-LEARNED-VIEWPORT-HARDENING.md"
+        "docs/LESSONS-LEARNED-VIEWPORT-HARDENING.md",
+        "docs/PLAYBOOKS-CATALOG-TUI.md"
       ],
       "test_evidence": [
         "tests/test_tui_control_feedback.py",
         "tests/test_tui_viewport_hardening.py",
         "tests/test_tui.py",
+        "tests/test_playbook_catalog.py",
         "tests/test_version_contract.py"
       ],
       "affected_paths": [
         "pack/.opencode/bin/*tui*.py",
+        "pack/.opencode/bin/playbook_catalog.py",
         "pack/.opencode/bin/requirements-tui.txt",
         "tests/test_tui*.py",
         "docs/CODESLEUTH-BRANDING.md"
@@ -279,6 +284,16 @@
             "tests/test_tui_control_feedback.py",
             "tests/test_tui_visual_regression.py"
           ]
+        },
+        {
+          "id": "FR-TUI-005",
+          "sib_origin": "SIB2",
+          "must_not": "The Playbooks catalog or load wizard executes a stored Step, Skill, or tool, or loses its selectable controls in a supported compact viewport.",
+          "proof": [
+            "tests/test_playbook_catalog.py",
+            "tests/test_tui_viewport_hardening.py",
+            "docs/PLAYBOOKS-CATALOG-TUI.md"
+          ]
         }
       ]
     },
@@ -292,7 +307,8 @@
       "public_contract": [
         "Install, adopt, bind, unbind, and uninstall are reversible lifecycle operations with conflict-safe restoration of pre-existing OpenCode configuration.",
         "Runtime installation and dependency binding are independent axes.",
-        "Optional provider dependencies use an explicit hash-locked, ignored, exactly identified runtime with separately scoped install and removal."
+        "Optional provider dependencies use an explicit hash-locked, ignored, exactly identified runtime with separately scoped install and removal.",
+        "Playbook loading validates a local directory or ZIP without execution and publishes an overlay transactionally, preserving the previous overlay on failure."
       ],
       "contract_fingerprint": {
         "pack_source": "pack/.opencode",
@@ -305,19 +321,22 @@
         "install.py",
         "pack/.opencode/bin/codesleuth_project/__init__.py",
         "pack/.opencode/bin/codesleuth_project/tracked_repos.py",
-        "pack/.opencode/bin/codesleuth_tui.py"
+        "pack/.opencode/bin/codesleuth_tui.py",
+        "pack/.opencode/bin/playbook_catalog.py"
       ],
       "doc_evidence": [
         "docs/PROJECT-LIFECYCLE.md",
         "docs/LLM-OPERATOR.md",
-        "docs/SIB0-CAPABILITY-INVENTORY.md"
+        "docs/SIB0-CAPABILITY-INVENTORY.md",
+        "docs/EXTENSION-LOAD-UNITS.md"
       ],
       "test_evidence": [
         "tests/test_project_lifecycle.py",
         "tests/test_lifecycle.py",
         "tests/test_tracked_repos.py",
         "tests/test_graphify_installed_runtime.py",
-        "tests/test_graphify_lifecycle.py"
+        "tests/test_graphify_lifecycle.py",
+        "tests/test_playbook_catalog.py"
       ],
       "affected_paths": [
         "install.py",
@@ -391,6 +410,15 @@
             "tests/test_graphify_installed_runtime.py",
             "tests/test_graphify_lifecycle.py",
             "docs/GRAPHIFY-PROVIDER.md"
+          ]
+        },
+        {
+          "id": "FR-LIFE-007",
+          "sib_origin": "SIB2",
+          "must_not": "Playbook loading executes inspected content, accepts an ambiguous or unsafe ZIP layout, or destroys an existing overlay when validation, staging, or publication fails.",
+          "proof": [
+            "tests/test_playbook_catalog.py",
+            "docs/EXTENSION-LOAD-UNITS.md"
           ]
         }
       ]
