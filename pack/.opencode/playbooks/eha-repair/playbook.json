@@ -3,8 +3,8 @@
   "id": "eha-repair",
   "description": "Minimum EHA repair loop for one recorded SIB blocker with release-stream reintegration.",
   "steps": [
-    {"id": "load-failed-campaign", "execution": "step", "prompt": "steps/01-load-failed-campaign.md", "skills": ["eha-campaign-evidence"], "depends_on": [], "output": "failed_campaign", "isolation": "fresh_subagent"},
-    {"id": "execute-repair", "execution": "step", "prompt": "steps/02-execute-repair.md", "skills": ["eha-repair-protocol", "eha-campaign-evidence"], "depends_on": ["load-failed-campaign"], "output": "repair_result", "isolation": "fresh_subagent"},
-    {"id": "integrate-candidate", "execution": "step", "prompt": "steps/03-integrate-candidate.md", "skills": ["eha-candidate-selection", "eha-campaign-evidence"], "depends_on": ["execute-repair"], "output": "next_candidate", "isolation": "fresh_subagent"}
+    {"id": "load-failed-campaign", "execution": "step", "prompt": "steps/01-load-failed-campaign.md", "skills": ["eha-campaign-evidence"], "tools": ["eha_state_load"], "depends_on": [], "output": "failed_campaign", "isolation": "fresh_subagent"},
+    {"id": "execute-repair", "execution": "step", "prompt": "steps/02-execute-repair.md", "skills": ["eha-repair-protocol", "eha-campaign-evidence"], "tools": ["eha_state_record_repair"], "depends_on": ["load-failed-campaign"], "output": "repair_result", "isolation": "fresh_subagent"},
+    {"id": "integrate-candidate", "execution": "step", "prompt": "steps/03-integrate-candidate.md", "skills": ["eha-candidate-selection", "eha-campaign-evidence"], "tools": [], "depends_on": ["execute-repair"], "output": "next_candidate", "isolation": "fresh_subagent"}
   ]
 }

@@ -3,7 +3,7 @@
   <a href="./README.md">English</a> · <a href="./README.ru.md">Русский</a> · Українська
 </p>
 
-<!-- README-SOURCE-BLOB: 47543d8bcfcac2b22a47839e64ab1a81eebd0376 -->
+<!-- README-SOURCE-BLOB: 4d459a70cb13bf37d8d0c566d867cd57d57471fd -->
 
 # CodeSleuth
 
@@ -411,7 +411,8 @@ CodeSleuth TUI
 | Поверхня | Що показує | Контекстні дії |
 | --- | --- | --- |
 | **Home** | готовність репозиторію, підсумок активної політики/профілю, безпечна наступна дія | Configure, Verify, Playbooks, Help, Open CodeSleuth |
-| **Review** | команди рев'ю OpenCode і Playbooks | Playbooks, Open CodeSleuth |
+| **Review** | команди рев'ю OpenCode і suggested prompts | Suggested prompts, Open CodeSleuth |
+| **Playbooks** | каталог overlay/pack Playbooks, перегляд кроків/Skills/tools, майстер завантаження | Load playbook, Copy /playbook, Open CodeSleuth |
 | **Evidence** | стійкий стан рев'ю та provenance контрольних точок, видимі в `.opencode/state/` | Help, Open CodeSleuth |
 | **Tools** | встановлені команди, Skills, tools/plugins і lifecycle-утиліти | Verify, Check Updates, Update, Open CodeSleuth |
 | **Settings** | конфігурація профілю, дозволів, runtime і dependency/lifecycle | Configure, Uninstall |

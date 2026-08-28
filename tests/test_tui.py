@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -9,6 +10,7 @@ import pytest
 pytest.importorskip("textual")
 
 BIN = Path(__file__).resolve().parents[1] / "pack" / ".opencode" / "bin"
+ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BIN))
 import codesleuth_project as lifecycle  # noqa: E402
 from review_pack_tui import ConfigScreen, ReviewPackApp, UninstallScreen  # noqa: E402
@@ -19,7 +21,8 @@ from codesleuth_tui import (  # noqa: E402
     CodeSleuthApp,
     CodeSleuthConfigScreen,
     CodeSleuthHelpScreen,
-    CodeSleuthPlaybookScreen,
+    CodeSleuthSuggestedPromptsScreen,
+    PlaybookLoadWizard,
 )
 from textual.widgets import Button, Label, Select, Switch  # noqa: E402
 
@@ -168,9 +171,10 @@ async def test_navigation_surfaces_expose_existing_opencode_owned_capabilities(t
         assert "/repo-review" in review
         assert "/repo-review-resume" in review
         assert "does not run a second review engine" in review
-        assert app.query_one("#playbooks", Button).display
+        assert app.query_one("#suggested-prompts", Button).display
         assert app.query_one("#launch", Button).display
         assert not app.query_one("#smoke", Button).display
+        assert not app.query_one("#playbooks", Button).display
 
         await pilot.click("#nav-evidence")
         await pilot.pause()
@@ -314,11 +318,13 @@ async def test_help_playbooks_and_uninstall_abort_without_performing(tmp_path: P
 
         await pilot.click("#playbooks")
         await pilot.pause()
-        assert isinstance(app.screen, CodeSleuthPlaybookScreen)
-        _assert_visible_within(app.screen.query_one("#abort", Button), 120, 140)
+        assert app.current_surface == "playbooks"
+        assert not isinstance(app.screen, CodeSleuthSuggestedPromptsScreen)
+        assert not isinstance(app.screen, PlaybookLoadWizard)
+        _assert_visible_within(app.query_one("#load-playbook", Button), 120, 140)
         await pilot.press("escape")
         await pilot.pause()
-        assert not isinstance(app.screen, CodeSleuthPlaybookScreen)
+        assert app.current_surface == "playbooks"
         assert not (repo / ".opencode" / "state" / "tui" / "suggested-prompts.md").exists()
 
         await pilot.click("#nav-settings")
@@ -332,3 +338,164 @@ async def test_help_playbooks_and_uninstall_abort_without_performing(tmp_path: P
         await pilot.click("#abort")
         await pilot.pause()
         assert not isinstance(app.screen, UninstallScreen)
+
+
+@pytest.mark.asyncio
+async def test_playbooks_surface_opens_catalog_not_suggested_prompts(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
+    repo = tmp_path / "target"
+    init_repo(repo)
+    copied: list[str] = []
+    launched: list[Path] = []
+    monkeypatch.setattr(CodeSleuthApp, "copy_to_clipboard", lambda self, text: copied.append(text))
+    monkeypatch.setattr("codesleuth_tui.launch_opencode", lambda repo: launched.append(repo))
+    app = CodeSleuthApp(repo, ROOT)
+    async with app.run_test(size=(120, 35)) as pilot:
+        await pilot.pause()
+        await pilot.click("#playbooks")
+        await pilot.pause()
+        assert app.current_surface == "playbooks"
+        assert app.query_one("#playbooks-panel").has_class("surface-visible")
+        assert app.query_one("#pb-row-eha-sib-acceptance")
+        assert not isinstance(app.screen, CodeSleuthSuggestedPromptsScreen)
+        assert not (repo / ".opencode" / "state" / "tui" / "suggested-prompts.md").exists()
+
+        await pilot.click("#pb-row-eha-sib-acceptance")
+        await pilot.pause()
+        detail = str(app.query_one("#playbooks-detail-body").render())
+        assert "eha-sib-acceptance" in detail
+        assert len(app._playbook_records["eha-sib-acceptance"].steps) == 6
+        assert app.query(".skill-chip")
+        await pilot.click(".skill-chip")
+        await pilot.pause()
+        assert launched == []
+        assert copied == []
+
+        await pilot.click("#copy-playbook")
+        await pilot.pause()
+        assert copied == ["/playbook eha-sib-acceptance"]
+
+
+@pytest.mark.asyncio
+async def test_suggested_prompts_remain_on_review_surface(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
+    repo = tmp_path / "target"
+    init_repo(repo)
+    app = CodeSleuthApp(repo, ROOT)
+    async with app.run_test(size=(120, 140)) as pilot:
+        await pilot.click("#nav-review")
+        await pilot.pause()
+        await pilot.click("#suggested-prompts")
+        await pilot.pause()
+        assert isinstance(app.screen, CodeSleuthSuggestedPromptsScreen)
+        _assert_visible_within(app.screen.query_one("#abort", Button), 120, 140)
+        labels = " ".join(str(button.label) for button in app.screen.query(Button))
+        assert "Save prompts" in labels
+        assert "Save playbooks" not in labels
+        await pilot.press("escape")
+        await pilot.pause()
+        assert not isinstance(app.screen, CodeSleuthSuggestedPromptsScreen)
+        assert not (repo / ".opencode" / "state" / "tui" / "suggested-prompts.md").exists()
+
+
+@pytest.mark.asyncio
+async def test_load_wizard_abort_writes_nothing(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
+    repo = tmp_path / "target"
+    init_repo(repo)
+    app = CodeSleuthApp(repo, ROOT)
+    async with app.run_test(size=(120, 35)) as pilot:
+        await pilot.pause()
+        app.show_surface("playbooks")
+        await pilot.pause()
+        await pilot.click("#load-playbook")
+        await pilot.pause()
+        assert isinstance(app.screen, PlaybookLoadWizard)
+        _assert_visible_within(app.screen.query_one("#abort", Button), 120, 35)
+        await pilot.press("escape")
+        await pilot.pause()
+        assert not isinstance(app.screen, PlaybookLoadWizard)
+        assert not (repo / ".opencode" / "playbooks").exists()
+
+
+def _fixture_playbook(root: Path, playbook_id: str) -> Path:
+    playbook_dir = root / playbook_id
+    playbook_dir.mkdir(parents=True)
+    (playbook_dir / "PLAYBOOK.md").write_text(f"# {playbook_id}\n\nfixture playbook\n", encoding="utf-8")
+    (playbook_dir / "playbook.json").write_text(
+        '{"schema_version": 1, "id": "%s", "description": "fixture", "steps": ['
+        '{"id": "capture", "execution": "skill", "skill": "exact-target-identity",'
+        ' "depends_on": [], "output": "target_identity", "isolation": "fresh_subagent"}]}'
+        "\n" % playbook_id,
+        encoding="utf-8",
+    )
+    return playbook_dir
+
+
+@pytest.mark.asyncio
+async def test_load_wizard_installs_overlay_without_starting_playbook(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
+    repo = tmp_path / "target"
+    init_repo(repo)
+    source = _fixture_playbook(tmp_path / "pkg", "sample-load")
+    launched: list[object] = []
+    monkeypatch.setattr("codesleuth_tui.launch_opencode", lambda target: launched.append(target))
+    app = CodeSleuthApp(repo, ROOT)
+    async with app.run_test(size=(120, 35)) as pilot:
+        await pilot.pause()
+        app.show_surface("playbooks")
+        await pilot.pause()
+        await pilot.click("#load-playbook")
+        await pilot.pause()
+        wizard = app.screen
+        assert isinstance(wizard, PlaybookLoadWizard)
+        wizard.query_one("#wizard-source").value = str(source)
+        await pilot.click("#wizard-next")
+        await pilot.pause()
+        assert wizard.phase == "inspect"
+        await pilot.click("#wizard-next")
+        await pilot.pause()
+        assert wizard.phase == "validate"
+        await pilot.click("#wizard-next")
+        await pilot.pause()
+        assert wizard.phase == "confirm"
+        await pilot.click("#wizard-confirm")
+        await pilot.pause()
+        assert wizard.phase == "result"
+        assert "does not start /playbook" in wizard.result_text
+        await pilot.click("#wizard-close")
+        await pilot.pause()
+    assert (repo / ".opencode" / "playbooks" / "sample-load" / "playbook.json").is_file()
+    assert launched == []
+
+
+@pytest.mark.asyncio
+async def test_load_wizard_pack_collision_requires_confirm(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
+    repo = tmp_path / "target"
+    init_repo(repo)
+    source = tmp_path / "pkg" / "eha-repair"
+    shutil.copytree(ROOT / "pack" / ".opencode" / "playbooks" / "eha-repair", source)
+    app = CodeSleuthApp(repo, ROOT)
+    async with app.run_test(size=(120, 35)) as pilot:
+        await pilot.pause()
+        app.show_surface("playbooks")
+        await pilot.pause()
+        await pilot.click("#load-playbook")
+        await pilot.pause()
+        wizard = app.screen
+        assert isinstance(wizard, PlaybookLoadWizard)
+        wizard.query_one("#wizard-source").value = str(source)
+        await pilot.click("#wizard-next")
+        await pilot.pause()
+        await pilot.click("#wizard-next")
+        await pilot.pause()
+        await pilot.click("#wizard-next")
+        await pilot.pause()
+        assert wizard.phase == "confirm"
+        assert wizard.pack_collision is True
+        body = str(wizard.query_one("#wizard-body").render())
+        assert "Pack already has" in body
+        await pilot.click("#abort")
+        await pilot.pause()
+        assert not (repo / ".opencode" / "playbooks" / "eha-repair").exists()
