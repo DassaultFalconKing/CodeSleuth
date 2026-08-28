@@ -1,8 +1,10 @@
 # Playbooks catalog TUI (design sketch)
 
-**Status:** design sketch / not implemented / not a product contract  
+**Status:** first instance of the shared extension-load units; sketches remain non-canonical UI art
 **Classification:** ordinary feature population inside `CC-TUI` + `CC-PACK` (load wizard also touches lifecycle-safe overlay install)  
 **SIB0:** not reopened. Catalog and install/load UX are already allowed by [`CODESLEUTH-PRODUCT-CONTRACT.md`](CODESLEUTH-PRODUCT-CONTRACT.md) §5–6.
+
+Shared Catalog / Detail / Load-wizard contract (kinds beyond Playbooks): [`EXTENSION-LOAD-UNITS.md`](EXTENSION-LOAD-UNITS.md).
 
 This document is a feature request plus design notes. It does **not** change
 Playbook execution, host ownership, or user-facing UI manuals. Canonical
