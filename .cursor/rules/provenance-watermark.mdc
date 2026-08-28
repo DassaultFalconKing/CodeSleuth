@@ -1,0 +1,14 @@
+---
+description: Mandatory CodeSleuth provenance watermark for coding, review, report, and proof sessions
+alwaysApply: true
+---
+
+# Provenance watermark
+
+Before the first repository write, read `docs/PROVENANCE-WATERMARK.md` (or `.opencode/PROVENANCE-WATERMARK.md` in an installed target).
+
+Keep one stable opaque actor code for the logical session. Use `anon` when attribution is unavailable; never infer a model identity from Git author metadata.
+
+When controlling an agent-authored commit message, include the deterministic `Trace-Id: <actor>-<12 hex>` trailer defined by the contract. When producing CodeSleuth reports or proof/EHA output, bind/load the session watermark with `provenance_state_*` and include it in the report metadata.
+
+The watermark is attribution metadata only. It is not a cryptographic signature, authorization token, acceptance verdict, or substitute for exact-head evidence.
