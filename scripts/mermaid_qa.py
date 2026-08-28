@@ -20,6 +20,8 @@ PINNED_PACKAGE = "@mermaid-js/mermaid-cli"
 PINNED_VERSION = "11.16.0"
 DEFAULT_MAX_BYTES = 1_000_000
 DEFAULT_TIMEOUT_SECONDS = 30
+NODE_ENV = "CODESLEUTH_MERMAID_NODE"
+BROWSER_ENV = "CODESLEUTH_MERMAID_BROWSER"
 
 
 def _sha256(data: bytes) -> str:
@@ -34,6 +36,7 @@ def _result(
     diagnostics: str,
     version: str | None = None,
     svg: bytes | None = None,
+    execution_identity: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {
         "schemaVersion": 1,
@@ -50,6 +53,7 @@ def _result(
             "isolated": True,
         },
         "networkPolicy": "chromium host resolution disabled; Mermaid securityLevel strict",
+        "executionIdentity": execution_identity,
         "diagnostics": diagnostics[:8_000],
     }
     if svg is not None:
@@ -60,6 +64,56 @@ def _result(
             "retained": False,
         }
     return result
+
+
+def _configured_executable(env_name: str) -> tuple[Path | None, dict[str, str | None], str | None]:
+    configured = os.environ.get(env_name)
+    identity: dict[str, str | None] = {
+        "configuredPath": configured,
+        "resolvedPath": None,
+        "version": None,
+    }
+    if not configured:
+        return None, identity, f"{env_name} must name an explicit absolute executable"
+    candidate = Path(configured)
+    if not candidate.is_absolute():
+        return None, identity, f"{env_name} must be absolute, got {configured!r}"
+    try:
+        resolved = candidate.resolve(strict=True)
+    except OSError as error:
+        return None, identity, f"cannot resolve {env_name}={configured!r}: {error}"
+    identity["resolvedPath"] = str(resolved)
+    if not resolved.is_file() or not os.access(resolved, os.X_OK):
+        return None, identity, f"{env_name} does not resolve to an executable file: {resolved}"
+    try:
+        completed = subprocess.run(
+            [str(resolved), "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return None, identity, f"cannot identify {env_name}={resolved}: {error}"
+    reported = "\n".join(part.strip() for part in (completed.stdout, completed.stderr) if part.strip())
+    identity["version"] = reported[:1_000] or None
+    if completed.returncode != 0 or not reported:
+        return None, identity, f"{env_name} --version failed with exit {completed.returncode}: {reported}"
+    return resolved, identity, None
+
+
+def _puppeteer_config(browser: Path) -> dict[str, Any]:
+    return {
+        "headless": True,
+        "executablePath": str(browser),
+        "args": [
+            "--disable-background-networking",
+            "--disable-component-update",
+            "--disable-domain-reliability",
+            "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost",
+            "--no-first-run",
+        ],
+    }
 
 
 def validate_mermaid(
@@ -106,6 +160,20 @@ def validate_mermaid(
             diagnostics=f"expected exact {PINNED_PACKAGE} {PINNED_VERSION}, found {version!r}",
         )
 
+    node, node_identity, node_error = _configured_executable(NODE_ENV)
+    browser, browser_identity, browser_error = _configured_executable(BROWSER_ENV)
+    execution_identity = {"node": node_identity, "browser": browser_identity}
+    identity_errors = [error for error in (node_error, browser_error) if error]
+    if identity_errors or node is None or browser is None:
+        return _result(
+            status="unavailable",
+            source=source,
+            runtime=runtime,
+            version=version,
+            execution_identity=execution_identity,
+            diagnostics="; ".join(identity_errors),
+        )
+
     with tempfile.TemporaryDirectory(prefix="codesleuth-mermaid-qa-") as temporary:
         temp = Path(temporary)
         source_path = temp / "input.mmd"
@@ -114,23 +182,9 @@ def validate_mermaid(
         puppeteer_config = temp / "puppeteer.json"
         source_path.write_bytes(source)
         mermaid_config.write_text(json.dumps({"securityLevel": "strict"}), encoding="utf-8")
-        puppeteer_config.write_text(
-            json.dumps(
-                {
-                    "headless": True,
-                    "args": [
-                        "--disable-background-networking",
-                        "--disable-component-update",
-                        "--disable-domain-reliability",
-                        "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost",
-                        "--no-first-run",
-                    ],
-                }
-            ),
-            encoding="utf-8",
-        )
+        puppeteer_config.write_text(json.dumps(_puppeteer_config(browser)), encoding="utf-8")
         command = [
-            "node",
+            str(node),
             str(cli),
             "--input",
             str(source_path),
@@ -166,6 +220,7 @@ def validate_mermaid(
                 source=source,
                 runtime=runtime,
                 version=version,
+                execution_identity=execution_identity,
                 diagnostics=str(error),
             )
         diagnostics = "\n".join(part.strip() for part in (completed.stdout, completed.stderr) if part.strip())
@@ -175,6 +230,7 @@ def validate_mermaid(
                 source=source,
                 runtime=runtime,
                 version=version,
+                execution_identity=execution_identity,
                 diagnostics=diagnostics or f"mmdc exited {completed.returncode} without SVG output",
             )
         svg = output_path.read_bytes()
@@ -185,6 +241,7 @@ def validate_mermaid(
                 runtime=runtime,
                 version=version,
                 svg=svg,
+                execution_identity=execution_identity,
                 diagnostics="renderer output is not recognizable SVG",
             )
         return _result(
@@ -193,6 +250,7 @@ def validate_mermaid(
             runtime=runtime,
             version=version,
             svg=svg,
+            execution_identity=execution_identity,
             diagnostics=diagnostics,
         )
 

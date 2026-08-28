@@ -27,6 +27,12 @@ async function qa(source: string) {
   const result = JSON.parse(stdout)
   assert(result.status === "pass" && result.passed === true, "Mermaid QA must report an actual parser/render PASS")
   assert(result.renderedArtifact?.retained === false, "QA SVG must remain disposable")
+  for (const kind of ["node", "browser"] as const) {
+    const identity = result.executionIdentity?.[kind]
+    assert(path.isAbsolute(identity?.configuredPath), `${kind} configured executable must be absolute`)
+    assert(path.isAbsolute(identity?.resolvedPath), `${kind} resolved executable must be absolute`)
+    assert(typeof identity?.version === "string" && identity.version.length > 0, `${kind} version must be reported`)
+  }
   return result
 }
 
@@ -77,6 +83,7 @@ const eha: any[] = [
 const context = renderContextGraphMermaid(projection).mermaid
 const protectedSource = renderProtectedImpactMermaid(registry, selectProtectedImpact(registry))
 const ehaSource = renderEhaMermaid(eha)
-const results = await Promise.all([qa(context), qa(protectedSource), qa(ehaSource)])
+const results = []
+for (const source of [context, protectedSource, ehaSource]) results.push(await qa(source))
 assert(new Set(results.map((result) => result.sourceSha256)).size === 3, "all three distinct Mermaid surfaces must be parser/render checked")
 console.log("MERMAID QA SMOKE PASS")

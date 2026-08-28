@@ -16,14 +16,21 @@ The lockfile is committed; `node_modules/` remains ignored.
 
 ## Run QA
 
+Declare the absolute Node.js and browser executables used for QA. The helper resolves
+both paths, records their exact resolved paths and reported versions, and fails closed
+when either identity is absent or invalid. The browser must start with its normal
+sandbox; sandbox-disabling launch flags are forbidden.
+
 ```text
+CODESLEUTH_MERMAID_NODE=/absolute/path/to/node
+CODESLEUTH_MERMAID_BROWSER=/absolute/path/to/google-chrome
 python scripts/mermaid_qa.py diagram.mmd
 Get-Content diagram.mmd | python scripts/mermaid_qa.py
 bun run test:mermaid-qa
 ```
 
 The command emits JSON containing the source SHA-256, source size, expected and
-resolved runtime version, status, bounded diagnostics and disposable SVG metadata. It
+resolved runtime version, exact Node/browser execution identity, status, bounded diagnostics and disposable SVG metadata. It
 never returns PASS merely because the optional runtime is absent: the status is
 `unavailable` and the process exits non-zero. Oversized and empty sources are rejected
 before launching Chromium.

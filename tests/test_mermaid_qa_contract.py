@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,3 +40,36 @@ def test_contract_reports_digest_runtime_and_network_policy(tmp_path: Path) -> N
     assert result["runtime"]["expectedVersion"] == "11.16.0"
     assert result["runtime"]["isolated"] is True
     assert "disabled" in result["networkPolicy"]
+
+
+def test_execution_identity_requires_declared_absolute_executables(monkeypatch) -> None:
+    monkeypatch.delenv(MODULE.NODE_ENV, raising=False)
+    executable, identity, error = MODULE._configured_executable(MODULE.NODE_ENV)
+    assert executable is None
+    assert identity["resolvedPath"] is None
+    assert MODULE.NODE_ENV in error
+
+    monkeypatch.setenv(MODULE.NODE_ENV, "node")
+    executable, identity, error = MODULE._configured_executable(MODULE.NODE_ENV)
+    assert executable is None
+    assert identity["configuredPath"] == "node"
+    assert "absolute" in error
+
+    monkeypatch.setenv(MODULE.NODE_ENV, sys.executable)
+    executable, identity, error = MODULE._configured_executable(MODULE.NODE_ENV)
+    assert executable == Path(sys.executable).resolve()
+    assert identity["resolvedPath"] == str(Path(sys.executable).resolve())
+    assert identity["version"]
+    assert error is None
+
+
+def test_puppeteer_uses_configured_browser_without_disabling_sandbox() -> None:
+    browser = Path("/opt/codesleuth/browser")
+    config = MODULE._puppeteer_config(browser)
+    workflow = (ROOT / ".github" / "workflows" / "acceptance.yml").read_text(encoding="utf-8")
+    assert config["executablePath"] == str(browser)
+    assert all("no-sandbox" not in argument for argument in config["args"])
+    assert "--no-sandbox" not in SCRIPT.read_text(encoding="utf-8")
+    assert "--no-sandbox" not in workflow
+    assert "CODESLEUTH_MERMAID_BROWSER=$browser" in workflow
+    assert "CODESLEUTH_MERMAID_NODE=$node" in workflow
