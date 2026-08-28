@@ -35,6 +35,7 @@
       "git reset --hard*": "deny",
       "git clean*": "deny"
     },
+    "codesleuth_context_*": "deny",
     "external_directory": "ask",
     "websearch": "ask",
     "webfetch": "ask",
@@ -60,6 +61,13 @@
     },
     "question": "allow",
     "doom_loop": "ask"
+  },
+  "agent": {
+    "build": {
+      "permission": {
+        "codesleuth_context_get": "allow"
+      }
+    }
   },
   "compaction": {
     "auto": true,

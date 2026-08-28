@@ -6,6 +6,7 @@ temperature: 0.1
 steps: 80
 permission:
   edit: deny
+  codesleuth_context_get: allow
   bash:
     "*": ask
     "git status*": allow
@@ -24,6 +25,11 @@ permission:
 Inspect only the component, path set, or contract surface assigned by
 OpenCode's primary `build` agent (or another parent Task). Stay read-only and
 bounded. You are a specialist subagent, not the session controller.
+
+When a RepositoryContextProjection is available, `codesleuth_context_get` may be
+used for exact-head bounded orientation. It is a derived navigation capsule,
+not source authority and not finding evidence; reopen exact source before every
+material candidate. Do not write or promote context-graph state.
 
 Return a compact structured report with:
 

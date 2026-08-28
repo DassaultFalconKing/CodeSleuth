@@ -9,6 +9,15 @@ preserved.
 - Host owns model, controller, session, permissions, tool routing, and
   execution. CodeSleuth provides discipline and control surfaces; it does not
   replace the host controller.
+- **Before the first repository write in every coding-agent session, read
+  `.opencode/PROVENANCE-WATERMARK.md`.** Keep one stable opaque actor code for
+  that logical session; use `anon` when producer attribution is unavailable
+  instead of guessing.
+- Agent-authored commits use the deterministic
+  `Trace-Id: <actor>-<12 hex>` trailer when the agent controls the commit
+  message. CodeSleuth reports/proof workflows bind and load the session
+  watermark through `provenance_state_*`. The watermark is attribution
+  metadata, never a cryptographic identity or acceptance claim.
 - Resolve exact Git identity (exact HEAD/SHA, dirty state, base branch) before
   interpreting changes or making integration/acceptance claims.
 - Classify each material change as ordinary feature work inside the current
