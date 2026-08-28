@@ -1348,11 +1348,23 @@ export const mermaid = tool({
     })
     return JSON.stringify(
       {
+        schemaVersion: 1,
+        view: "repository_context",
+        authority: {
+          kind: "saved_repository_context_projection",
+          statement: "tracked source and exact blob provenance remain authority; Mermaid is derived presentation only",
+        },
+        provenance: {
+          projectionId: projection.projectionId,
+          headSha: projection.headSha,
+          schemaVersion: CONTEXT_GRAPH_SCHEMA_VERSION,
+        },
         derivedFrom: {
           projectionId: projection.projectionId,
           headSha: projection.headSha,
           schemaVersion: CONTEXT_GRAPH_SCHEMA_VERSION,
         },
+        derivedPresentationOnly: true,
         scoped: rendered.selection.scoped,
         selection: rendered.selection,
         savedMapTruncatedByAuthor: projection.bounds.truncated,
@@ -1361,6 +1373,151 @@ export const mermaid = tool({
         aliasesArePresentationOnly: true,
         renderingDeferred: "SVG/mmdc rendering is intentionally out of scope; consume this Mermaid source directly",
         mermaidSource: rendered.mermaid,
+      },
+      null,
+      2,
+    )
+  },
+})
+
+const graphifyTopologyNodeShape = {
+  projectionInput: tool.schema.object({
+    kind: tool.schema.enum(NODE_KINDS),
+    key: tool.schema.string().min(1).max(KEY_MAX),
+  }),
+  topologyHint: tool.schema.object({
+    community: tool.schema.string().max(100).nullable().optional(),
+    centrality: tool.schema.number().min(0).max(1),
+  }),
+}
+
+function codePointCompare(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>
+    return `{${Object.keys(record).sort(codePointCompare).map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`
+  }
+  return JSON.stringify(value) ?? "null"
+}
+
+export const topology = tool({
+  description:
+    "Convert optional provider community/centrality metadata into deterministic bounded root hints for repo_context_graph_query and repo_context_graph_mermaid. Selection hints never change projection identity, origin, evidence, or saved state.",
+  args: {
+    projectionId: tool.schema.string().optional(),
+    reviewId: tool.schema.string().optional(),
+    providerResult: tool.schema.object({
+      schemaVersion: tool.schema.number().int().min(1).max(1),
+      provider: tool.schema.object({
+        id: tool.schema.enum(["graphify"]),
+        version: tool.schema.enum(["0.9.50"]),
+        upstreamCommit: tool.schema.enum(["43d54acbfa9e731f7a592bb582c1f4b9d48ed73e"]),
+      }),
+      topology: tool.schema.object({ derivedSelectionHintsOnly: tool.schema.boolean() }),
+      nodes: tool.schema.array(tool.schema.object(graphifyTopologyNodeShape)).max(MAX_VIEW_NODES),
+    }),
+    strategy: tool.schema.enum(["community_hubs", "cross_community"]).optional(),
+    rootLimit: tool.schema.number().int().min(1).max(20).optional(),
+  },
+  async execute(args, context) {
+    if (
+      args.providerResult.provider.id !== "graphify" ||
+      args.providerResult.provider.version !== "0.9.50" ||
+      args.providerResult.provider.upstreamCommit !== "43d54acbfa9e731f7a592bb582c1f4b9d48ed73e"
+    ) {
+      throw new Error("topology provider result does not match the audited Graphify runtime identity")
+    }
+    const resolution = args.projectionId || args.reviewId
+      ? await resolveProjectionFile(context.worktree, { projectionId: args.projectionId, reviewId: args.reviewId })
+      : await resolveDefaultProjectionFile(context.worktree, context.sessionID)
+    const projection = await loadProjectionByFile(resolution.file)
+    const bySemantic = new Map(
+      projection.nodes.map((node) => [semanticElementName(node.kind, node.key), node]),
+    )
+    const deduplicated = new Map<string, { node: ContextNode; community?: string; centrality: number }>()
+    let staleHints = 0
+    if (args.providerResult.topology.derivedSelectionHintsOnly !== true) {
+      throw new Error("provider topology must declare derivedSelectionHintsOnly")
+    }
+    const hints = args.providerResult.nodes.map((node) => ({ ...node.projectionInput, ...node.topologyHint }))
+    for (const hint of hints) {
+      assertKnownKind(hint.kind)
+      assertValidKey(hint.key)
+      const semantic = semanticElementName(hint.kind, hint.key)
+      const node = bySemantic.get(semantic)
+      if (!node) {
+        staleHints += 1
+        continue
+      }
+      const candidate = {
+        node,
+        ...(hint.community ? { community: hint.community } : {}),
+        centrality: hint.centrality,
+      }
+      const previous = deduplicated.get(semantic)
+      if (!previous || candidate.centrality > previous.centrality) deduplicated.set(semantic, candidate)
+    }
+    const matched = [...deduplicated.values()]
+    const rank = (a: typeof matched[number], b: typeof matched[number]) =>
+      b.centrality - a.centrality || codePointCompare(semanticElementName(a.node.kind, a.node.key), semanticElementName(b.node.kind, b.node.key))
+    matched.sort(rank)
+    const rootLimit = Math.min(args.rootLimit ?? 8, 20)
+    const strategy = args.strategy ?? "community_hubs"
+    let ranked: typeof matched = []
+    let fallbackReason: string | undefined
+    if (strategy === "cross_community") {
+      const hintByNodeId = new Map(matched.map((item) => [item.node.nodeId, item]))
+      const crossIds = new Set<string>()
+      for (const edge of projection.edges) {
+        const source = hintByNodeId.get(edge.sourceNodeId)
+        const target = hintByNodeId.get(edge.targetNodeId)
+        if (source?.community && target?.community && source.community !== target.community) {
+          crossIds.add(source.node.nodeId)
+          crossIds.add(target.node.nodeId)
+        }
+      }
+      ranked = matched.filter((item) => crossIds.has(item.node.nodeId)).sort(rank)
+      if (ranked.length === 0) {
+        fallbackReason = "no validated cross-community projection edge; used community_hubs"
+      }
+    }
+    if (strategy === "community_hubs" || ranked.length === 0) {
+      const firstPerCommunity = new Map<string, typeof matched[number]>()
+      for (const item of matched) {
+        const community = item.community ?? `unassigned:${semanticElementName(item.node.kind, item.node.key)}`
+        if (!firstPerCommunity.has(community)) firstPerCommunity.set(community, item)
+      }
+      const hubs = [...firstPerCommunity.values()].sort(rank)
+      const hubIds = new Set(hubs.map((item) => item.node.nodeId))
+      ranked = [...hubs, ...matched.filter((item) => !hubIds.has(item.node.nodeId))]
+    }
+    const roots = ranked.slice(0, rootLimit).map((item) => ({ kind: item.node.kind, key: item.node.key }))
+    return JSON.stringify(
+      {
+        schemaVersion: 1,
+        projectionId: projection.projectionId,
+        provider: {
+          ...args.providerResult.provider,
+          resultSha256: createHash("sha256").update(canonicalJson(args.providerResult)).digest("hex"),
+        },
+        algorithm: { name: strategy, version: 1 },
+        derivedSelectionHintsOnly: true,
+        roots,
+        selection: {
+          submittedHints: hints.length,
+          matchedHints: matched.length,
+          staleHints,
+          communities: new Set(matched.map((item) => item.community).filter(Boolean)).size,
+          rootLimit,
+          returnedRoots: roots.length,
+          omittedMatchedHints: Math.max(0, matched.length - roots.length),
+          fallbackReason: fallbackReason ?? null,
+        },
+        next: "Pass these exact roots to repo_context_graph_query and repo_context_graph_mermaid with explicit hops and bounds.",
       },
       null,
       2,

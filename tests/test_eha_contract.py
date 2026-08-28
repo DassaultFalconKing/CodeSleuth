@@ -95,6 +95,24 @@ def test_structured_eha_evidence_uses_existing_review_state_boundary() -> None:
     assert "SIB0" in reports and "SIB1" in reports and "SIB2" in reports
 
 
+def test_eha_mermaid_uses_versioned_provenance_envelope() -> None:
+    tool_source = text(OPENCODE / "tools" / "eha_state.ts")
+    durable_store = text(ROOT / "docs" / "DURABLE-EVIDENCE-STORE.md")
+    for token in (
+        'schemaVersion: 1',
+        'view: "eha_state"',
+        'kind: "append_only_eha_ledger"',
+        "contentSha256",
+        "eventCount",
+        "derivedPresentationOnly",
+        "mermaidSource",
+        'responseFormat: tool.schema.enum(["json", "mermaid_source"])',
+    ):
+        assert token in tool_source, token
+    for token in ("schemaVersion", "authority", "provenance", "selection", "mermaidSource"):
+        assert token in durable_store, token
+
+
 def test_eha_state_smoke_is_part_of_the_canonical_bun_gate() -> None:
     package = text(ROOT / "package.json")
     assert "tests/eha_state_smoke.ts" in package

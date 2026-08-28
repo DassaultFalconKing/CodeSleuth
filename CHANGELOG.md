@@ -13,6 +13,7 @@ First release prepared under the release-only `main` contract and the `dev/relea
 - thin OpenCode Command entry points that route multi-step work through Playbooks while leaving the host `build` agent as the primary controller;
 - durable review state, exact-source findings, append-only finding-amendment and EHA/SIB/repair evidence, deterministic inventory, and bounded repository context graphs with optional Mermaid projection;
 - bounded scoped Mermaid neighborhood rendering that reuses the context-graph query selection semantics instead of introducing a second traversal implementation;
+- uniform versioned provenance envelopes for all Mermaid views, isolated exact-pinned Mermaid parser/render QA, and an explicitly enabled Graphify structural provider with tracked-input validation, corpus hardening, TUI/provider lifecycle visibility, and topology-assisted bounded root selection;
 - Protected Capability Registry with code/docs/test provenance, dependency/impact metadata, contract fingerprints, contract-owned forbidden-regression ledgers, and dependency-aware assessment tooling;
 - Exact-Head Acceptance discipline for SIB0/SIB1/SIB2, including immutable target identity, failed-target repair lineage, and literal release-stream candidate selection;
 - a GitHub-to-OpenCode EHA bridge: owner-gated remote requests execute the real `/eha-test` on a trusted self-hosted OpenCode runner while the canonical durable `eha.ndjson` ledger remains acceptance authority;
@@ -27,7 +28,7 @@ First release prepared under the release-only `main` contract and the `dev/relea
 - machine-readable `pack/.opencode/codesleuth-naming.json` inventory for the remaining `review-pack` to CodeSleuth namespace cutover;
 - maintained Russian and Ukrainian README translations with blob-parity checks;
 - verified self-update path: post-update Verify, restart request, and TUI bootstrap supervision;
-- a six-job repository acceptance workflow: Python 3.10/3.12 on Linux and Windows, Bun durable-state/context-graph smokes, and headless TUI visual regression with diagnostic artifacts.
+- a seven-job repository acceptance workflow: Python 3.10/3.12 on Linux and Windows, Bun durable-state/context-graph smokes, headless TUI visual regression with diagnostic artifacts, and an isolated Graphify-enabled Ubuntu/Python 3.12 profile.
 
 ### Hardened
 
@@ -53,7 +54,7 @@ First release prepared under the release-only `main` contract and the `dev/relea
 - `main` is the numbered-release promotion line;
 - active release integration uses `dev/release-X.Y.Z`, with feature/chore/fix/refit branches feeding it;
 - SIB candidates are selected from the literal exact head of the active release stream and receive fresh EHA rather than inheriting evidence from source branches, prior CI, PR heads, merge refs, ancestors, or tree-equivalent commits;
-- the ordinary six-job GitHub Actions repository acceptance workflow is an exact-checkout development/repository gate and does not itself create SIB0/SIB1/SIB2 verdicts;
+- the ordinary seven-job GitHub Actions repository acceptance workflow is an exact-checkout development/repository gate and does not itself create SIB0/SIB1/SIB2 verdicts;
 - canonical EHA executes through OpenCode `/eha-test`, calls the durable `eha_state_*` tools, and binds SIB verdicts to one exact candidate SHA;
 - GitHub may act as a remote trigger/execution envelope for that canonical OpenCode EHA, but GitHub workflow status is a derived transport signal rather than acceptance authority;
 - runtime version output is required to derive from source or installed metadata instead of numeric fallback constants;

@@ -98,7 +98,71 @@ jobs:
       - name: Verify exact checked-out commit
         run: test "$(git rev-parse HEAD)" = "$CODESLEUTH_ACCEPTANCE_SHA" && echo "EXACT HEAD $CODESLEUTH_ACCEPTANCE_SHA"
       - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22.23.2"
+          package-manager-cache: false
       - name: Install pinned Bun dependencies
         run: bun install --frozen-lockfile
+      - name: Install isolated Mermaid QA runtime
+        run: bun install --cwd tools/mermaid-qa --frozen-lockfile
+      - name: Verify sandboxed Mermaid QA browser and bind execution identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          browser=/usr/bin/google-chrome
+          test -x "$browser"
+          browser="$(realpath "$browser")"
+          node="$(realpath "$(command -v node)")"
+          test -x "$node"
+          "$browser" --version
+          "$node" --version
+          profile="$(mktemp -d "$RUNNER_TEMP/codesleuth-chrome.XXXXXX")"
+          trap 'rm -rf "$profile"' EXIT
+          timeout 30 "$browser" \
+            --headless \
+            --disable-background-networking \
+            --disable-component-update \
+            --disable-domain-reliability \
+            '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost' \
+            --no-first-run \
+            --user-data-dir="$profile" \
+            --dump-dom about:blank >/dev/null
+          {
+            echo "CODESLEUTH_MERMAID_BROWSER=$browser"
+            echo "CODESLEUTH_MERMAID_NODE=$node"
+          } >> "$GITHUB_ENV"
       - name: Run durable-state and context-graph smokes
         run: bun run test
+
+  graphify-enabled:
+    name: Graphify enabled runtime / Python 3.12 / Ubuntu
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CODESLEUTH_ACCEPTANCE_SHA }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Verify exact checked-out commit
+        run: >-
+          python -c "import os, subprocess; expected=os.environ['CODESLEUTH_ACCEPTANCE_SHA']; actual=subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(); assert actual == expected, f'acceptance checkout mismatch: expected {expected}, got {actual}'; print(f'EXACT HEAD {actual}')"
+      - name: Contributor anti-pattern gate
+        run: python scripts/contributor_antipatterns.py scan --strict
+      - name: Install acceptance dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - uses: oven-sh/setup-bun@v2
+      - name: Install pinned Bun dependencies
+        run: bun install --frozen-lockfile
+      - name: Install hash-locked Graphify runtime through lifecycle authority
+        env:
+          PYTHONPATH: pack/.opencode/bin
+        run: python -m codesleuth_project --install-graphify-runtime .
+      - name: Run enabled provider and semantic corpus acceptance
+        run: |
+          python -m pytest -q tests/test_graphify_adapter.py tests/test_graphify_corpus.py
+          python scripts/graphify_corpus_compare.py --fixtures tests/fixtures/graphify-corpus --check
+          bun tests/context_graph_provider_smoke.ts

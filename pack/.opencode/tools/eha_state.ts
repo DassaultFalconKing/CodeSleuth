@@ -1,5 +1,5 @@
 import { tool } from "@opencode-ai/plugin"
-import { randomUUID } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import { appendFile, mkdir, readFile } from "node:fs/promises"
 import path from "node:path"
 
@@ -278,6 +278,27 @@ export function renderEhaMermaid(
   return `${lines.join("\n")}\n`
 }
 
+function ehaMermaidSelection(
+  all: EhaEvent[],
+  options: { campaignLimit?: number; repairLimit?: number },
+) {
+  const allCampaigns = summarize(all)
+  const campaignLimit = Math.min(Math.max(1, options.campaignLimit ?? 50), 50)
+  const repairLimit = Math.min(Math.max(1, options.repairLimit ?? 20), 50)
+  const campaigns = allCampaigns.slice(-campaignLimit)
+  const totalRepairs = campaigns.reduce((count, campaign) => count + campaign.repairs.length, 0)
+  const returnedRepairs = campaigns.reduce(
+    (count, campaign) => count + Math.min(campaign.repairs.length, repairLimit),
+    0,
+  )
+  return {
+    bounds: { campaignLimit, repairLimit },
+    totals: { campaigns: allCampaigns.length, repairsInSelectedCampaigns: totalRepairs },
+    returned: { campaigns: campaigns.length, repairs: returnedRepairs },
+    truncated: campaigns.length < allCampaigns.length || returnedRepairs < totalRepairs,
+  }
+}
+
 // Retain the accepted internal contract name while exporting a descriptive
 // helper for direct deterministic smoke coverage.
 const renderMermaid = renderEhaMermaid
@@ -454,21 +475,47 @@ export const load = tool({
 })
 
 export const mermaid = tool({
-  description: "Render a bounded Mermaid flowchart of EHA targets, SIB verdicts, and repair lineage. This is a derived presentation of the evidence ledger, never acceptance authority itself.",
+  description: "Render a bounded Mermaid flowchart of EHA targets, SIB verdicts, and repair lineage. The no-argument and mermaid_source forms preserve the canonical Mermaid-source contract; request json for the versioned derived-presentation envelope.",
   args: {
     reviewId: tool.schema.string().optional(),
     campaignLimit: tool.schema.number().int().min(1).max(50).optional(),
     repairLimit: tool.schema.number().int().min(1).max(50).optional(),
     direction: tool.schema.enum(["LR", "TD"]).optional(),
+    responseFormat: tool.schema.enum(["json", "mermaid_source"]).optional(),
   },
   async execute(args, context) {
     const root = context.worktree
     const reviewId = await resolveReviewId(root, context.sessionID, args.reviewId)
     const all = await events(root, reviewId)
-    return renderMermaid(all, {
+    const options = {
       campaignLimit: args.campaignLimit,
       repairLimit: args.repairLimit,
       direction: args.direction,
-    })
+    }
+    const mermaidSource = renderMermaid(all, options)
+    if (args.responseFormat !== "json") return mermaidSource
+    const relativeLedgerPath = `.opencode/state/reviews/${reviewId}/eha.ndjson`
+    const rawLedger = (await readOptional(ledgerPath(root, reviewId))) ?? ""
+    return JSON.stringify(
+      {
+        schemaVersion: 1,
+        view: "eha_state",
+        authority: {
+          kind: "append_only_eha_ledger",
+          statement: "eha.ndjson remains authority; Mermaid is derived presentation only",
+        },
+        provenance: {
+          reviewId,
+          path: relativeLedgerPath,
+          contentSha256: createHash("sha256").update(rawLedger).digest("hex"),
+          eventCount: all.length,
+        },
+        selection: ehaMermaidSelection(all, options),
+        derivedPresentationOnly: true,
+        mermaidSource,
+      },
+      null,
+      2,
+    )
   },
 })

@@ -15,6 +15,15 @@ and current tracked-file blob identities, then reuses the canonical
 `repo_context_graph_query` selection to return a bounded structured SourceRef
 capsule with continuation. A stale or wrong-head projection must fail closed.
 
+Provider choice must be explicit in the result. Use an explicit request first; otherwise
+read `contextGraph.provider` from `.opencode/review-pack-user.json` when present and
+default to `builtin`. If the selected provider
+names `graphify`, call `repo_context_provider_status`, require the exact compatible
+optional runtime, enumerate a bounded tracked-file manifest, and use
+`repo_context_provider_extract`. Never auto-install or silently fall back after an
+explicit incompatible Graphify request. Provider candidates still pass through exact
+source review and `repo_context_graph_save` validation.
+
 When a Mermaid view is requested, pass explicit roots/hops/relation/origin and
 node/edge bounds when the requested scope supplies them. Mermaid is optional
 secondary presentation, not the primary machine context. The Mermaid tool must

@@ -35,6 +35,8 @@ async function main() {
   const broadRoot = "codesleuth.host-execution-authority"
   const first = JSON.parse(await mermaid.execute({ contractIds: [broadRoot], contractLimit: 3 }, context))
   const second = JSON.parse(await mermaid.execute({ contractIds: [broadRoot], contractLimit: 3 }, context))
+  assert(first.schemaVersion === 1 && first.view === "protected_capability_impact", "protected Mermaid must use the shared versioned envelope")
+  assert(first.authority.kind === "tracked_protected_capability_registry", "protected Mermaid must declare its separate registry authority")
   assert(first.mermaidSource === second.mermaidSource, "protected impact Mermaid must be deterministic")
   assert(first.derivedPresentationOnly === true, "tool output must disclaim evidence authority")
   assert(first.mermaidSource.includes("not registry or acceptance evidence"), "diagram header must preserve the authority boundary")

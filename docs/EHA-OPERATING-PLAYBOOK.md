@@ -115,6 +115,12 @@ campaigns, pending levels, claimable levels, repair decisions, and candidate
 transitions remain visibly distinct. The diagram is useful for humans but is not
 acceptance authority and never transfers a verdict to another SHA.
 
+The no-argument response remains raw Mermaid source for established callers.
+Callers that need exact review/ledger provenance, selection totals and bounds,
+truncation state, and `mermaidSource` request the versioned envelope with
+`responseFormat: json`. `responseFormat: mermaid_source` is the explicit source-only
+equivalent.
+
 ## Claimability
 
 A recorded PASS and a claimable SIB degree are deliberately different concepts.
