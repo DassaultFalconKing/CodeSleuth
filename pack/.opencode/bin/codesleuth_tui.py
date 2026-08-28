@@ -7,7 +7,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from textual import work
+from textual import events, work
 from textual.app import ComposeResult
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
 from textual.css.query import NoMatches
@@ -778,11 +778,12 @@ class CodeSleuthApp(ReviewPackApp):
     #workspace.compact #wide-nav { display: none; }
     #workspace.compact #main-scroll { height: auto; max-height: 1fr; }
     #workspace.compact #compact-nav { display: block; }
-    #workspace.compact #actions { grid-size: 2; height: auto; }
-    #workspace.compact #playbooks-panel { height: 8; }
+    #workspace.compact #actions { grid-size: 5; height: auto; }
+    #workspace.compact #playbooks-panel { height: 7; }
     #workspace.compact #playbooks-body { layout: vertical; }
     #workspace.compact #playbooks-catalog { width: 100%; height: 1fr; }
     #workspace.compact #playbooks-detail { width: 100%; height: 1fr; }
+    #workspace.compact #playbooks-detail-body { display: none; }
     """
     BINDINGS = [
         ("q", "quit", "Quit"),
@@ -1299,20 +1300,32 @@ class CodeSleuthApp(ReviewPackApp):
         for chip in steps_box.query(".skill-chip, .tool-chip"):
             chip.remove_class("skill-chip")
             chip.remove_class("tool-chip")
+        first_chip: Button | None = None
         for step in record.steps:
             steps_box.mount(Static(f"{step.id} · {step.execution} · {step.isolation} · {step.output}", classes="hint"))
             row = Horizontal(classes="chip-row")
             steps_box.mount(row)
             for skill in step.skills:
-                row.mount(Button(f"skill:{skill}", classes="skill-chip", compact=True))
+                chip = Button(f"skill:{skill}", classes="skill-chip", compact=True)
+                first_chip = first_chip or chip
+                row.mount(chip)
             for tool in step.tools:
-                row.mount(Button(f"tool:{tool}", classes="tool-chip", compact=True))
+                chip = Button(f"tool:{tool}", classes="tool-chip", compact=True)
+                first_chip = first_chip or chip
+                row.mount(chip)
             if not step.skills and not step.tools:
                 row.mount(Static("no declared skills/tools", classes="hint"))
         self.query_one("#chip-contract", Static).update("")
-        self.query_one("#main-scroll", VerticalScroll).scroll_to_widget(
-            self.query_one("#playbooks-detail"), animate=False
-        )
+        if self.size.width >= 100 and self.size.height >= 30:
+            self.query_one("#main-scroll", VerticalScroll).scroll_to_widget(
+                self.query_one("#playbooks-detail"), animate=False
+            )
+        else:
+            main_scroll = self.query_one("#main-scroll", VerticalScroll)
+            self.call_after_refresh(main_scroll.scroll_home, animate=False)
+            if first_chip is not None:
+                detail = self.query_one("#playbooks-detail", VerticalScroll)
+                self.call_after_refresh(detail.scroll_to_widget, first_chip, animate=False)
 
     def _show_chip_contract(self, button: Button) -> None:
         label = str(button.label)
@@ -1329,6 +1342,22 @@ class CodeSleuthApp(ReviewPackApp):
         except NoMatches:
             pass
         self.notify("Catalog chips do not invoke Skills or tools")
+
+    def _select_playbook(self, playbook_id: str) -> None:
+        self.selected_playbook_id = playbook_id
+        compact = self.size.width < 100 or self.size.height < 30
+        self.query_one("#playbooks-catalog").display = not compact
+        self._highlight_playbook_rows()
+        self._render_playbook_detail()
+
+    def on_click(self, event: events.Click) -> None:
+        if self.current_surface != "playbooks":
+            return
+        for row in self.query(".playbook-row"):
+            if row.region.contains(event.screen_x, event.screen_y):
+                event.stop()
+                self._select_playbook(row.id.removeprefix("pb-row-"))
+                return
 
     def action_help(self) -> None:
         if isinstance(self.screen, CodeSleuthHelpScreen):
@@ -1485,11 +1514,7 @@ class CodeSleuthApp(ReviewPackApp):
             self.action_copy_playbook()
         elif event.button.id and event.button.id.startswith("pb-row-"):
             event.stop()
-            self.selected_playbook_id = event.button.id.removeprefix("pb-row-")
-            compact = self.size.width < 100 or self.size.height < 30
-            self.query_one("#playbooks-catalog").display = not compact
-            self._highlight_playbook_rows()
-            self._render_playbook_detail()
+            self._select_playbook(event.button.id.removeprefix("pb-row-"))
         elif event.button.has_class("skill-chip") or event.button.has_class("tool-chip"):
             event.stop()
             self._show_chip_contract(event.button)
