@@ -115,7 +115,8 @@
       "introduced": "sib0-inventory-freeze",
       "protected_at": null,
       "public_contract": [
-        "CodeSleuth exposes a reachable CLI for install assistance, project lifecycle, Verify, version identity, and OpenCode launch without owning host execution."
+        "CodeSleuth exposes a reachable CLI for install assistance, project lifecycle, Verify, version identity, and OpenCode launch without owning host execution.",
+        "Optional provider runtimes are installed and removed only through explicit bounded lifecycle actions; installation publishes an exact interpreter identity and never changes the builtin default."
       ],
       "contract_fingerprint": {
         "entrypoints": [
@@ -142,7 +143,9 @@
       "test_evidence": [
         "tests/test_version_contract.py",
         "tests/test_project_lifecycle.py",
-        "tests/test_lifecycle.py"
+        "tests/test_lifecycle.py",
+        "tests/test_graphify_installed_runtime.py",
+        "tests/test_graphify_lifecycle.py"
       ],
       "affected_paths": [
         "install.py",
@@ -174,6 +177,16 @@
           "must_not": "Version identity falls back to hardcoded numeric literals when source or installed metadata is missing instead of failing closed.",
           "proof": [
             "tests/test_version_contract.py"
+          ]
+        },
+        {
+          "id": "FR-CLI-003",
+          "sib_origin": "SIB1",
+          "must_not": "An optional provider runtime auto-installs, executes through an ambient interpreter, survives its explicit scoped removal, or broadens normal uninstall scope.",
+          "proof": [
+            "tests/test_graphify_installed_runtime.py",
+            "tests/context_graph_provider_smoke.ts",
+            "docs/GRAPHIFY-PROVIDER.md"
           ]
         }
       ]
@@ -278,13 +291,15 @@
       "protected_at": null,
       "public_contract": [
         "Install, adopt, bind, unbind, and uninstall are reversible lifecycle operations with conflict-safe restoration of pre-existing OpenCode configuration.",
-        "Runtime installation and dependency binding are independent axes."
+        "Runtime installation and dependency binding are independent axes.",
+        "Optional provider dependencies use an explicit hash-locked, ignored, exactly identified runtime with separately scoped install and removal."
       ],
       "contract_fingerprint": {
         "pack_source": "pack/.opencode",
         "metadata_name": "review-pack.json",
         "dependency_path": "tools/codesleuth",
-        "backup_root": ".codesleuth/backups/pre-install"
+        "backup_root": ".codesleuth/backups/pre-install",
+        "optional_runtime_root": ".runtime/graphify-provider"
       },
       "code_evidence": [
         "install.py",
@@ -300,7 +315,9 @@
       "test_evidence": [
         "tests/test_project_lifecycle.py",
         "tests/test_lifecycle.py",
-        "tests/test_tracked_repos.py"
+        "tests/test_tracked_repos.py",
+        "tests/test_graphify_installed_runtime.py",
+        "tests/test_graphify_lifecycle.py"
       ],
       "affected_paths": [
         "install.py",
@@ -308,7 +325,11 @@
         "install.ps1",
         "pack/.opencode/**",
         "pack/.opencode/bin/codesleuth_project/**",
-        "docs/PROJECT-LIFECYCLE.md"
+        "docs/PROJECT-LIFECYCLE.md",
+        "tests/test_graphify_installed_runtime.py",
+        "tests/test_graphify_lifecycle.py",
+        "tests/test_smoke_parity.py",
+        "tools/graphify-provider/**"
       ],
       "depends_on": [
         "codesleuth.host-execution-authority",
@@ -360,6 +381,16 @@
           "proof": [
             "pack/.opencode/bin/codesleuth_project/tracked_repos.py",
             "tests/test_tracked_repos.py"
+          ]
+        },
+        {
+          "id": "FR-LIFE-006",
+          "sib_origin": "SIB1",
+          "must_not": "Optional provider installation bypasses the managed hash lock, publishes a partial staging tree, loses exact interpreter identity, or removes anything outside its ignored runtime root.",
+          "proof": [
+            "tests/test_graphify_installed_runtime.py",
+            "tests/test_graphify_lifecycle.py",
+            "docs/GRAPHIFY-PROVIDER.md"
           ]
         }
       ]
@@ -606,7 +637,8 @@
       "public_contract": [
         "Durable review state survives model-context compaction and records evidence identity independently of chat history.",
         "Durable analytical state is review evidence/supporting state, not execution authority for the host.",
-        "EHA Mermaid is a bounded derived view of append-only eha.ndjson history and never transfers acceptance between exact commits."
+        "EHA Mermaid is a bounded derived view of append-only eha.ndjson history and never transfers acceptance between exact commits.",
+        "The established no-argument EHA Mermaid call returns Mermaid source; the versioned provenance envelope is explicit JSON opt-in."
       ],
       "contract_fingerprint": {
         "state_role": "durable-review-evidence",
@@ -636,6 +668,7 @@
         "tests/review_state_smoke.ts",
         "tests/review_state_amendments.ts",
         "tests/eha_state_smoke.ts",
+        "tests/test_eha_contract.py",
         "pack/.opencode/plugins/review-compaction.ts",
         "pack/.opencode/skills/findings-ledger-update/SKILL.md",
         "docs/DURABLE-EVIDENCE-STORE.md",
@@ -732,6 +765,15 @@
             "tests/review_state_amendments.ts",
             "tests/review_state_smoke.ts"
           ]
+        },
+        {
+          "id": "FR-STATE-011",
+          "sib_origin": "SIB1",
+          "must_not": "The no-argument eha_state_mermaid contract silently changes from Mermaid source to a structured envelope, breaking established callers during presentation hardening.",
+          "proof": [
+            "tests/eha_state_smoke.ts",
+            "docs/EHA-OPERATING-PLAYBOOK.md"
+          ]
         }
       ]
     },
@@ -748,38 +790,75 @@
       },
       "public_contract": [
         "The context graph is a bounded navigation and relationship projection derived from repository evidence.",
-        "Graph or Mermaid output is not stronger finding evidence than exact current source."
+        "Graph or Mermaid output is not stronger finding evidence than exact current source.",
+        "codesleuth_context_get remains the exact-head structured context-capsule boundary; Mermaid stays optional secondary presentation with compatible provenance identity.",
+        "Optional Graphify output is a bounded candidate source and topology-selection hint only; builtin mapping, canonical save/query semantics, and exact tracked source remain authority."
       ],
       "contract_fingerprint": {
         "graph_role": "bounded-context-projection",
         "finding_authority": "exact-current-source",
-        "schema_version": 1
+        "schema_version": 1,
+        "default_provider": "builtin",
+        "optional_provider": "graphify-incubating"
       },
       "code_evidence": [
         "pack/.opencode/tools/repo_context_graph.ts",
-        "pack/.opencode/tools/protected_capability_graph.ts"
+        "pack/.opencode/tools/protected_capability_graph.ts",
+        "pack/.opencode/tools/codesleuth_context.ts",
+        "pack/.opencode/tools/repo_context_provider.ts",
+        "pack/.opencode/bin/codesleuth_project/graphify_adapter.py"
       ],
       "doc_evidence": [
         "docs/CONTEXT-GRAPH-DISCIPLINE.md",
         "docs/SIB0-CAPABILITY-INVENTORY.md",
-        "pack/.opencode/skills/repository-deep-review/SKILL.md"
+        "pack/.opencode/skills/repository-deep-review/SKILL.md",
+        "docs/GRAPHIFY-PROVIDER.md",
+        "docs/MERMAID-QA.md"
       ],
       "test_evidence": [
         "tests/context_graph_smoke.ts",
-        "tests/protected_capability_graph_smoke.ts"
+        "tests/context_capsule_smoke.ts",
+        "tests/protected_capability_graph_smoke.ts",
+        "tests/context_graph_provider_smoke.ts",
+        "tests/context_graph_topology_smoke.ts",
+        "tests/test_graphify_adapter.py",
+        "tests/test_graphify_topology_contract.py",
+        "tests/mermaid_qa_smoke.ts"
       ],
       "affected_paths": [
         "pack/.opencode/tools/repo_context_graph.ts",
         "pack/.opencode/tools/protected_capability_graph.ts",
+        "pack/.opencode/tools/codesleuth_context.ts",
+        "pack/.opencode/tools/repo_context_provider.ts",
+        "pack/.opencode/bin/codesleuth_project/graphify_adapter.py",
         "pack/.opencode/commands/repo-map.md",
         "tests/context_graph_smoke.ts",
+        "tests/context_capsule_smoke.ts",
+        "tests/context_graph_provider_smoke.ts",
+        "tests/context_graph_topology_smoke.ts",
         "docs/CONTEXT-GRAPH-DISCIPLINE.md",
+        "docs/GRAPHIFY-PROVIDER.md",
+        "docs/MERMAID-QA.md",
+        "docs/FEATURE-MERMAID-GRAPHIFY-PLAN.md",
+        "docs/GRAPHIFY-CORPUS.md",
+        "docs/MERMAID-GRAPHIFY-AUDIT.md",
+        "docs/README.md",
+        "scripts/graphify_adapter.py",
+        "scripts/graphify_corpus_compare.py",
+        "scripts/mermaid_qa.py",
+        "tests/fixtures/graphify-corpus/**",
+        "tests/test_graphify_adapter.py",
+        "tests/test_graphify_corpus.py",
+        "tests/test_graphify_topology_contract.py",
+        "tests/test_mermaid_qa_contract.py",
+        "tools/mermaid-qa/**",
         "docs/SIB0-CAPABILITY-INVENTORY.md",
         "tests/protected_capability_graph_smoke.ts"
       ],
       "depends_on": [
         "codesleuth.host-execution-authority",
-        "codesleuth.durable-review-state"
+        "codesleuth.durable-review-state",
+        "codesleuth.cli-control-surface"
       ],
       "forbidden_regressions": [
         {
@@ -831,6 +910,43 @@
           "proof": [
             "tests/context_graph_smoke.ts",
             "tests/protected_capability_graph_smoke.ts"
+          ]
+        },
+        {
+          "id": "FR-GRAPH-006",
+          "sib_origin": "SIB1",
+          "must_not": "An optional structural provider consumes untracked, symlinked, non-stage-0, stale, out-of-root, or source-changed input while presenting candidates as verified source.",
+          "proof": [
+            "tests/test_graphify_adapter.py",
+            "docs/GRAPHIFY-PROVIDER.md"
+          ]
+        },
+        {
+          "id": "FR-GRAPH-007",
+          "sib_origin": "SIB1",
+          "must_not": "Graphify becomes implicit default, silently falls back after explicit selection, adds network or tracked-write authority, or persists provider-owned repository truth.",
+          "proof": [
+            "tests/context_graph_provider_smoke.ts",
+            "tests/test_graphify_lifecycle.py",
+            "docs/GRAPHIFY-PROVIDER.md"
+          ]
+        },
+        {
+          "id": "FR-GRAPH-008",
+          "sib_origin": "SIB1",
+          "must_not": "Provider topology metadata changes projection identity, evidence origin, canonical save/query traversal, or emits roots that do not match the already validated projection.",
+          "proof": [
+            "tests/context_graph_topology_smoke.ts",
+            "tests/test_graphify_topology_contract.py"
+          ]
+        },
+        {
+          "id": "FR-GRAPH-009",
+          "sib_origin": "SIB2",
+          "must_not": "Mermaid envelope hardening removes the exact projection compatibility identity consumed by codesleuth_context_get or weakens its exact-head and stale-SourceRef checks.",
+          "proof": [
+            "tests/context_capsule_smoke.ts",
+            "tests/context_graph_smoke.ts"
           ]
         }
       ]
@@ -1009,7 +1125,8 @@
       "public_contract": [
         "Canonical acceptance binds evidence to an exact commit SHA, not a branch name or synthetic PR merge commit.",
         "The Protected Capability Registry and SIB0 inventory are executable contract surfaces with structural tests.",
-        "Protected-capability impact Mermaid is bounded derived navigation read directly from the tracked registry, never a second registry or acceptance verdict."
+        "Protected-capability impact Mermaid is bounded derived navigation read directly from the tracked registry, never a second registry or acceptance verdict.",
+        "Optional dependency features require both an absent/default profile and a non-skipped enabled profile on the exact candidate SHA."
       ],
       "contract_fingerprint": {
         "workflow": ".github/workflows/acceptance.yml",
@@ -1035,10 +1152,15 @@
       "test_evidence": [
         "tests/test_protected_capability_registry.py",
         "tests/protected_capability_graph_smoke.ts",
-        "tests/eha_state_smoke.ts"
+        "tests/eha_state_smoke.ts",
+        "tests/mermaid_qa_smoke.ts",
+        "tests/context_graph_provider_smoke.ts",
+        "tests/test_graphify_adapter.py",
+        "tests/test_graphify_corpus.py"
       ],
       "affected_paths": [
         ".github/workflows/acceptance.yml",
+        "CHANGELOG.md",
         "docs/protected-capabilities.json",
         "docs/SIB0-CAPABILITY-INVENTORY.md",
         "docs/PROTECTED-CAPABILITY-CONTRACTS.md",
@@ -1048,6 +1170,10 @@
         "tests/test_protected_capability_registry.py",
         "tests/protected_capability_graph_smoke.ts",
         "tests/eha_state_smoke.ts",
+        "tests/mermaid_qa_smoke.ts",
+        "tests/context_graph_provider_smoke.ts",
+        "tests/test_graphify_adapter.py",
+        "tests/test_graphify_corpus.py",
         "package.json",
         "smoke.py"
       ],
@@ -1096,6 +1222,16 @@
           "proof": [
             "tests/test_protected_capability_registry.py",
             "tests/protected_capability_graph_smoke.ts"
+          ]
+        },
+        {
+          "id": "FR-ACCEPT-006",
+          "sib_origin": "SIB2",
+          "must_not": "Canonical acceptance reports an optional provider green only because dependency-dependent tests skipped while no exact-head enabled-runtime job executed.",
+          "proof": [
+            ".github/workflows/acceptance.yml",
+            "tests/test_graphify_adapter.py",
+            "tests/context_graph_provider_smoke.ts"
           ]
         }
       ]

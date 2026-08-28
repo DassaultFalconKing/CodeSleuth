@@ -32,6 +32,8 @@ def test_source_and_installed_verify_require_all_advertised_mermaid_surfaces() -
         "tools/repo_context_graph.ts",
         "tools/eha_state.ts",
         "tools/protected_capability_graph.ts",
+        "tools/repo_context_provider.ts",
+        "bin/codesleuth_project/graphify_adapter.py",
     }
     assert required <= source
     assert required <= installed

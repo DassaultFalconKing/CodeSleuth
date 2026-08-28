@@ -246,6 +246,8 @@ async function main() {
     const neighborhood = JSON.parse(await query.execute({ nodeLimit: 20, edgeLimit: 20 }, validation.context))
     assert(neighborhood.returnedNodes.length >= 1 && neighborhood.returnedEdges.length >= 1, "query returns a bounded neighborhood from the saved projection")
     const diagram = JSON.parse(await mermaid.execute({}, validation.context))
+    assert(diagram.schemaVersion === 1 && diagram.view === "repository_context", "context Mermaid must use the shared versioned envelope")
+    assert(diagram.authority.kind === "saved_repository_context_projection", "context Mermaid must declare its separate authority")
     assert(diagram.mermaidSource.includes("flowchart"), "mermaid derives flowchart source from the saved projection")
   } finally {
     await validation.cleanup()
@@ -425,7 +427,8 @@ async function main() {
       assert(renderedOnce.mermaidSource === renderedTwice.mermaidSource, "Mermaid output is deterministic for one projection")
       assert(renderedOnce.mermaidSource.includes("flowchart LR"), "Mermaid output is derived flowchart source")
       assert(!renderedOnce.truncated, "complete maps are not marked truncated")
-      assert(renderedOnce.derivedFrom.projectionId === cleanSaved.projectionId, "Mermaid declares the projection it was derived from")
+      assert(renderedOnce.provenance.projectionId === cleanSaved.projectionId, "Mermaid declares the projection it was derived from")
+      assert(renderedOnce.derivedPresentationOnly === true, "Mermaid envelope declares presentation-only authority")
 
       // escaping: hostile label content cannot inject markup or instructions
       await expectFailure(
@@ -484,7 +487,7 @@ async function main() {
           return mermaid.execute({}, cleanProjectionState.context)
         })(),
       )
-      assert(relabeledRender.derivedFrom.projectionId === cleanSaved.projectionId, "Mermaid remains bound to one projection identity")
+      assert(relabeledRender.provenance.projectionId === cleanSaved.projectionId, "Mermaid remains bound to one projection identity")
       assert(relabeledRender.mermaidSource.includes("presentation changed again"), "Mermaid reflects current projection presentation")
 
       // subset rendering marks truncation

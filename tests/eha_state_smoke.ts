@@ -162,7 +162,17 @@ async function main() {
   assert(state.campaigns[0].verdicts.SIB1.verdict === "FAIL", "failed SHA must remain failed after later repair events")
   assert(state.campaigns[0].claimable.SIB1 === false, "failed SHA must not become claimable after later events")
 
-  const diagram = await mermaid.execute({}, context)
+  const legacySource = await mermaid.execute({}, context)
+  assert(legacySource.includes("flowchart TD"), "no-argument EHA Mermaid must preserve the canonical source contract")
+  const rendered = JSON.parse(await mermaid.execute({ responseFormat: "json" }, context))
+  const diagram = rendered.mermaidSource
+  assert(rendered.schemaVersion === 1 && rendered.view === "eha_state", "EHA Mermaid must use the shared versioned envelope")
+  assert(rendered.authority.kind === "append_only_eha_ledger", "EHA envelope must name its separate ledger authority")
+  assert(rendered.provenance.reviewId === review.reviewId, "EHA envelope must retain exact review identity")
+  assert(/^[0-9a-f]{64}$/.test(rendered.provenance.contentSha256), "EHA envelope must hash exact ledger content")
+  assert(rendered.provenance.eventCount > 0, "EHA envelope must report the ledger event count")
+  assert(rendered.selection.truncated === false, "small EHA history must report complete selection")
+  assert(rendered.derivedPresentationOnly === true, "EHA envelope must retain the presentation-only boundary")
   assert(diagram.includes("flowchart TD"), "EHA ledger must render Mermaid")
   assert(diagram.includes(shaA.slice(0, 12)), "diagram must contain failing target")
   assert(diagram.includes(shaB.slice(0, 12)), "diagram must contain repaired target")
@@ -170,6 +180,8 @@ async function main() {
   assert(diagram.includes("SIB2: PASS"), "diagram must show accepted repaired target")
   assert(diagram.includes("eha.ndjson remains authority"), "diagram must identify the ledger as authority")
   assert(diagram.includes("acceptance never transfers"), "diagram must not imply acceptance transfer between commits")
+  const explicitSource = await mermaid.execute({ responseFormat: "mermaid_source" }, context)
+  assert(legacySource === diagram && explicitSource === diagram, "default and explicit source compatibility must be byte-identical")
 
   const manyCampaigns: any[] = []
   for (let index = 0; index < 55; index += 1) {

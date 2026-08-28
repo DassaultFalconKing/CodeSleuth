@@ -1,6 +1,6 @@
 # Mermaid/context-graph audit and Graphify provider evaluation
 
-**Status:** roadmap / incubation decision; no Graphify runtime is approved or installed by this document  
+**Status:** approved for bounded 0.4.0 integration as an incubating optional provider; exact-head acceptance and EHA remain required
 **Classification:** TOOL-EXTENSION + DOCS; future implementation may also touch EXTENSION-MANAGEMENT-UX  
 **Audit baseline:** CodeSleuth `main` at `aa410498ed92418b0c6deeedec0e6ea1ac247c53`  
 **Graphify evaluated:** `Graphify-Labs/graphify` release `v0.9.50`, tag commit `43d54acbfa9e731f7a592bb582c1f4b9d48ed73e`, package `graphifyy==0.9.50`  
@@ -484,6 +484,11 @@ Acceptance:
 
 ### M2 — Graphify structural-provider spike
 
+**Feature-branch status:** implemented. The exact-pinned optional adapter accepts only
+an explicit tracked-file manifest, calls the local structural library with networking
+disabled, validates Git/blob identity, maps a closed relation vocabulary, and bounds
+candidate output. It does not install or invoke Graphify host/runtime side effects.
+
 Add a narrow Python adapter/helper that consumes an explicit Git-selected file list and
 returns candidate structural nodes/edges.
 
@@ -502,6 +507,12 @@ Acceptance:
 - bounded output before it reaches model-visible tools.
 
 ### M3 — corpus comparison and hardening
+
+**Refit status:** implemented for deterministic fixtures. The canonical enabled-runtime
+profile is Ubuntu/Python 3.12; Windows-path behavior is covered by fixtures and lifecycle
+tests, but Windows and macOS enabled-runtime support remain adoption-gate items rather
+than inferred PASSes. The harness reports time, Python-memory, size, truncation and
+unmapped-semantics metrics.
 
 Test built-in mapping against representative repositories covering at least:
 
@@ -533,6 +544,11 @@ normalization produces too many unverifiable/coerced relations.
 
 ### M4 — optional provider behind `/repo-map`
 
+**Feature-branch status:** implemented. `builtin` remains default in settings/TUI and
+the Playbook. Explicit Graphify status/extraction exposes version, origin, permissions,
+compatibility and removal; candidates still pass consolidated context-graph save
+validation.
+
 Only after M2/M3 pass, expose provider selection without changing the safe default
 silently.
 
@@ -558,6 +574,11 @@ permissions/capabilities
 This belongs naturally to the already-allowed extension-management UX.
 
 ### M5 — topology-assisted Mermaid selection
+
+**Feature-branch status:** implemented as ephemeral, deterministic community/centrality
+root hints. Hints match an existing projection by closed semantic identity and feed the
+same roots into the accepted query/Mermaid traversal; they never alter identity,
+provenance or evidence origin.
 
 Use Graphify communities/centrality only as **selection hints** for which verified
 CodeSleuth nodes to render. They must not become identity or evidence.
@@ -653,7 +674,9 @@ Until then, Graphify remains a roadmap candidate, not a production dependency.
 
 ## 16. Practical recommendation
 
-Proceed with M1 and M2.
+The full M1-M5 feature implementation is now available on its feature branch. Keep
+Graphify classified as incubating until the remaining adoption gates above—especially
+Linux/macOS execution and distribution compatibility—are independently satisfied.
 
 The likely high-value end state is deliberately boring:
 
