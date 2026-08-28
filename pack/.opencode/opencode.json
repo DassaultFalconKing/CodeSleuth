@@ -25,6 +25,12 @@
       "git hash-object*": "allow",
       "git blame*": "allow",
       "git grep*": "allow",
+      ".opencode/bin/codesleuth-reports sync*": "allow",
+      "./.opencode/bin/codesleuth-reports sync*": "allow",
+      ".opencode/bin/codesleuth-reports publish*": "allow",
+      "./.opencode/bin/codesleuth-reports publish*": "allow",
+      ".opencode/bin/codesleuth-reports.ps1 sync*": "allow",
+      ".opencode/bin/codesleuth-reports.ps1 publish*": "allow",
       "git push*": "deny",
       "git reset --hard*": "deny",
       "git clean*": "deny"

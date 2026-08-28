@@ -844,15 +844,19 @@
       "protected_at": null,
       "public_contract": [
         "Analytical reports live under .codesleuth/reports/ with CodeSleuth-owned conventions and INDEX maintenance.",
-        "Report bodies are written by the host build agent where supported and are locally ignored by default because they may contain secrets."
+        "Report bodies are written by the host build agent where supported and are locally ignored by default because they may contain secrets.",
+        "A bounded explicit publisher may synchronize sanitized derived reports through an orphan reports branch whose complete tree is restricted to .codesleuth/reports/**; structured review and EHA ledgers remain local authority and are never published."
       ],
       "contract_fingerprint": {
         "reports_root": ".codesleuth/reports",
         "format_doc": "pack/.opencode/CODESLEUTH-REPORTS.md",
-        "writer": "host-build"
+        "writer": "host-build",
+        "shared_transport": "orphan-reports-branch",
+        "structured_evidence_shared": false
       },
       "code_evidence": [
         "pack/.opencode/CODESLEUTH-REPORTS.md",
+        "pack/.opencode/bin/codesleuth_reports.py",
         "pack/.opencode/bin/codesleuth_project/paths.py",
         "pack/.opencode/skills/codesleuth-reports/SKILL.md",
         "pack/.opencode/skills/report-bug-closure/SKILL.md"
@@ -864,13 +868,18 @@
       ],
       "test_evidence": [
         "tests/test_reports_index.py",
+        "tests/test_reports_branch.py",
         "tests/test_agents_pointer.py"
       ],
       "affected_paths": [
         "pack/.opencode/CODESLEUTH-REPORTS.md",
+        "pack/.opencode/bin/codesleuth-reports*",
+        "pack/.opencode/bin/codesleuth_reports.py",
         "pack/.opencode/bin/codesleuth_project/paths.py",
+        "pack/.opencode/commands/repo-report.md",
         "pack/.opencode/skills/codesleuth-reports/**",
         "pack/.opencode/skills/report-bug-closure/**",
+        "tests/test_reports_branch.py",
         ".codesleuth/reports/**"
       ],
       "depends_on": [
@@ -902,6 +911,16 @@
           "proof": [
             "pack/.opencode/skills/report-bug-closure/SKILL.md",
             "docs/DURABLE-EVIDENCE-STORE.md"
+          ]
+        },
+        {
+          "id": "FR-REPORT-004",
+          "sib_origin": "SIB1",
+          "must_not": "Shared report publication moves the application HEAD, accepts non-report paths, publishes structured review/EHA ledgers, silently overwrites a same-name report collision, or claims remote sharing after a failed push.",
+          "proof": [
+            "tests/test_reports_branch.py",
+            "pack/.opencode/bin/codesleuth_reports.py",
+            "pack/.opencode/CODESLEUTH-REPORTS.md"
           ]
         }
       ]
