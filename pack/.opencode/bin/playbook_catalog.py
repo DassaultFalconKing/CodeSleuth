@@ -426,10 +426,11 @@ def resolve_playbook_source(source: Path, unpack_dir: Path | None = None) -> Pat
     if source.is_file() and source.suffix.lower() == ".zip":
         if unpack_dir is None:
             raise PlaybookCatalogError("zip install requires an unpack directory")
-        _safe_extract_zip(source, unpack_dir)
-        if (unpack_dir / "playbook.json").is_file():
+        extract_root = Path(tempfile.mkdtemp(prefix="source-", dir=unpack_dir))
+        _safe_extract_zip(source, extract_root)
+        if (extract_root / "playbook.json").is_file():
             raise PlaybookCatalogError("zip must contain one top-level Playbook folder, not root-level playbook.json")
-        matches = [path.parent for path in unpack_dir.glob("*/playbook.json")]
+        matches = [path.parent for path in extract_root.glob("*/playbook.json")]
         if len(matches) == 1:
             return matches[0]
         raise PlaybookCatalogError("zip must contain exactly one top-level Playbook folder")
