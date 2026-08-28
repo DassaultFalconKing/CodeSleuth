@@ -34,6 +34,7 @@ Long-form explanatory material lives under [`articles/`](articles/). Articles ar
 - [`MERMAID-QA.md`](MERMAID-QA.md) — explicit isolated parser/render QA for generated Mermaid source; normal CodeSleuth runtime remains browser-free.
 - [`GRAPHIFY-PROVIDER.md`](GRAPHIFY-PROVIDER.md) — isolated, explicitly enabled Graphify structural-provider contract, provenance and fail-closed mapping rules.
 - [`GRAPHIFY-CORPUS.md`](GRAPHIFY-CORPUS.md) — deterministic representative-corpus comparison, hardening cases and honest measurement limits for the optional provider.
+- [`PLAYBOOKS-CATALOG-TUI.md`](PLAYBOOKS-CATALOG-TUI.md) — design sketch for a Playbooks catalog surface (clickable steps/skills/tools plus a load wizard). Incubation only; Cursor canvas sources live under [`sketches/`](sketches/). Not a product-contract or live-TUI manual change.
 
 ## README language maintenance
 
