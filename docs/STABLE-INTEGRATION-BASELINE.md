@@ -186,9 +186,7 @@ Example: a user can enter through CLI or TUI, invoke the supported controller/to
 
 SIB2 is the trusted construction base for a new release and the first baseline from which broad feature population is considered safe.
 
-For CodeSleuth, the branch named `SIB` is semantically an **SIB2**. At the time this model was introduced it points to:
-
-`c5e41a73b84e65645dec5d0a4032b19928291193`
+For CodeSleuth, the branch named `SIB` is a convenience ref for the deliberately promoted exact **SIB2** baseline. Its current target must be resolved from Git when needed and must not be hard-coded into this normative definition. The acceptance authority is the exact SHA recorded in EHA evidence; moving the `SIB` ref does not create, transfer, or strengthen acceptance.
 
 The practical branch name remains `SIB`; the numbered terminology describes the engineering state.
 
