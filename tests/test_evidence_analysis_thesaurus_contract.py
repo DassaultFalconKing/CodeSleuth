@@ -68,12 +68,31 @@ def test_anti_shortcuts_keep_branch_ci_and_reports_non_authoritative() -> None:
         "This PR passed",
         "The parent passed, so this is safe",
         "GitHub says mergeable",
+        "The branch is protected, so it is accepted",
         "The report says PASS",
         "The graph says X depends on Y",
         "No issues found",
         "Same code, new SHA",
     ):
         assert shortcut in text
+
+
+def test_ref_protection_strengthens_control_plane_without_becoming_acceptance() -> None:
+    text = THESAURUS.read_text(encoding="utf-8")
+
+    assert "Reference protection / promotion control" in text
+    assert "control-plane integrity" in text
+    assert "protected ref != accepted revision" in text
+    assert "it is not acceptance evidence" in text
+
+
+def test_semantic_refit_recovers_evidenced_surface_not_mystical_intent() -> None:
+    text = THESAURUS.read_text(encoding="utf-8")
+
+    assert "evidenced semantic surface" in text
+    assert "evidenced claims, assumptions, constraints, rationale, compatibility obligations, and negative knowledge" in text
+    assert "does **not** assume that one metaphysical “true intent” can be recovered" in text
+    assert "reapplying the intent of stale work" not in text
 
 
 def test_stable_baseline_never_hard_codes_the_live_sib_ref_target() -> None:
