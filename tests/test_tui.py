@@ -25,6 +25,7 @@ from codesleuth_tui import (  # noqa: E402
     PlaybookLoadWizard,
 )
 from textual.widgets import Button, Label, Select, Switch  # noqa: E402
+from textual_sync import wait_for_screen_transition  # noqa: E402
 
 
 def init_repo(path: Path) -> None:
@@ -278,24 +279,24 @@ async def test_config_back_and_escape_abort_without_applying(tmp_path: Path, mon
         _assert_visible_within(abort, 120, 140)
         await pilot.click("#bind-dependency")
         await pilot.click("#abort")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
         assert not isinstance(app.screen, CodeSleuthConfigScreen)
         assert not settings_path.exists()
 
         await pilot.click("#configure")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
         assert isinstance(app.screen, CodeSleuthConfigScreen)
         await pilot.click("#bind-dependency")
         await pilot.press("escape")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
         assert not isinstance(app.screen, CodeSleuthConfigScreen)
         assert not settings_path.exists()
 
         await pilot.click("#configure")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
         assert isinstance(app.screen, CodeSleuthConfigScreen)
         await pilot.click("#cancel")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
         assert not isinstance(app.screen, CodeSleuthConfigScreen)
         assert not settings_path.exists()
 
@@ -309,11 +310,11 @@ async def test_help_playbooks_and_uninstall_abort_without_performing(tmp_path: P
     async with app.run_test(size=(120, 140)) as pilot:
         await pilot.pause()
         await pilot.click("#help")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
         assert isinstance(app.screen, CodeSleuthHelpScreen)
         _assert_visible_within(app.screen.query_one("#abort", Button), 120, 140)
         await pilot.click("#abort")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
         assert not isinstance(app.screen, CodeSleuthHelpScreen)
 
         await pilot.click("#playbooks")
@@ -332,12 +333,42 @@ async def test_help_playbooks_and_uninstall_abort_without_performing(tmp_path: P
         app.query_one("#main-scroll").scroll_to_widget(app.query_one("#uninstall"), animate=False)
         await pilot.pause()
         await pilot.click("#uninstall")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
         assert isinstance(app.screen, UninstallScreen)
         _assert_visible_within(app.screen.query_one("#abort", Button), 120, 140)
         await pilot.click("#abort")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
         assert not isinstance(app.screen, UninstallScreen)
+
+
+@pytest.mark.asyncio
+async def test_uninstall_abort_repeats_without_lifecycle_side_effects(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
+    repo = tmp_path / "target"
+    init_repo(repo)
+    uninstall_calls: list[object] = []
+
+    def forbid_uninstall(self, *args: object, **kwargs: object) -> None:
+        uninstall_calls.append((args, kwargs))
+        raise AssertionError("uninstall must not run after abort")
+
+    monkeypatch.setattr(ReviewPackApp, "perform_uninstall", forbid_uninstall)
+    app = CodeSleuthApp(repo, None)
+    async with app.run_test(size=(120, 140)) as pilot:
+        await wait_for_screen_transition(pilot)
+        await pilot.click("#nav-settings")
+        await wait_for_screen_transition(pilot)
+        app.query_one("#main-scroll").scroll_to_widget(app.query_one("#uninstall"), animate=False)
+        await wait_for_screen_transition(pilot)
+        for _ in range(5):
+            await pilot.click("#uninstall")
+            await wait_for_screen_transition(pilot)
+            assert isinstance(app.screen, UninstallScreen)
+            await pilot.click("#abort")
+            await wait_for_screen_transition(pilot)
+            assert not isinstance(app.screen, UninstallScreen)
+    assert uninstall_calls == []
+    assert not (repo / ".codesleuth" / "archive").exists()
 
 
 @pytest.mark.asyncio
@@ -386,14 +417,14 @@ async def test_suggested_prompts_remain_on_review_surface(tmp_path: Path, monkey
         await pilot.click("#nav-review")
         await pilot.pause()
         await pilot.click("#suggested-prompts")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
         assert isinstance(app.screen, CodeSleuthSuggestedPromptsScreen)
         _assert_visible_within(app.screen.query_one("#abort", Button), 120, 140)
         labels = " ".join(str(button.label) for button in app.screen.query(Button))
         assert "Save prompts" in labels
         assert "Save playbooks" not in labels
         await pilot.press("escape")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
         assert not isinstance(app.screen, CodeSleuthSuggestedPromptsScreen)
         assert not (repo / ".opencode" / "state" / "tui" / "suggested-prompts.md").exists()
 
@@ -409,11 +440,11 @@ async def test_load_wizard_abort_writes_nothing(tmp_path: Path, monkeypatch) -> 
         app.show_surface("playbooks")
         await pilot.pause()
         await pilot.click("#load-playbook")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
         assert isinstance(app.screen, PlaybookLoadWizard)
         _assert_visible_within(app.screen.query_one("#abort", Button), 120, 35)
         await pilot.press("escape")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
         assert not isinstance(app.screen, PlaybookLoadWizard)
         assert not (repo / ".opencode" / "playbooks").exists()
 
@@ -497,5 +528,6 @@ async def test_load_wizard_pack_collision_requires_confirm(tmp_path: Path, monke
         body = str(wizard.query_one("#wizard-body").render())
         assert "Pack already has" in body
         await pilot.click("#abort")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
+        assert not isinstance(app.screen, PlaybookLoadWizard)
         assert not (repo / ".opencode" / "playbooks" / "eha-repair").exists()

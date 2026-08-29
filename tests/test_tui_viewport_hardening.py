@@ -13,6 +13,7 @@ sys.path.insert(0, str(BIN))
 from codesleuth_tui import CodeSleuthApp, CodeSleuthHelpPanel, NAV_SURFACES, PlaybookLoadWizard  # noqa: E402
 from textual.containers import VerticalScroll  # noqa: E402
 from textual.widgets import Footer, Static  # noqa: E402
+from textual_sync import wait_for_screen_transition  # noqa: E402
 
 
 def git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -193,12 +194,12 @@ async def test_playbooks_catalog_detail_and_wizard_abort_fit_viewport(
         _assert_clickable(chips[0], size[0], size[1])
 
         await pilot.click("#load-playbook")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
         assert isinstance(app.screen, PlaybookLoadWizard)
         abort = app.screen.query_one("#abort")
         _assert_clickable(abort, size[0], size[1])
         await pilot.click("#abort")
-        await pilot.pause()
+        await wait_for_screen_transition(pilot)
         assert not isinstance(app.screen, PlaybookLoadWizard)
         assert not (repo / ".opencode" / "playbooks").exists()
 
