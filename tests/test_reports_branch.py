@@ -15,6 +15,8 @@ def git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProce
     return subprocess.run(
         ["git", "-C", str(repo), *args],
         text=True,
+        encoding="utf-8",
+        errors="strict",
         capture_output=True,
         check=check,
     )
@@ -27,6 +29,7 @@ def init_remote(tmp_path: Path) -> tuple[Path, Path]:
     subprocess.run(["git", "clone", str(remote), str(repo)], check=True, capture_output=True)
     git(repo, "config", "user.email", "test@example.invalid")
     git(repo, "config", "user.name", "CodeSleuth Test")
+    git(repo, "config", "core.autocrlf", "false")
     (repo / "README.md").write_text("application\n", encoding="utf-8")
     git(repo, "add", "README.md")
     git(repo, "commit", "-m", "init")
@@ -44,6 +47,7 @@ def write_report(repo: Path, name: str, body: str = "body") -> Path:
         "- scope: HEAD\n\n"
         f"{body}\n",
         encoding="utf-8",
+        newline="\n",
     )
     return path
 
@@ -113,3 +117,83 @@ def test_existing_nonreport_reports_branch_is_rejected(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError, match="non-report paths"):
         shared_reports.publish_shared_report(repo, report)
+
+
+UTF8_REPORT_BODY = (
+    "Handoff — отчёт: acceptance not transferred.\n"
+    "Non-ASCII extras: € café 報告.\n"
+)
+
+
+def test_git_subprocess_decodes_stdout_as_strict_utf8(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _, repo = init_remote(tmp_path)
+    recorded: list[dict[str, object]] = []
+    real_run = subprocess.run
+
+    def wrapped(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        recorded.append(kwargs)
+        return real_run(*args, **kwargs)
+
+    monkeypatch.setattr(shared_reports.subprocess, "run", wrapped)
+    shared_reports._git(repo, "rev-parse", "HEAD")
+
+    assert recorded
+    for kwargs in recorded:
+        assert kwargs.get("text") is True
+        assert kwargs.get("encoding") == "utf-8"
+        assert kwargs.get("errors") == "strict"
+
+
+def test_publish_syncs_utf8_report_without_false_collision(tmp_path: Path) -> None:
+    remote, first = init_remote(tmp_path)
+    name = "20260828T200252Z-utf8.md"
+    report = write_report(first, name, UTF8_REPORT_BODY)
+    original_text = report.read_text(encoding="utf-8")
+    original_bytes = report.read_bytes()
+    assert original_bytes == original_text.encode("utf-8")
+    assert "—" in original_text
+    assert "отчёт" in original_text
+    assert "€" in original_text
+    app_head = git(first, "rev-parse", "HEAD").stdout.strip()
+
+    result = shared_reports.publish_shared_report(first, report)
+
+    assert result["publishedRemote"] is True
+    assert result["applicationHead"] == app_head
+    assert git(first, "rev-parse", "HEAD").stdout.strip() == app_head
+    remote_tip = git(first, "ls-remote", "--heads", "origin", "reports").stdout.strip()
+    assert result["commit"] in remote_tip
+    rel = f".codesleuth/reports/{name}"
+    shown = shared_reports._git(first, "show", f"{result['commit']}:{rel}").stdout
+    assert shown == original_text
+    blob = subprocess.run(
+        ["git", "-C", str(first), "show", f"{result['commit']}:{rel}"],
+        capture_output=True,
+        check=True,
+    )
+    assert blob.stdout == original_bytes
+
+    second = tmp_path / "second"
+    subprocess.run(["git", "clone", str(remote), str(second)], check=True, capture_output=True)
+    git(second, "checkout", "main")
+    synced = shared_reports.sync_shared_reports(second)
+    assert synced["status"] == "synced"
+    imported = second / ".codesleuth" / "reports" / name
+    assert imported.is_file()
+    assert imported.read_text(encoding="utf-8") == original_text
+    shown_second = shared_reports._git(second, "show", f"{synced['remoteCommit']}:{rel}").stdout
+    assert shown_second == original_text
+    assert git(second, "rev-parse", "HEAD").stdout.strip() == git(first, "rev-parse", "HEAD").stdout.strip()
+
+
+def test_utf8_same_name_different_content_still_fails_closed(tmp_path: Path) -> None:
+    remote, first = init_remote(tmp_path)
+    name = "20260828T200252Z-utf8.md"
+    shared_reports.publish_shared_report(first, write_report(first, name, UTF8_REPORT_BODY))
+
+    second = tmp_path / "second"
+    subprocess.run(["git", "clone", str(remote), str(second)], check=True, capture_output=True)
+    git(second, "checkout", "main")
+    write_report(second, name, "different — содержимое €\n")
+    with pytest.raises(RuntimeError, match="local/shared report collision"):
+        shared_reports.sync_shared_reports(second)

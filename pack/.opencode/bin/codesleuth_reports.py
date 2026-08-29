@@ -67,6 +67,8 @@ def _git(
     return subprocess.run(
         ["git", "-C", str(repo), *args],
         text=True,
+        encoding="utf-8",
+        errors="strict",
         input=input_text,
         capture_output=True,
         check=check,
