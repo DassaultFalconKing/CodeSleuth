@@ -469,12 +469,28 @@ def _remove_codesleuth_files(
             path.unlink(missing_ok=True)
         elif path.is_dir():
             shutil.rmtree(path, ignore_errors=True)
+    # Verify/import execution can create bytecode after the managed-file
+    # manifest was written, and the settings path creates a transient TUI
+    # backup outside that manifest. Both are CodeSleuth runtime residue, not
+    # pre-install project configuration, so uninstall removes them explicitly.
+    tui_backups = target / "state" / "tui-backups"
+    if tui_backups.exists() or tui_backups.is_symlink():
+        _remove_path(tui_backups)
+    for cache in sorted(target.rglob("__pycache__"), key=lambda p: len(p.parts), reverse=True):
+        _remove_path(cache)
+    for pattern in ("*.pyc", "*.pyo"):
+        for bytecode in target.rglob(pattern):
+            bytecode.unlink(missing_ok=True)
     if target.exists():
         for directory in sorted((p for p in target.rglob("*") if p.is_dir()), key=lambda p: len(p.parts), reverse=True):
             try:
                 directory.rmdir()
             except OSError:
                 pass
+        try:
+            target.rmdir()
+        except OSError:
+            pass
 
 
 def restore_preinstall_snapshot(repo: Path) -> dict[str, Any]:

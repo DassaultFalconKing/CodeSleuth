@@ -12,6 +12,7 @@ Temporary owner-authorized prerelease on the existing `main` self-update channel
 - strict UTF-8 Git subprocess decoding and physical report-index reconstruction;
 - declared publication routes for report-producing Skills, with installed-pack integrity coverage;
 - deterministic TUI modal-abort synchronization and the Evidence-Based Code Analysis vocabulary/contract hardening;
+- conflict-safe purge removal of generated Python bytecode and transient TUI backup residue, covered through a real disposable install/Verify/uninstall round trip;
 - the accepted Mermaid/Graphify runtime and hosted sandbox repair already present in the 0.4.0 line.
 
 ### Downstream feedback boundary

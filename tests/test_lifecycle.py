@@ -26,6 +26,40 @@ def init_target(path: Path, files):
     run(["git", "-C", str(path), "add", *files.keys()])
 
 
+def test_purge_roundtrip_removes_generated_runtime_residue(tmp_path: Path) -> None:
+    target = tmp_path / "purge-target"
+    init_target(target, {"README.md": "disposable lifecycle target\n"})
+    before = subprocess.check_output(
+        ["git", "-C", str(target), "status", "--porcelain=v1"],
+        text=True,
+    )
+
+    run([sys.executable, str(ROOT / "install.py"), str(target)])
+    run([sys.executable, str(target / ".opencode" / "bin" / "review-pack-smoke.py"), str(target)])
+
+    assert any((target / ".opencode" / "bin").rglob("__pycache__"))
+    assert (target / ".opencode" / "state" / "tui-backups" / "opencode.json.before-tui").is_file()
+
+    run(
+        [
+            sys.executable,
+            str(ROOT / "install.py"),
+            str(target),
+            "--uninstall",
+            "--purge-traces",
+        ]
+    )
+
+    assert not (target / ".opencode").exists()
+    assert not (target / ".codesleuth").exists()
+    assert not (target / "AGENTS.md").exists()
+    after = subprocess.check_output(
+        ["git", "-C", str(target), "status", "--porcelain=v1"],
+        text=True,
+    )
+    assert after == before
+
+
 def main():
     with tempfile.TemporaryDirectory(prefix="review-pack-test-") as td:
         tmp = Path(td)
