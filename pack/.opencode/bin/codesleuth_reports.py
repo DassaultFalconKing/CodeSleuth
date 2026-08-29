@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from codesleuth_project.paths import LOCAL_ROOT, update_reports_index
+from codesleuth_report_metadata import is_report_filename, parse_report_metadata, verify_index_matches_files
 
 REPORTS_BRANCH = "reports"
 REPORTS_REMOTE = "origin"
@@ -133,6 +134,17 @@ def _assert_reports_only(repo: Path, ref: str) -> None:
     bad = [p for p in paths if not p.startswith(REPORTS_PREFIX)]
     if bad:
         raise RuntimeError("reports branch contains non-report paths: " + ", ".join(bad[:5]))
+    physical = {Path(path).name for path in paths if is_report_filename(Path(path).name)}
+    index_path = f"{REPORTS_PREFIX}INDEX.md"
+    if index_path not in paths:
+        raise RuntimeError("reports branch INDEX.md missing")
+    listed: set[str] = set()
+    for line in _git(repo, "show", f"{ref}:{index_path}").stdout.splitlines():
+        match = re.match(r"^- `([^`]+)`", line.strip())
+        if match and is_report_filename(match.group(1)):
+            listed.add(match.group(1))
+    if listed != physical:
+        raise RuntimeError("reports branch INDEX does not match timestamped files")
 
 
 def _report(repo: Path, value: str | Path) -> Path:
@@ -193,7 +205,9 @@ def _worktree_commit(repo: Path, base: str | None, report: Path) -> str:
             raise RuntimeError(f"published report name collision: {report.name}")
         shutil.copyfile(report, target)
         (shared / "README.md").write_text(SHARED_README, encoding="utf-8")
-        update_reports_index(temp)
+        app_head = _ref(repo, "HEAD")
+        update_reports_index(temp, git_repo=repo, current_head=app_head)
+        verify_index_matches_files(shared)
         _git(
             temp,
             "add",
@@ -248,7 +262,9 @@ def sync_shared_reports(
         if not local.exists():
             local.write_text(text, encoding="utf-8")
             imported += 1
-    update_reports_index(repo)
+    app_head = _ref(repo, "HEAD")
+    update_reports_index(repo, git_repo=repo, current_head=app_head)
+    verify_index_matches_files(shared)
     return {"branch": branch, "remote": remote, "remoteCommit": tip, "imported": imported, "status": "synced"}
 
 
@@ -262,7 +278,9 @@ def publish_shared_report(
 ) -> dict[str, Any]:
     repo = _root(repo)
     report_path = _report(repo, report)
-    _scan(report_path.read_text(encoding="utf-8"))
+    text = report_path.read_text(encoding="utf-8")
+    _scan(text)
+    parse_report_metadata(text)
     app_head = _ref(repo, "HEAD")
     has_remote = _remote_exists(repo, remote)
     last_error = ""
