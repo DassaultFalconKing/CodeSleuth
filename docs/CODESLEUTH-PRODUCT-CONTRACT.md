@@ -58,6 +58,23 @@ indexes, graph stores, SQL databases, vector stores or report formats must be
 rebuildable derivatives unless an explicit architecture decision replaces that
 authority.
 
+### 3.1 Graph consumption invariant
+
+Repository graph functionality follows [`GRAPH-CONSUMPTION-CONTRACT.md`](GRAPH-CONSUMPTION-CONTRACT.md).
+The protected ordering is:
+
+```text
+optional structural provider
+        -> candidate structure
+        -> RepositoryContextProjection
+        -> bounded exact-head model context and/or derived presentation
+        -> reopen exact tracked source for material claims or edits
+```
+
+`RepositoryContextProjection` is the single normalized CodeSleuth repository-context graph contract. Optional providers such as Graphify may discover candidate topology but may not become a parallel graph authority or direct unbounded model context. For coding/review agents, `codesleuth_context_get` is the preferred exact-head bounded consumer because it validates freshness and returns structured SourceRefs from the canonical query selection. Mermaid is secondary derived presentation, not repository truth, durable evidence, or primary machine context.
+
+Provider identities, graph caches, topology/community labels, renderer aliases, Mermaid layout, and model interpretations are downstream metadata. They must never flow backward into canonical graph identity or evidence authority. Any change that intentionally promotes a provider, renderer, or derived graph store beside or above this chain is an architecture change rather than ordinary provider/renderer maintenance.
+
 ## 4. Integration model
 
 The host-integration surface is deliberately open-ended, while the CodeSleuth core remains small.
@@ -196,7 +213,8 @@ Before merge/release, prove the gates relevant to the changed surface. For the i
 4. direct OpenCode command/Skill/tool usability after installation;
 5. CodeSleuth launch path still enters normal OpenCode execution;
 6. Verify and lifecycle tests are green;
-7. durable evidence-store authority/write/append-only contracts remain intact when evidence tooling changes.
+7. durable evidence-store authority/write/append-only contracts remain intact when evidence tooling changes;
+8. graph provider/projection/model-context/presentation authority remains separated when graph tooling, repository-map routing, or Mermaid behavior changes.
 
 For external-host adapters, prove the adapter-specific safety/compatibility boundary and that the host retains execution authority. No integration may introduce a new core subsystem outside this contract.
 

@@ -9,6 +9,8 @@ $ARGUMENTS
 
 Keep OpenCode `build` as primary controller. Read only the Playbook manifest and current Step. The result is a bounded derived RepositoryContextProjection; it is navigation/context, not repository authority or sufficient finding evidence.
 
+Apply [`docs/GRAPH-CONSUMPTION-CONTRACT.md`](../../../docs/GRAPH-CONSUMPTION-CONTRACT.md) to every provider/query/rendering path. Provider output is candidate structure, `RepositoryContextProjection` is the single normalized repository-context graph contract, the exact-head context capsule is the preferred model-facing consumer, and Mermaid is secondary derived presentation.
+
 When handing graph context to a coding or review model, prefer
 `codesleuth_context_get`. It validates the projection against exact current HEAD
 and current tracked-file blob identities, then reuses the canonical
@@ -22,7 +24,8 @@ names `graphify`, call `repo_context_provider_status`, require the exact compati
 optional runtime, enumerate a bounded tracked-file manifest, and use
 `repo_context_provider_extract`. Never auto-install or silently fall back after an
 explicit incompatible Graphify request. Provider candidates still pass through exact
-source review and `repo_context_graph_save` validation.
+source review and `repo_context_graph_save` validation. Never hand raw Graphify output
+to a coding/review model as an alternate repository graph authority.
 
 When a Mermaid view is requested, pass explicit roots/hops/relation/origin and
 node/edge bounds when the requested scope supplies them. Mermaid is optional
