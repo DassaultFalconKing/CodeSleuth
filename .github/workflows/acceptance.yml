@@ -77,7 +77,7 @@ jobs:
           CODESLEUTH_UI_ARTIFACT_DIR: artifacts/tui-regression
           TEXTUAL_LOG: artifacts/tui-regression/textual.log
           TEXTUAL_ANIMATIONS: none
-        run: python -m pytest -q tests/test_tui_visual_regression.py
+        run: python -m pytest -q tests/test_tui_visual_regression.py tests/test_tui_config_contract_controls.py
       - name: Upload TUI visual regression artifacts
         if: always()
         uses: actions/upload-artifact@v4
