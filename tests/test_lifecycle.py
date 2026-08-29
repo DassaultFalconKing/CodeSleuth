@@ -103,7 +103,9 @@ def main():
         assert "codesleuth-project --uninstall" in branded_source
         assert "There is no automated uninstaller yet." not in branded_source
         assert "CodeSleuth Review Prompts" not in branded_source
-        assert "from codesleuth_tui import CodeSleuthApp" in (oc / "bin" / "review_pack_tui_bootstrap.py").read_text(encoding="utf-8")
+        assert "from codesleuth_tui_runtime import CodeSleuthApp, launch_opencode" in (
+            oc / "bin" / "review_pack_tui_bootstrap.py"
+        ).read_text(encoding="utf-8")
 
         tui_cfg = load(oc / "tui.json")
         assert tui_cfg["$schema"] == "https://opencode.ai/tui.json"
