@@ -469,18 +469,41 @@ def _remove_codesleuth_files(
             path.unlink(missing_ok=True)
         elif path.is_dir():
             shutil.rmtree(path, ignore_errors=True)
-    # Verify/import execution can create bytecode after the managed-file
-    # manifest was written, and the settings path creates a transient TUI
-    # backup outside that manifest. Both are CodeSleuth runtime residue, not
-    # pre-install project configuration, so uninstall removes them explicitly.
-    tui_backups = target / "state" / "tui-backups"
-    if tui_backups.exists() or tui_backups.is_symlink():
-        _remove_path(tui_backups)
-    for cache in sorted(target.rglob("__pycache__"), key=lambda p: len(p.parts), reverse=True):
-        _remove_path(cache)
-    for pattern in ("*.pyc", "*.pyo"):
-        for bytecode in target.rglob(pattern):
-            bytecode.unlink(missing_ok=True)
+
+    # The settings surface owns one exact transient backup filename. Remove that
+    # CodeSleuth trace without claiming the surrounding directory or sibling files.
+    tui_backup = target / "state" / "tui-backups" / "opencode.json.before-tui"
+    if tui_backup.is_file() or tui_backup.is_symlink():
+        tui_backup.unlink(missing_ok=True)
+
+    # Verify/import execution may generate bytecode after managedFiles is written.
+    # Clean only cache entries that correspond to CodeSleuth-managed Python source
+    # paths which did not pre-exist and are not being preserved as local changes.
+    # Never recurse across arbitrary .opencode caches: OpenCode and user plugins may
+    # legitimately own their own __pycache__/bytecode under the same repository.
+    for rel in sorted(managed):
+        source_rel = Path(rel)
+        if source_rel.suffix != ".py":
+            continue
+        full_source_rel = (Path(".opencode") / source_rel).as_posix()
+        if full_source_rel in snapshot_paths or full_source_rel in preserve_paths:
+            continue
+        source = target / source_rel
+        cache_dir = source.parent / "__pycache__"
+        if cache_dir.is_dir() and not cache_dir.is_symlink():
+            for pattern in (f"{source.stem}.*.pyc", f"{source.stem}.*.pyo"):
+                for bytecode in cache_dir.glob(pattern):
+                    if bytecode.is_file() or bytecode.is_symlink():
+                        bytecode.unlink(missing_ok=True)
+            try:
+                cache_dir.rmdir()
+            except OSError:
+                pass
+        for suffix in (".pyc", ".pyo"):
+            bytecode = source.with_suffix(suffix)
+            if bytecode.is_file() or bytecode.is_symlink():
+                bytecode.unlink(missing_ok=True)
+
     if target.exists():
         for directory in sorted((p for p in target.rglob("*") if p.is_dir()), key=lambda p: len(p.parts), reverse=True):
             try:
