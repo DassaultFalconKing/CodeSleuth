@@ -149,6 +149,13 @@ The dedicated publisher uses its own isolated report worktree and a narrow
 force-add allowlist for `.codesleuth/reports/**`. This is intentionally
 different from allowing the primary coding agent to run arbitrary `git push`.
 
+Analytical Skill results use the same publisher through one CodeSleuth-owned
+route registry (`.opencode/publication-routes.json`). The only canonical route
+is `reports`. Skills declare `publicationRoute: reports` or inherit
+`publication_route` from a Playbook. They must not supply a Git branch name.
+Unknown routes fail closed. Publication results are `NOT_REQUESTED`, `PASS`,
+or `FAILED` and never rewrite a local analysis PASS into a remote-success claim.
+
 Do not merge the `reports` branch into application, release, SIB, or feature
 branches.
 

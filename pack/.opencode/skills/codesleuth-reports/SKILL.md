@@ -2,6 +2,7 @@
 name: codesleuth-reports
 description: Sync, persist, and publish one bounded CodeSleuth analytical report from already-verified evidence
 slash: true
+publicationRoute: reports
 ---
 
 # CodeSleuth reports
@@ -62,6 +63,27 @@ Name new reports `YYYYMMDDTHHMMSSZ-<slug>.md` in UTC. Put a strict
 `key: value` front matter block first when the result has an exact target SHA. Include `reportType`, `targetSha`, and `provenance`. Do
 not extract those identity fields from free prose. Legacy reports without the
 block remain readable as `unknown/legacy`.
+
+Publication is optional and explicit:
+
+```text
+Publish result: on/off
+Route: reports
+```
+
+The Skill does not choose a Git ref. Route `reports` is the only canonical
+analytical publication route and delegates to the bounded reports publisher.
+Unknown routes and model-supplied branch names fail closed.
+
+Distinguish:
+
+```text
+analysis: PASS
+publication: NOT_REQUESTED | PASS | FAILED
+```
+
+A publication failure does not erase a successful analysis, but it forbids a
+remote-success claim.
 
 Include title, date, exact target HEAD, dirty state, scope, agent label,
 verified provenance watermark, findings with exact evidence, paths inspected,

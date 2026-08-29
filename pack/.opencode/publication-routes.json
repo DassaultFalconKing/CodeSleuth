@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "routes": {
+    "reports": {
+      "id": "reports",
+      "branch": "reports",
+      "pathPrefix": ".codesleuth/reports/",
+      "publisher": "codesleuth_reports"
+    }
+  }
+}

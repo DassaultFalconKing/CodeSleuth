@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "id": "repository-map",
+  "publication_route": "reports",
   "description": "Build one bounded verified repository context projection with optional Mermaid presentation.",
   "steps": [
     {"id": "capture-target", "execution": "skill", "skill": "exact-target-identity", "depends_on": [], "output": "target_identity", "isolation": "fresh_subagent"},

@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "id": "repository-documentation",
+  "publication_route": "reports",
   "description": "Document one repository scope from exact verified implementation/config/test evidence.",
   "steps": [
     {"id": "capture-target", "execution": "skill", "skill": "exact-target-identity", "depends_on": [], "output": "target_identity", "isolation": "fresh_subagent"},

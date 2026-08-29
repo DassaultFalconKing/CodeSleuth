@@ -32,6 +32,10 @@ required = [
     "bin/review-pack-smoke.py", "themes/codesleuth.json", "tui.json",
     "opencode.json", "review-pack.json", "review-pack-user.json", "codesleuth-naming.json",
     "CODESLEUTH-REPORTS.md",
+    "publication-routes.json",
+    "bin/codesleuth_reports.py",
+    "bin/codesleuth_report_metadata.py",
+    "bin/codesleuth_publication.py",
     "policy/agents-rules.md",
 ]
 missing = [x for x in required if not (oc / x).is_file()]

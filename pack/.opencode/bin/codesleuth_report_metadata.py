@@ -39,8 +39,15 @@ ALLOWED_KEYS = frozenset(
         "supersededBy",
         "closedBySha",
         "regressionTest",
+        "skillId",
+        "codesleuthSourceSha",
+        "repositoryIdentity",
+        "createdAt",
     }
 )
+SKILL_ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")
+CREATED_AT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+FLOATING_IDENTITY = frozenset({"main", "master", "head", "origin/main", "origin/master", "sib"})
 RELATIONSHIPS = ("EXACT", "ANCESTOR", "DESCENDANT", "DIVERGED", "UNKNOWN")
 
 
@@ -172,6 +179,20 @@ def parse_report_metadata(text: str) -> ReportMetadata:
             raise ReportMetadataError(f"malformed {field}")
     if "verdict" in mapping and not re.fullmatch(r"[A-Za-z][A-Za-z0-9._-]{0,31}", mapping["verdict"]):
         raise ReportMetadataError("malformed verdict")
+    if "skillId" in mapping and not SKILL_ID_RE.fullmatch(mapping["skillId"]):
+        raise ReportMetadataError("malformed skillId")
+    if "codesleuthSourceSha" in mapping:
+        _require_sha("codesleuthSourceSha", mapping["codesleuthSourceSha"])
+    if "repositoryIdentity" in mapping:
+        ident = mapping["repositoryIdentity"].strip()
+        if not ident or ident.lower() in FLOATING_IDENTITY:
+            raise ReportMetadataError("floating branch/ref cannot replace repository identity")
+    if "createdAt" in mapping and not CREATED_AT_RE.fullmatch(mapping["createdAt"]):
+        raise ReportMetadataError("malformed createdAt")
+    if mapping["reportType"] == "skill-result":
+        for required in ("skillId", "codesleuthSourceSha", "repositoryIdentity", "createdAt"):
+            if required not in mapping:
+                raise ReportMetadataError(f"missing required metadata field {required}")
     return ReportMetadata(
         kind="structured",
         report_type=mapping["reportType"],
