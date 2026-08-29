@@ -2,7 +2,7 @@
   "name": "codesleuth-development-gates",
   "private": true,
   "scripts": {
-    "test": "bun tests/repo_inventory_smoke.ts && bun tests/profile_smoke.ts && bun tests/review_state_smoke.ts && bun tests/review_state_amendments.ts && bun tests/provenance_state_smoke.ts && bun tests/context_graph_smoke.ts && bun tests/context_capsule_smoke.ts && bun tests/eha_state_smoke.ts && bun tests/protected_capability_graph_smoke.ts && bun tests/mermaid_qa_smoke.ts && bun tests/context_graph_provider_smoke.ts && bun tests/context_graph_topology_smoke.ts",
+    "test": "bun tests/repo_inventory_smoke.ts && bun tests/profile_smoke.ts && bun tests/review_state_smoke.ts && bun tests/review_state_amendments.ts && bun tests/provenance_state_smoke.ts && bun tests/context_graph_smoke.ts && bun tests/context_capsule_smoke.ts && bun tests/eha_state_smoke.ts && bun tests/protected_capability_graph_smoke.ts && bun tests/mermaid_qa_smoke.ts && bun tests/export_bundle_smoke.ts && bun tests/mermaid_export_smoke.ts && bun tests/export_tools_smoke.ts && bun tests/context_graph_provider_smoke.ts && bun tests/context_graph_topology_smoke.ts",
     "test:inventory": "bun tests/repo_inventory_smoke.ts",
     "test:profile": "bun tests/profile_smoke.ts",
     "test:review-state": "bun tests/review_state_smoke.ts",
@@ -13,6 +13,9 @@
     "test:eha-state": "bun tests/eha_state_smoke.ts",
     "test:protected-graph": "bun tests/protected_capability_graph_smoke.ts",
     "test:mermaid-qa": "bun tests/mermaid_qa_smoke.ts",
+    "test:export-bundle": "bun tests/export_bundle_smoke.ts",
+    "test:mermaid-export": "bun tests/mermaid_export_smoke.ts",
+    "test:export-tools": "bun tests/export_tools_smoke.ts",
     "test:context-provider": "bun tests/context_graph_provider_smoke.ts",
     "test:context-topology": "bun tests/context_graph_topology_smoke.ts"
   },
