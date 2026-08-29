@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "id": "repository-deep-review",
+  "publication_route": "reports",
   "description": "Evidence-first whole-repository or PR review with isolated steps and durable bounded outputs.",
   "steps": [
     {"id": "capture-target", "execution": "skill", "skill": "exact-target-identity", "depends_on": [], "output": "target_identity", "isolation": "fresh_subagent"},

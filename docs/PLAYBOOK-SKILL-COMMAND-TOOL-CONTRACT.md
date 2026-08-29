@@ -251,6 +251,8 @@ Legacy CodeSleuth Skills that contain whole workflows should be decomposed when 
 - protected-capability workflow -> registry query, triangulation, forbidden-regression, and dependency-impact Skills composed by an assessment Playbook;
 - report persistence remains an atomic reporting Skill where its completion boundary is already independent.
 
+Publishable analytical Skill results use a CodeSleuth-owned publication route registry, not a model-chosen Git ref. The Skill or Playbook may declare route `reports`; they MUST NOT declare a free-form `branch` field. Unknown routes fail closed. Publication is delegated to the bounded reports publisher and reports `NOT_REQUESTED`, `PASS`, or `FAILED` without becoming a second evidence store.
+
 No compatibility shim should silently reload a former giant prompt under an apparently atomic Skill id.
 
 ## Evidence status at docs-only adoption
