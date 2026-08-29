@@ -11,6 +11,7 @@
 - [`STABLE-INTEGRATION-BASELINE.md`](STABLE-INTEGRATION-BASELINE.md) — SIB0/SIB1/SIB2 architecture-recovery model: initialization freeze, implementation completeness, integration completeness, and release construction from SIB2.
 - [`SIB0-CAPABILITY-INVENTORY.md`](SIB0-CAPABILITY-INVENTORY.md) — frozen fundamental capability-class inventory, ownership/dependency map, and must-never-become boundaries for the current architectural generation.
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — normative SIB acceptance identity: SIB degree defines what is proven; exact-head acceptance binds that proof to one exact commit SHA.
+- [`EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md`](EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md) — canonical engineering vocabulary for subject identity, evidence, authority, assurance, SIB/EHA, change lineage, forbidden regressions, and conservative use of terms such as proof, verification, validation, provenance, and acceptance; includes a non-compliance-claiming crosswalk to established software-engineering assurance practice.
 - [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — normative repair discipline when an EHA target fails: freeze, classify, repair, and start a new campaign on a new SHA.
 - [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — operator-facing EHA workflow wiring for release-stream candidate selection, testing, repair, and reporting.
 - [`GITHUB-EHA-BRIDGE.md`](GITHUB-EHA-BRIDGE.md) — owner-gated GitHub remote trigger that delegates the canonical `/eha-test` Playbook to a trusted self-hosted OpenCode runner while preserving host-local durable EHA authority.
@@ -87,6 +88,7 @@ CodeSleuth documentation is text-first and terminal-native.
 - [`RELEASE-PROCESS.md`](RELEASE-PROCESS.md) — numbered release branch policy and acceptance gates.
 - [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — product-namespace inventory; runtime rename remains post-0.4.0 work.
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — required acceptance identity contract for SIB promotion, accepted integration states, RCs, and releases.
+- [`EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md`](EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md) — maintained conservative vocabulary for evidence-backed engineering claims and the project's crosswalk to established assurance/configuration/provenance practice.
 - [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — required repair discipline when exact-head acceptance fails.
 - [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — required operator workflow for EHA campaigns on the release stream.
 - [`GITHUB-EHA-BRIDGE.md`](GITHUB-EHA-BRIDGE.md) — remote EHA adapter, trusted-runner contract, durable evidence wiring, and owner-only GitHub control-plane rules.
@@ -120,6 +122,7 @@ CODESLEUTH-PRODUCT-CONTRACT.md
         +--> STABLE-INTEGRATION-BASELINE.md               (SIB0 -> SIB1 -> SIB2)
         |       +--> SIB0-CAPABILITY-INVENTORY.md         (frozen capability-class inventory)
         |       +--> EXACT-HEAD-ACCEPTANCE.md             (what is proven -> exact SHA carrying the proof)
+        |       |       +--> EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md (claim/evidence/authority vocabulary)
         |       +--> EHA-REPAIR-LOOP.md                   (failed EHA target -> repair -> new campaign)
         |       +--> EHA-OPERATING-PLAYBOOK.md            (release-stream EHA operator workflow)
         |       |       +--> GITHUB-EHA-BRIDGE.md         (remote trigger -> same OpenCode EHA Playbook)
