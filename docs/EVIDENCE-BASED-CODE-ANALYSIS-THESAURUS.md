@@ -623,6 +623,16 @@ Moving a workflow/reference state from candidate to an accepted role only after 
 
 Moving a Git ref alone does not create acceptance.
 
+### Reference protection / promotion control
+
+Repository-enforced controls over mutable refs used for integration or promotion, such as required reviews, required status checks, up-to-date/merge-queue policy, force-push restrictions, deletion restrictions, and explicit bypass rules.
+
+Reference protection strengthens **control-plane integrity**. It reduces accidental or unauthorized movement of `main`, `SIB`, release streams, or release tags, but it is not acceptance evidence and does not make a branch name authoritative over the exact commit it references.
+
+> **protected ref != accepted revision**
+
+A protected `SIB` ref is still only a controlled pointer. The accepted subject remains the exact SHA whose required EHA profile succeeded.
+
 ### Acceptance invalidation
 
 The condition where previously valid evidence no longer supports the current claim subject, normally because subject identity, profile, environment requirements, or authoritative state changed.
@@ -750,7 +760,9 @@ A fingerprint helps detect change. It does not autonomously interpret semantic c
 
 ### Semantic refit
 
-The deliberate process of reapplying the intent of stale work onto a newer accepted architecture/contract state instead of mechanically assuming the old patch remains semantically correct.
+The deliberate reconciliation of the **evidenced semantic surface** of stale or divergent work with current normative authority and current architecture. It recovers evidenced claims, assumptions, constraints, rationale, compatibility obligations, and negative knowledge, then decides what still belongs in the target and how it should be represented there.
+
+Semantic refit does **not** assume that one metaphysical “true intent” can be recovered from historical work, and it is not a grander synonym for careful cherry-picking or porting.
 
 ### Repair lineage
 
@@ -916,6 +928,7 @@ This table is conceptual. It is **not a compliance certification** for IEEE, NAS
 | durable findings/EHA ledgers | configuration records / assurance evidence records | Similar objective: preserve auditable history. CodeSleuth remains local/text-native and domain-specific. |
 | provenance watermark | attribution metadata | Weaker than authenticated/signed provenance. Must not be confused with SLSA/in-toto attestations. |
 | hosted exact-head acceptance | independent/hosted verification execution | Strengthens reproducibility/independence but does not by itself provide signed supply-chain provenance. |
+| reference protection / promotion control | protected branches/rulesets; source-control change management | Strengthens control of mutable promotion refs, but protected refs do not become acceptance identity. |
 | Graphify/provider -> projection boundary | tool qualification / derived analysis model separation | Project-specific implementation of the general rule that tool output must be interpreted within defined authority/assurance boundaries. |
 | Mermaid/report/export non-authority | assurance evidence vs presentation separation | Aligns with structured assurance cases where evidence artifacts and arguments are distinguished from presentations. |
 | report lifecycle metadata | read-model traceability | Useful navigation, but authoritative lifecycle must remain in the structured evidence ledger. |
@@ -961,6 +974,12 @@ NASA and classical assurance practice expect traceability across requirements, d
 #### 6. Explicit threat models for “trusted” evidence
 
 Supply-chain frameworks distinguish provenance existence from provenance authenticity and hardened production. EBCA should avoid the bare word `trusted` unless the trust assumptions and adversary model are stated.
+
+#### 7. Enforced promotion-ref controls
+
+GitHub protected branches/rulesets and OpenSSF source-control guidance add an operational layer that exact-SHA semantics alone do not provide: reviews and required checks can govern ref movement, force pushes/deletions can be constrained, and strict/up-to-date or merge-queue policies can reduce stale integration decisions.
+
+This strengthens repository governance, not the logical scope of EHA. CodeSleuth should enforce such controls on promotion refs where practical while continuing to treat the exact tested SHA as the acceptance subject.
 
 ---
 
@@ -1070,6 +1089,10 @@ Classification does not prove non-impact. Map the actual delta to protected cont
 ### “GitHub says mergeable”
 
 Mechanical conflict status, not product/contract acceptance.
+
+### “The branch is protected, so it is accepted”
+
+Ref protection controls who/how a mutable ref may move. It does not establish EHA evidence for the referenced commit.
 
 ### “The tree is identical”
 
