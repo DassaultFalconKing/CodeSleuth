@@ -197,3 +197,38 @@ def test_utf8_same_name_different_content_still_fails_closed(tmp_path: Path) -> 
     write_report(second, name, "different — содержимое €\n")
     with pytest.raises(RuntimeError, match="local/shared report collision"):
         shared_reports.sync_shared_reports(second)
+
+
+def test_publish_rebuilds_index_from_physical_files_for_second_clone(tmp_path: Path) -> None:
+    remote, first = init_remote(tmp_path)
+    head = git(first, "rev-parse", "HEAD").stdout.strip()
+    name = "20260828T070000Z-eha.md"
+    body = (
+        "---\n"
+        "reportType: eha\n"
+        f"targetSha: {head}\n"
+        "provenance: anon\n"
+        "verdict: PASS\n"
+        "---\n\n"
+        "# EHA\n\nPASS on this exact head.\n"
+    )
+    report = first / ".codesleuth" / "reports" / name
+    report.parent.mkdir(parents=True, exist_ok=True)
+    report.write_text(body, encoding="utf-8", newline="\n")
+    result = shared_reports.publish_shared_report(first, report)
+    index = shared_reports._git(first, "show", f"{result['commit']}:.codesleuth/reports/INDEX.md").stdout
+    assert f"`{name}`" in index
+    assert "eha" in index
+    assert head in index
+    assert "EXACT" in index
+    assert "- `README.md`" not in index
+    assert "- `INDEX.md`" not in index
+
+    second = tmp_path / "second"
+    subprocess.run(["git", "clone", str(remote), str(second)], check=True, capture_output=True)
+    git(second, "checkout", "main")
+    synced = shared_reports.sync_shared_reports(second)
+    assert synced["status"] == "synced"
+    local_index = (second / ".codesleuth" / "reports" / "INDEX.md").read_text(encoding="utf-8")
+    assert f"`{name}`" in local_index
+    assert git(second, "rev-parse", "HEAD").stdout.strip() == head

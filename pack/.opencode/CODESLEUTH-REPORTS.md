@@ -172,6 +172,36 @@ Use UTC. Slug is lowercase kebab-case from the scope (`architecture`, `pr-main`,
 
 ## Report template
 
+New reports SHOULD include this machine-readable header. It is a strict
+`key: value` block, not YAML. Critical identity is never inferred from prose.
+
+```markdown
+---
+reportType: eha
+targetSha: <40-character lowercase git SHA>
+provenance: <actor>-<12 lowercase hex>
+verdict: PASS
+reviewId: <optional>
+ehaCampaignId: <optional>
+findingIds: <optional comma-separated ids>
+supersedes: <optional timestamped report filename>
+supersededBy: <optional timestamped report filename>
+closedBySha: <optional 40-character SHA>
+regressionTest: <optional path or path::test>
+---
+
+# <title>
+```
+
+Required structured fields are `reportType`, `targetSha`, and `provenance`.
+Malformed SHAs, conflicting duplicate keys, ambiguous identity fields, and
+invalid lifecycle references fail closed. Legacy reports without this block
+remain readable; their catalog metadata is `legacy` / `unknown` / `UNKNOWN`.
+
+Lifecycle fields (`supersedes`, `supersededBy`, `closedBySha`,
+`regressionTest`) are navigation only. They do not rewrite structured
+review/EHA ledgers or transfer acceptance.
+
 ```markdown
 # <title>
 
@@ -238,6 +268,17 @@ For non-EHA work the EHA section may be omitted or explicitly marked not applica
 
 ## INDEX.md
 
-The local and shared indexes are newest-first catalogs. They are navigation
-aids, not evidence authority. A stale index entry never makes a stale report
-current.
+The local and shared indexes are newest-first catalogs rebuilt only from
+timestamped report files that physically exist beside them. Ghost entries are
+dropped. `README.md` and `INDEX.md` are not report entries.
+
+When machine-readable metadata is present, a row includes report type, exact
+target SHA, verdict/status, and the derived relationship of that target to the
+current application HEAD (`EXACT`, `ANCESTOR`, `DESCENDANT`, `DIVERGED`, or
+`UNKNOWN`). Relationship is computed from Git ancestry, not timestamps.
+
+PASS on exact SHA A is never displayed as PASS on a different current HEAD B.
+The catalog may say that A is an ancestor and that acceptance is not transferred.
+
+They are navigation aids, not evidence authority. A stale index entry never makes
+a stale report current.

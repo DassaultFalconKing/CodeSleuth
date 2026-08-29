@@ -7,6 +7,16 @@ import subprocess
 import textwrap
 from pathlib import Path
 
+from codesleuth_report_metadata import (
+    parse_report_file,
+    relate_to_head,
+    resolve_current_head,
+    is_report_filename,
+    index_fields,
+    split_front_matter,
+    verify_index_matches_files,
+)
+
 LOCAL_ROOT = ".codesleuth"
 REPORTS_DIR = ".codesleuth/reports"
 IGNORE_BEGIN = "# BEGIN CodeSleuth local-only data"
@@ -67,11 +77,11 @@ See `.opencode/CODESLEUTH-REPORTS.md` for the full template.
 """
 REPORTS_INDEX_HEADER = """# CodeSleuth report index
 
-Newest first. Each bullet: `file` — UTC date — title — scope — HEAD.
+Newest first. Each bullet: `file` — UTC date — title — type — target SHA — status — HEAD relationship.
+This catalog is a derived navigation/read model, not EHA or finding authority. PASS never transfers to another SHA.
 """
 REPORTS_INDEX_PLACEHOLDER = "- _(no reports yet)_"
 REPORTS_INDEX = f"{REPORTS_INDEX_HEADER.rstrip()}\n\n{REPORTS_INDEX_PLACEHOLDER}\n"
-_REPORT_INDEX_LINE_RE = re.compile(r"^- `([^`]+)`(?:\s*—\s*(.*))?$")
 _REPORT_TS_RE = re.compile(
     r"^(?:"
     r"(?P<y1>\d{4})(?P<m1>\d{2})(?P<d1>\d{2})T(?P<h1>\d{2})(?P<n1>\d{2})(?P<s1>\d{2})?Z"
@@ -248,11 +258,12 @@ def _title_from_report(path: Path) -> str:
     if not path.is_file():
         return Path(path).stem
     try:
-        for line in path.read_text(encoding="utf-8").splitlines():
+        _mapping, body = split_front_matter(path.read_text(encoding="utf-8"))
+        for line in body.splitlines():
             stripped = line.strip()
             if stripped.startswith("#"):
                 return stripped.lstrip("#").strip() or path.stem
-    except OSError:
+    except (OSError, ValueError):
         pass
     return path.stem
 
@@ -262,6 +273,10 @@ def _format_index_line(
     *,
     date: str = "",
     title: str = "",
+    report_type: str = "",
+    target_sha: str = "",
+    status: str = "",
+    relationship: str = "",
     scope: str = "",
     head: str = "",
 ) -> str:
@@ -270,31 +285,12 @@ def _format_index_line(
             f"- `{name}`",
             date or "",
             title or "",
-            scope or "",
-            head or "",
+            report_type or scope or "legacy",
+            target_sha or "unknown",
+            status or head or "unknown",
+            relationship or "UNKNOWN",
         ]
     )
-
-
-def _parse_index_entries(text: str) -> dict[str, dict[str, str]]:
-    entries: dict[str, dict[str, str]] = {}
-    for line in text.splitlines():
-        match = _REPORT_INDEX_LINE_RE.match(line.strip())
-        if not match:
-            continue
-        name = match.group(1)
-        rest = (match.group(2) or "").strip()
-        fields = [p.strip() for p in rest.split("—")] if rest else []
-        while len(fields) < 4:
-            fields.append("")
-        date, title, scope, head = fields[:4]
-        entries[name] = {
-            "date": date,
-            "title": title,
-            "scope": scope,
-            "head": head,
-        }
-    return entries
 
 
 def _iter_report_files(reports: Path) -> list[Path]:
@@ -306,8 +302,33 @@ def _iter_report_files(reports: Path) -> list[Path]:
             continue
         if path.name in {"README.md", "INDEX.md"}:
             continue
+        if not is_report_filename(path.name):
+            continue
         files.append(path)
     return files
+
+
+def _entry_from_report(
+    path: Path,
+    *,
+    git_repo: Path,
+    current_head: str | None,
+    title: str | None = None,
+    date: str | None = None,
+) -> dict[str, str]:
+    meta = parse_report_file(path)
+    relationship = relate_to_head(git_repo, meta.target_sha, current_head)
+    fields = index_fields(meta, relationship)
+    return {
+        "date": date if date is not None else _report_display_date(path.name),
+        "title": title if title is not None else _title_from_report(path),
+        "report_type": fields["report_type"],
+        "target_sha": fields["target_sha"],
+        "status": fields["status"],
+        "relationship": fields["relationship"],
+        "scope": "",
+        "head": "",
+    }
 
 
 def _write_reports_index(index_path: Path, entries: dict[str, dict[str, str]]) -> None:
@@ -323,6 +344,10 @@ def _write_reports_index(index_path: Path, entries: dict[str, dict[str, str]]) -
                     name,
                     date=meta.get("date", ""),
                     title=meta.get("title", ""),
+                    report_type=meta.get("report_type", ""),
+                    target_sha=meta.get("target_sha", ""),
+                    status=meta.get("status", ""),
+                    relationship=meta.get("relationship", ""),
                     scope=meta.get("scope", ""),
                     head=meta.get("head", ""),
                 )
@@ -340,34 +365,41 @@ def update_reports_index(
     date: str | None = None,
     scope: str | None = None,
     head: str | None = None,
+    git_repo: Path | None = None,
+    current_head: str | None = None,
 ) -> Path:
-    """Atomically refresh ``.codesleuth/reports/INDEX.md``.
+    """Atomically refresh ``.codesleuth/reports/INDEX.md`` from files on disk.
 
     Args:
-        repo: Target repository root.
+        repo: Target repository root or isolated reports worktree.
         add: Report path or basename to upsert.
         remove: Report path or basename to drop from the index.
         title: Optional report title override.
         date: Optional UTC date string override.
-        scope: Optional scope label (for example ``HEAD``).
-        head: Optional HEAD / commit label.
+        scope: Optional scope label (legacy callers; not identity).
+        head: Optional HEAD / commit label (legacy callers; not identity).
+        git_repo: Repository used for Git ancestry queries. Defaults to *repo*.
+        current_head: Exact application HEAD SHA. Defaults to ``HEAD`` of *git_repo*.
 
     Returns:
         Path to the written ``INDEX.md``.
 
     Notes:
-        With neither ``add`` nor ``remove``, syncs the index to files on disk
-        (newest first, one line per report).
+        The index is rebuilt from physically present timestamped report files.
+        Ghost entries are dropped. ``README.md`` and ``INDEX.md`` are not
+        report entries. Old INDEX metadata is never kept for a vanished report.
     """
     reports = repo / LOCAL_ROOT / "reports"
     reports.mkdir(parents=True, exist_ok=True)
     index_path = reports / "INDEX.md"
-    existing_text = index_path.read_text(encoding="utf-8") if index_path.is_file() else REPORTS_INDEX
-    entries = _parse_index_entries(existing_text)
-
+    identity_repo = git_repo or repo
+    head_sha = resolve_current_head(identity_repo, current_head)
+    on_disk = {_report_basename(path): path for path in _iter_report_files(reports)}
     if remove is not None:
-        entries.pop(_report_basename(remove), None)
-
+        on_disk.pop(_report_basename(remove), None)
+    entries: dict[str, dict[str, str]] = {}
+    for name, path in on_disk.items():
+        entries[name] = _entry_from_report(path, git_repo=identity_repo, current_head=head_sha)
     if add is not None:
         add_path = Path(add)
         if add_path.is_file():
@@ -376,33 +408,21 @@ def update_reports_index(
         else:
             name = _report_basename(add)
             file_path = reports / name
-        meta = dict(entries.get(name, {}))
-        meta["title"] = title if title is not None else (meta.get("title") or _title_from_report(file_path))
-        meta["date"] = date if date is not None else (meta.get("date") or _report_display_date(name))
-        if scope is not None:
-            meta["scope"] = scope
-        else:
-            meta.setdefault("scope", "")
-        if head is not None:
-            meta["head"] = head
-        else:
-            meta.setdefault("head", "")
-        entries[name] = meta
-
-    if add is None and remove is None:
-        on_disk = {_report_basename(p): p for p in _iter_report_files(reports)}
-        for name in list(entries):
-            if name not in on_disk:
-                entries.pop(name, None)
-        for name, path in on_disk.items():
-            meta = dict(entries.get(name, {}))
-            meta["title"] = meta.get("title") or _title_from_report(path)
-            meta["date"] = meta.get("date") or _report_display_date(name)
-            meta.setdefault("scope", "")
-            meta.setdefault("head", "")
-            entries[name] = meta
-
+        if file_path.is_file() and is_report_filename(name):
+            entry = _entry_from_report(
+                file_path,
+                git_repo=identity_repo,
+                current_head=head_sha,
+                title=title,
+                date=date,
+            )
+            if scope:
+                entry["scope"] = scope
+            if head:
+                entry["head"] = head
+            entries[name] = entry
     _write_reports_index(index_path, entries)
+    verify_index_matches_files(reports)
     return index_path
 
 

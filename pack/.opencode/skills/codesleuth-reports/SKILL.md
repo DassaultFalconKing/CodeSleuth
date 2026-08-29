@@ -58,10 +58,14 @@ Read `INDEX.md` and the newest matching report before creating a duplicate.
 
 ## 2. Write one bounded local report
 
-Name new reports `YYYYMMDDTHHMMSSZ-<slug>.md` in UTC. Include title, date,
-exact target HEAD, dirty state, scope, agent label, verified provenance
-watermark, findings with exact evidence, paths inspected, checks actually run,
-recommendations, and limitations.
+Name new reports `YYYYMMDDTHHMMSSZ-<slug>.md` in UTC. Put a strict
+`key: value` front matter block first when the result has an exact target SHA. Include `reportType`, `targetSha`, and `provenance`. Do
+not extract those identity fields from free prose. Legacy reports without the
+block remain readable as `unknown/legacy`.
+
+Include title, date, exact target HEAD, dirty state, scope, agent label,
+verified provenance watermark, findings with exact evidence, paths inspected,
+checks actually run, recommendations, and limitations.
 
 For a current durable review, call `provenance_state_load` before writing and
 copy its verified `watermark` into `- provenance:`. If the current producer has
