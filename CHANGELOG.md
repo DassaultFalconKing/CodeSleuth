@@ -2,6 +2,25 @@
 
 Numbered CodeSleuth releases are recorded here. Published release identity is the promoted exact `main` commit plus the immutable `vX.Y.Z` tag; the source version authority is the root `VERSION` file.
 
+## [0.4.0-Rc2] - 2026-08-29
+
+Release-readiness repair candidate for the 0.4.0 prerelease line. Rc1 remains a historical repository-green prerelease, but Rc2 has a distinct source identity and must earn its own exact-head acceptance rather than inheriting Rc1 evidence.
+
+### Repairs
+
+- restores the branded Settings controls for repository-policy enforcement and context-graph provider selection, with a focused regression that opens the real CodeSleuth configuration screen and exercises inherited settings collection;
+- moves that Settings regression into the canonical TUI acceptance profile so the configuration surface cannot disappear while Home/Tools screenshots remain green;
+- narrows purge cleanup from recursive `.opencode/**/__pycache__` and bytecode deletion to cache entries corresponding to CodeSleuth-managed Python source files that did not pre-exist and are not being preserved as local changes;
+- removes only the exact CodeSleuth transient TUI backup file instead of claiming the whole `.opencode/state/tui-backups/` directory;
+- adds a disposable install/Verify/purge regression proving unmanaged bytecode and sibling TUI state survive while CodeSleuth-owned runtime residue is removed.
+
+### Prerelease policy
+
+- no stable tag or GitHub Release is created for this candidate;
+- no SIB evidence transfers from an ancestor, Rc1, source branch, PR head, merge ref, or tree-equivalent commit;
+- the literal Rc2 commit must pass the complete hosted acceptance profile before it may become the current prerelease source;
+- GitHub promotion-ref protection remains a separate pre-publication repository-host requirement tracked by the surviving governance issue; ref protection never substitutes for exact-SHA acceptance.
+
 ## [0.4.0-Rc1] - 2026-08-29
 
 Temporary owner-authorized prerelease on the existing `main` self-update channel. This snapshot is intentionally not a stable numbered release, immutable tag, or GitHub Release; `SIB` remains the separately accepted baseline.
