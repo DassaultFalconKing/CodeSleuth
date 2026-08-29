@@ -725,7 +725,38 @@ class CodeSleuthConfigScreen(ConfigScreen):
                     yield Switch(value=r["checkUpdatesOnStart"], id="check-updates")
                     yield Label("Check CodeSleuth upstream when console starts")
 
-                yield Label("6. Planned policy", classes="section")
+                yield Label("6. Repository policy", classes="section")
+                with Horizontal(classes="row"):
+                    yield Switch(
+                        value=False
+                        if self._self_install_target
+                        else bool(self.settings.get("policy", {}).get("enforceAgentsMdRules", False)),
+                        id="enforce-agents",
+                        disabled=self._self_install_target,
+                    )
+                    yield Label("Maintain CodeSleuth workflow rules in root AGENTS.md")
+                if self._self_install_target:
+                    yield Static(
+                        "Self-install: this switch is disabled. CodeSleuth will not rewrite the maintainer AGENTS.md.",
+                        classes="hint",
+                    )
+
+                yield Label("7. Context graph provider", classes="section")
+                yield Static(
+                    "Builtin is the safe default. Graphify remains an optional derived provider and does not own canonical evidence.",
+                    classes="hint",
+                )
+                yield Select(
+                    [
+                        ("Builtin exact-source mapping", "builtin"),
+                        ("Graphify incubating (Ubuntu/Python 3.12 canonical)", "graphify"),
+                    ],
+                    value=self.settings.get("contextGraph", {}).get("provider") or "builtin",
+                    allow_blank=False,
+                    id="context-graph-provider",
+                )
+
+                yield Label("8. Planned policy", classes="section")
                 yield Static("", id="summary")
             with Horizontal(id="page-actions"):
                 yield Button("Apply", id="apply", variant="primary")
