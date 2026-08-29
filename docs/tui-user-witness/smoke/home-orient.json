@@ -1,0 +1,99 @@
+{
+  "id": "tui.home-orient",
+  "surface": "tui",
+  "user": {
+    "role": "repository operator",
+    "goal": "Understand which repository CodeSleuth is operating on, what the main surfaces are, and where to go next.",
+    "notice_first": [
+      "the current repository",
+      "the main navigation surfaces",
+      "recent activity and visible status"
+    ],
+    "natural_next_action": [
+      "confirm the repository",
+      "choose the surface matching the current task",
+      "inspect recent activity if something looks unexpected"
+    ],
+    "must_not_need_to_know": [
+      "Textual widget ids",
+      "Python screen classes",
+      "event handler names",
+      "internal routing methods"
+    ],
+    "success_visible_as": [
+      "the repository identity is obvious",
+      "Home, Review, Tools, and Settings are discoverable",
+      "recent activity is readable",
+      "the next task-specific surface is easy to choose"
+    ],
+    "confusion_if": [
+      "the active repository is ambiguous",
+      "navigation labels do not communicate their purpose",
+      "recent activity is hidden or detached from the current repository",
+      "implementation terminology dominates the visible UI"
+    ],
+    "must_not_imply": [
+      "CodeSleuth replaces OpenCode as the execution runtime",
+      "opening a surface immediately performs an irreversible action",
+      "recent activity is canonical evidence by itself"
+    ]
+  },
+  "entry": {
+    "state": "home",
+    "user_description": "CodeSleuth has opened on its default evidence-console surface for a repository."
+  },
+  "trajectory": [
+    {
+      "state": "home",
+      "user_expects": "Repository identity, primary surfaces, and recent activity are understandable before any action is taken.",
+      "action": {
+        "kind": "observe",
+        "label": "Inspect the CodeSleuth home surface"
+      },
+      "next_state": "task-choice"
+    },
+    {
+      "state": "task-choice",
+      "user_expects": "The next surface can be chosen from user-facing labels rather than implementation knowledge.",
+      "action": {
+        "kind": "choose",
+        "label": "Choose Home, Review, Tools, or Settings for the task"
+      },
+      "next_state": "chosen-surface"
+    }
+  ],
+  "affordances": [
+    {
+      "surface": "Repository",
+      "appears_as": "current operating target",
+      "user_expects": [
+        "know which repository actions apply to",
+        "notice if the wrong repository is selected"
+      ]
+    },
+    {
+      "surface": "Primary navigation",
+      "appears_as": "task-oriented surface selector",
+      "user_expects": [
+        "move between inspection, review, tools, and configuration without performing hidden work"
+      ]
+    },
+    {
+      "surface": "Recent activity",
+      "appears_as": "operator feedback",
+      "user_expects": [
+        "understand what CodeSleuth just did",
+        "spot an error or unexpected action"
+      ]
+    }
+  ],
+  "implementation_mapping": {
+    "screen": "CodeSleuthApp home surface",
+    "selectors": {
+      "Review": "#nav-review",
+      "Tools": "#nav-tools",
+      "Settings": "#configure",
+      "Recent activity": "#activity-panel"
+    }
+  }
+}

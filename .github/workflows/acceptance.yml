@@ -71,13 +71,16 @@ jobs:
         run: python -m pip install -r requirements-dev.txt
       - name: Prepare TUI visual artifacts
         run: mkdir -p artifacts/tui-regression
-      - name: Run screenshot and log regression analysis
+      - name: Run screenshot, log and User Witness regression analysis
         env:
           CODESLEUTH_UI_VISUAL_REGRESSION: "1"
           CODESLEUTH_UI_ARTIFACT_DIR: artifacts/tui-regression
           TEXTUAL_LOG: artifacts/tui-regression/textual.log
           TEXTUAL_ANIMATIONS: none
-        run: python -m pytest -q tests/test_tui_visual_regression.py
+        run: >-
+          python -m pytest -q
+          tests/test_tui_visual_regression.py
+          tests/test_tui_user_witness_bundle.py
       - name: Upload TUI visual regression artifacts
         if: always()
         uses: actions/upload-artifact@v4

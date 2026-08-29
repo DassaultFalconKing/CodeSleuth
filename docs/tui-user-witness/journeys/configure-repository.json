@@ -1,0 +1,97 @@
+{
+  "id": "tui.configure-repository",
+  "surface": "tui",
+  "user": {
+    "role": "repository maintainer",
+    "goal": "Configure CodeSleuth behavior for the current repository and save a valid configuration.",
+    "notice_first": [
+      "which repository is being configured",
+      "installation mode",
+      "repository profile and policy controls"
+    ],
+    "natural_next_action": [
+      "open Settings",
+      "inspect the repository policy",
+      "change the intended option",
+      "apply the configuration"
+    ],
+    "must_not_need_to_know": [
+      "Python screen class names",
+      "Textual selectors",
+      "collector method names",
+      "internal configuration key paths"
+    ],
+    "success_visible_as": [
+      "the Settings screen is valid",
+      "the repository policy control is understandable",
+      "Apply is available",
+      "saving returns visible confirmation without an internal validation error"
+    ],
+    "confusion_if": [
+      "a required setting is invisible",
+      "Apply produces an internal selector or validation error",
+      "an optional graph provider appears mandatory",
+      "the interface exposes implementation terminology instead of operator intent"
+    ],
+    "must_not_imply": [
+      "Graphify is required for context graphs",
+      "CodeSleuth owns OpenCode execution",
+      "repository policy can only be changed by editing files manually"
+    ]
+  },
+  "entry": {
+    "state": "home",
+    "user_description": "The CodeSleuth evidence console is open for a repository."
+  },
+  "trajectory": [
+    {
+      "state": "home",
+      "user_expects": "Settings is the obvious configuration entry point.",
+      "action": {
+        "kind": "activate",
+        "label": "Settings"
+      },
+      "next_state": "settings-open"
+    },
+    {
+      "state": "settings-open",
+      "user_expects": "Repository policy and context graph choices are visible and understandable.",
+      "action": {
+        "kind": "change",
+        "label": "Maintain CodeSleuth workflow rules in root AGENTS.md"
+      },
+      "next_state": "policy-changed"
+    },
+    {
+      "state": "policy-changed",
+      "user_expects": "Apply validates and persists the visible choices.",
+      "action": {
+        "kind": "activate",
+        "label": "Apply"
+      },
+      "next_state": "saved"
+    }
+  ],
+  "affordances": [
+    {
+      "surface": "Settings",
+      "appears_as": "configuration entry point",
+      "user_expects": ["inspect configuration", "change configuration"]
+    },
+    {
+      "surface": "Apply",
+      "appears_as": "commit current settings",
+      "user_expects": ["validate", "persist", "show a comprehensible result"]
+    }
+  ],
+  "implementation_mapping": {
+    "screen": "CodeSleuthConfigScreen",
+    "selectors": {
+      "Settings": "#configure",
+      "Repository policy": "#enforce-agents",
+      "Context graph provider": "#context-graph-provider",
+      "Apply": "#apply"
+    },
+    "collector": "ConfigScreen._collect"
+  }
+}
