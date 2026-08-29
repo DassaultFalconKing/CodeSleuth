@@ -3,6 +3,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 THESAURUS = ROOT / "docs" / "EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md"
 DOCS_INDEX = ROOT / "docs" / "README.md"
+STABLE_BASELINE = ROOT / "docs" / "STABLE-INTEGRATION-BASELINE.md"
 
 
 def test_thesaurus_is_indexed_and_keeps_core_identity_authority_rules() -> None:
@@ -16,6 +17,15 @@ def test_thesaurus_is_indexed_and_keeps_core_identity_authority_rules() -> None:
     assert "tree-equivalent != acceptance-equivalent" in text
     assert "mergeable=true` is **not** acceptance evidence" in text
     assert "Publication increases reach, not authority" in text
+
+
+def test_thesaurus_binds_acceptance_to_profile_identity_as_well_as_subject() -> None:
+    text = THESAURUS.read_text(encoding="utf-8")
+
+    assert "exact subject SHA" in text
+    assert "+ profile identity" in text
+    assert "+ gates/environments" in text
+    assert "+ run/result identity" in text
 
 
 def test_thesaurus_does_not_upgrade_test_acceptance_to_formal_proof() -> None:
@@ -64,3 +74,12 @@ def test_anti_shortcuts_keep_branch_ci_and_reports_non_authoritative() -> None:
         "Same code, new SHA",
     ):
         assert shortcut in text
+
+
+def test_stable_baseline_never_hard_codes_the_live_sib_ref_target() -> None:
+    text = STABLE_BASELINE.read_text(encoding="utf-8")
+
+    assert "Its current target must be resolved from Git when needed" in text
+    assert "must not be hard-coded into this normative definition" in text
+    assert "moving the `SIB` ref does not create, transfer, or strengthen acceptance" in text
+    assert "At the time this model was introduced it points to:" not in text
