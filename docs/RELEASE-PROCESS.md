@@ -21,6 +21,12 @@ Do not push an unreviewed implementation change directly to `main`. An emergency
 
 The repository currently has historical branches that predate this policy. They are not release authority.
 
+### Temporary 0.4.0-Rc1 main-channel exception
+
+The repository owner has explicitly authorized `0.4.0-Rc1` to use `main` as the single prerelease/self-update channel. This avoids introducing a second updater branch while the current floating-install update path is exercised. The exception does not weaken exact-head acceptance: the literal prerelease commit must pass the complete local and hosted profiles before it is treated as the current update source.
+
+This prerelease does not move `SIB`, create a stable tag, or create a GitHub Release. Exact-bound projects remain pinned until their gitlink is deliberately advanced. After the temporary snapshot is retired, normal feature/fix integration continues through the active release candidate stream and stable publication follows the numbered-release process below.
+
 ## SIB candidate selection
 
 The active `dev/release-X.Y.Z` branch is also the **canonical candidate stream**

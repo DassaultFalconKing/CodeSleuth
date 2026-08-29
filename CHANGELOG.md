@@ -2,6 +2,31 @@
 
 Numbered CodeSleuth releases are recorded here. Published release identity is the promoted exact `main` commit plus the immutable `vX.Y.Z` tag; the source version authority is the root `VERSION` file.
 
+## [0.4.0-Rc1] - 2026-08-29
+
+Temporary owner-authorized prerelease on the existing `main` self-update channel. This snapshot is intentionally not a stable numbered release, immutable tag, or GitHub Release; `SIB` remains the separately accepted baseline.
+
+### Included
+
+- retained graph and TUI export surfaces with exact-source provenance and bounded output;
+- strict UTF-8 Git subprocess decoding and physical report-index reconstruction;
+- declared publication routes for report-producing Skills, with installed-pack integrity coverage;
+- deterministic TUI modal-abort synchronization and the Evidence-Based Code Analysis vocabulary/contract hardening;
+- the accepted Mermaid/Graphify runtime and hosted sandbox repair already present in the 0.4.0 line.
+
+### Downstream feedback boundary
+
+- reviewed the Aleph_Rugent tooling/skills feedback recorded at `bf1320a` against the exact CodeSleuth source integrated there (`881d7af`);
+- the report UTF-8, index-lifecycle, publication-route, Windows portability, and hosted Mermaid concerns are covered by this candidate and its canonical gates;
+- Aleph_Rugent domain findings (collection identifiers, retrieval continuations, vector limits, lease ownership, image pins, worker wiring, and its missing project-owned protected-capability registry) remain downstream application work and are not misreported as CodeSleuth fixes;
+- Aleph_Rugent binds CodeSleuth as an exact Git dependency, so it remains deliberately pinned until its gitlink is advanced explicitly; floating installations continue to update from `origin/main`.
+
+### Prerelease policy
+
+- no parallel download/update branch is introduced;
+- no stable tag or GitHub Release is created for this snapshot;
+- promotion requires the exact committed candidate to pass the complete local and hosted acceptance profiles; a failing SHA remains failed and any repair must use a new SHA.
+
 ## [0.4.0] - Unreleased
 
 First release prepared under the release-only `main` contract and the `dev/release-0.4.0` candidate stream.
