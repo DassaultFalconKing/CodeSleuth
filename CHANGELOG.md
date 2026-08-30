@@ -2,6 +2,23 @@
 
 Numbered CodeSleuth releases are recorded here. Published release identity is the promoted exact `main` commit plus the immutable `vX.Y.Z` tag; the source version authority is the root `VERSION` file.
 
+## [0.4.0-Rc4] - 2026-08-30
+
+Release-readiness repair candidate for the platform-native GitHub-to-OpenCode EHA invocation boundary. Rc3 is repository-accepted on its own exact SHA and repaired the report-persistence ownership conflict, but fresh EHA run `33334931489` then exposed a separate Windows adapter error before canonical `/eha-test` could start.
+
+### Repairs
+
+- selects the shipped OpenCode launcher by host platform instead of asking Windows CPython to execute the POSIX extensionless `opencode-review` shell script;
+- keeps the existing POSIX `pack/.opencode/bin/opencode-review` path unchanged;
+- invokes the existing Windows `pack/.opencode/bin/opencode-review.ps1` through `pwsh`, with Windows PowerShell fallback, and fails closed if the required platform launcher is unavailable;
+- adds focused regression coverage for POSIX launcher selection, Windows PowerShell launcher selection, and missing-PowerShell failure.
+
+### Evidence boundary
+
+- Rc3 EHA run `33334931489` verified the exact `fff3f3998e980155f34c182ecf34d28e44478691` release-stream head and passed trusted host setup before failing with `WinError 193`; it is an adapter execution `ERROR`, not a SIB0/SIB1/SIB2 `FAIL`;
+- Rc4 changes the transport adapter only. EHA authority, durable ledger semantics, persistence wiring, exact-head identity checks, permissions, and SIB policy remain unchanged;
+- Rc4 has a distinct exact source identity and must earn fresh repository acceptance and fresh canonical EHA. No Rc3 PASS evidence transfers to it.
+
 ## [0.4.0-Rc3] - 2026-08-30
 
 Release-readiness repair candidate for the GitHub-to-OpenCode EHA persistence boundary. Rc2 remains repository-accepted on its exact SHA, but remote EHA run `33276120595` stopped fail-closed before OpenCode created a canonical campaign because the Rc2 application tree still tracked `.codesleuth/reports/**`, the same path the bridge must bind to host-persistent report storage.
