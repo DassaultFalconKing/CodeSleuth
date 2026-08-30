@@ -2,6 +2,23 @@
 
 Numbered CodeSleuth releases are recorded here. Published release identity is the promoted exact `main` commit plus the immutable `vX.Y.Z` tag; the source version authority is the root `VERSION` file.
 
+## [0.4.0-Rc3] - 2026-08-30
+
+Release-readiness repair candidate for the GitHub-to-OpenCode EHA persistence boundary. Rc2 remains repository-accepted on its exact SHA, but remote EHA run `33276120595` stopped fail-closed before OpenCode created a canonical campaign because the Rc2 application tree still tracked `.codesleuth/reports/**`, the same path the bridge must bind to host-persistent report storage.
+
+### Repairs
+
+- removes the accidentally tracked local `.codesleuth/reports/` mirror from application history while preserving its historical Git commits; the canonical shared report transport remains the separate orphan `reports` branch;
+- keeps the existing bridge refusal to overwrite an already-present persistence path: the repair removes the ownership conflict instead of weakening the safety check;
+- adds a repository regression requiring the application tree to track no `.codesleuth/reports/**` paths and requiring `.codesleuth/` to remain ignored;
+- preserves `.opencode/state` as the durable EHA authority path and `.codesleuth/reports` as a derived report mirror, both eligible for host-persistent binding only when absent from the exact application tree.
+
+### Evidence boundary
+
+- Rc2 EHA run `33276120595` is an adapter/persistence `ERROR`, not a SIB0/SIB1/SIB2 `FAIL`: the bridge stopped before invoking the canonical OpenCode `/eha-test` Playbook or recording a new durable campaign;
+- the self-hosted `codesleuth-eha` runner did accept the Rc2 job and passed trusted-source/OpenCode-host setup, so runner availability is no longer the identified root cause;
+- Rc3 has a distinct source identity. Rc2 repository acceptance and the failed bridge attempt do not transfer acceptance to Rc3; the literal Rc3 SHA must earn fresh hosted acceptance and fresh canonical EHA.
+
 ## [0.4.0-Rc2] - 2026-08-29
 
 Release-readiness repair candidate for the 0.4.0 prerelease line. Rc1 remains a historical repository-green prerelease, but Rc2 has a distinct source identity and must earn its own exact-head acceptance rather than inheriting Rc1 evidence.
