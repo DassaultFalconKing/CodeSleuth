@@ -308,6 +308,36 @@ def private_transcript_path(persist_root: Path) -> Path:
     return path
 
 
+def opencode_wrapper_command(root: Path, platform_name: str | None = None) -> list[str]:
+    """Select the shipped OpenCode wrapper that the current host can execute."""
+    platform_name = platform_name or os.name
+    bin_dir = root / "pack" / ".opencode" / "bin"
+    if platform_name == "nt":
+        wrapper = bin_dir / "opencode-review.ps1"
+        if not wrapper.exists():
+            raise BridgeError(f"CodeSleuth Windows OpenCode wrapper missing at exact target: {wrapper}")
+        powershell = shutil.which("pwsh") or shutil.which("powershell") or shutil.which("powershell.exe")
+        if not powershell:
+            raise BridgeError(
+                "PowerShell is not installed on this Windows runner; canonical EHA requires the shipped opencode-review.ps1 wrapper"
+            )
+        return [
+            powershell,
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(wrapper),
+        ]
+
+    wrapper = bin_dir / "opencode-review"
+    if not wrapper.exists():
+        raise BridgeError(f"CodeSleuth OpenCode wrapper missing at exact target: {wrapper}")
+    return [str(wrapper)]
+
+
 def invoke_opencode(
     root: Path,
     release_branch: str,
@@ -328,9 +358,6 @@ def invoke_opencode(
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     ).stdout.strip()
-    wrapper = root / "pack" / ".opencode" / "bin" / "opencode-review"
-    if not wrapper.exists():
-        raise BridgeError(f"CodeSleuth OpenCode wrapper missing at exact target: {wrapper}")
 
     message = (
         "GitHub EHA bridge request. Treat this as normal future-SIB selection. "
@@ -339,7 +366,8 @@ def invoke_opencode(
         "checked out the exact SHA detached, and attached host-persistent canonical review/EHA state. "
         "Do not modify application/source files. Run the canonical eha-sib-acceptance Playbook only."
     )
-    command = [str(wrapper), "run", "--command", "eha-test", "--format", "json"]
+    command = opencode_wrapper_command(root)
+    command.extend(["run", "--command", "eha-test", "--format", "json"])
     if model:
         command.extend(["--model", model])
     command.append(message)
