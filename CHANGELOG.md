@@ -8,7 +8,7 @@ Release-readiness repair candidate for the GitHub-to-OpenCode EHA persistence bo
 
 ### Repairs
 
-- removes the accidentally tracked local `.codesleuth/reports/` mirror from application history while preserving its historical Git commits; the canonical shared report transport remains the separate orphan `reports` branch;
+- removes the accidentally tracked local `.codesleuth/reports/` mirror from the current application tree while preserving its historical Git commits; the canonical shared report transport remains the separate orphan `reports` branch;
 - keeps the existing bridge refusal to overwrite an already-present persistence path: the repair removes the ownership conflict instead of weakening the safety check;
 - adds a repository regression requiring the application tree to track no `.codesleuth/reports/**` paths and requiring `.codesleuth/` to remain ignored;
 - preserves `.opencode/state` as the durable EHA authority path and `.codesleuth/reports` as a derived report mirror, both eligible for host-persistent binding only when absent from the exact application tree.
