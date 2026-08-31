@@ -1,42 +1,86 @@
 # CodeSleuth Documentation
 
-## Canonical product contracts
+Start with [`ROAD/INDEX.md`](ROAD/INDEX.md) when you need to know **which document is current, what authority it has, and which historical packets are retired**. This file remains the topic-oriented entry point.
 
-- [`CODESLEUTH-PRODUCT-CONTRACT.md`](CODESLEUTH-PRODUCT-CONTRACT.md) — host/runtime ownership boundary, integration model, extension seams, and core feature freeze.
-- [`CODESLEUTH-BRANDING.md`](CODESLEUTH-BRANDING.md) — accepted terminal-native UI/interaction runbook, ASCII identity source, documentation graphics rule, and responsive acceptance.
-- [`CODESLEUTH-COLORMAP.json`](CODESLEUTH-COLORMAP.json) — machine-readable semantic colormap.
-- [`CONTEXT-GRAPH-DISCIPLINE.md`](CONTEXT-GRAPH-DISCIPLINE.md) — Git source -> review state -> bounded RepositoryContextProjection -> shared scoped query/Mermaid selection and provenance discipline.
-- [`NOVACLAW-MCP.md`](NOVACLAW-MCP.md) — first external-host MCP integration and its read-only repository-evidence boundary.
-- [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — naming inventory and staged cutover from historical `review-pack` filenames; 0.4.0 keeps live compatibility names.
-- [`STABLE-INTEGRATION-BASELINE.md`](STABLE-INTEGRATION-BASELINE.md) — SIB0/SIB1/SIB2 architecture-recovery model: initialization freeze, implementation completeness, integration completeness, and release construction from SIB2.
-- [`SIB0-CAPABILITY-INVENTORY.md`](SIB0-CAPABILITY-INVENTORY.md) — frozen fundamental capability-class inventory, ownership/dependency map, and must-never-become boundaries for the current architectural generation.
-- [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — normative SIB acceptance identity: SIB degree defines what is proven; exact-head acceptance binds that proof to one exact commit SHA.
-- [`EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md`](EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md) — canonical engineering vocabulary for subject identity, evidence, authority, assurance, SIB/EHA, change lineage, forbidden regressions, and conservative use of terms such as proof, verification, validation, provenance, and acceptance; includes a non-compliance-claiming crosswalk to established software-engineering assurance practice.
-- [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — normative repair discipline when an EHA target fails: freeze, classify, repair, and start a new campaign on a new SHA.
-- [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — operator-facing EHA workflow wiring for release-stream candidate selection, testing, repair, and reporting.
-- [`GITHUB-EHA-BRIDGE.md`](GITHUB-EHA-BRIDGE.md) — owner-gated GitHub remote trigger that delegates the canonical `/eha-test` Playbook to a trusted self-hosted OpenCode runner while preserving host-local durable EHA authority.
-- [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — normative contract for selecting future SIB candidates from literal `dev/release-X.Y.Z` heads.
-- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — accepted durable review/evidence authority: mutable checkpoint snapshots, append-only finding/amendment/EHA ledgers, and derived views.
-- [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — canonical SIB2 TUI visual-regression acceptance gate and artifact contract.
-- [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) — post-SIB2 protection model: protected capabilities, contract-owned forbidden regressions, Mermaid dependency/impact graphs, dependency-aware development gates, and full-suite SIB2/RC/release preservation.
-- [`protected-capabilities.json`](protected-capabilities.json) — machine-readable Protected Capability Registry with code/docs/test provenance, contract fingerprints, dependency/impact metadata, and each contract's own forbidden-regression ledger.
-- [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md) — reusable-instruction model: atomic on-demand Skills, isolated Playbook Steps, Playbooks as orchestration, Commands as user entry points, and Tools as bounded execution primitives.
-- [`EXTENSION-LOAD-UNITS.md`](EXTENSION-LOAD-UNITS.md) — shared Catalog, Detail, and Load-wizard units for user-loadable pack content; Playbooks is the first instance.
-- [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — normative semantic-continuity criterion: preserve or explicitly reconcile the product's evidenced semantic surface across implementation and architectural change.
+## Canonical product and engineering contracts
 
-## Engineering articles
+- [`CODESLEUTH-PRODUCT-CONTRACT.md`](CODESLEUTH-PRODUCT-CONTRACT.md) — product scope, host/runtime ownership, extension seams, and feature-freeze boundaries.
+- [`SIB0-CAPABILITY-INVENTORY.md`](SIB0-CAPABILITY-INVENTORY.md) — frozen capability-class inventory and must-never-become boundaries.
+- [`STABLE-INTEGRATION-BASELINE.md`](STABLE-INTEGRATION-BASELINE.md) — SIB0/SIB1/SIB2 baseline model.
+- [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — exact-SHA acceptance identity and non-transfer of proof across identities.
+- [`EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md`](EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md) — canonical EBCA vocabulary for subject identity, evidence, authority, assurance, negative knowledge, SIB/EHA, and conservative claim language.
+- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — durable review/evidence authority and append-only ledger semantics.
+- [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) and [`protected-capabilities.json`](protected-capabilities.json) — post-acceptance preservation discipline and machine-readable protected registry.
+- [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — semantic continuity/refit discipline across implementation and history changes.
+- [`CONTEXT-GRAPH-DISCIPLINE.md`](CONTEXT-GRAPH-DISCIPLINE.md) — source -> durable review state -> bounded RepositoryContextProjection -> derived graph/Mermaid discipline.
+- [`GRAPH-CONSUMPTION-CONTRACT.md`](GRAPH-CONSUMPTION-CONTRACT.md) — bounded consumption of derived graph context.
+- [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md) — atomic Skills, isolated Playbook Steps, Commands, and bounded Tools.
+- [`EXTENSION-LOAD-UNITS.md`](EXTENSION-LOAD-UNITS.md) — shared Catalog, Detail, and `Source -> Inspect -> Validate -> Confirm -> Result` loader units.
 
-Long-form explanatory material lives under [`articles/`](articles/). Articles are non-normative: they may explain the motivation, history, examples, or broader engineering context behind an accepted contract, but canonical contracts and executable acceptance remain authoritative.
+## Acceptance and release operations
 
-- [`articles/STABLE-BASELINES-RU.md`](articles/STABLE-BASELINES-RU.md) — Russian-language article explaining the SIB0/SIB1/SIB2 Stable Baselines model. Normative contract: [`STABLE-INTEGRATION-BASELINE.md`](STABLE-INTEGRATION-BASELINE.md).
+- [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — failed-target classification, repair, and new-campaign discipline.
+- [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — release-stream EHA operator workflow.
+- [`GITHUB-EHA-BRIDGE.md`](GITHUB-EHA-BRIDGE.md) — trusted self-hosted GitHub bridge to canonical OpenCode EHA while durable state remains authority.
+- [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — literal release-stream candidate selection.
+- [`RELEASE-PROCESS.md`](RELEASE-PROCESS.md) — release branch policy and acceptance sequence.
+- [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — TUI visual-regression gate and artifact contract.
 
-## Roadmap and evaluated extensions
+## User, lifecycle, and maintainer operations
 
-- [`MERMAID-GRAPHIFY-AUDIT.md`](MERMAID-GRAPHIFY-AUDIT.md) — audit of the current bounded Mermaid/context-graph implementation and gated evaluation of `Graphify-Labs/graphify` as an optional deterministic structural graph provider. This is a roadmap/incubation document, not approval of a production Graphify dependency.
-- [`MERMAID-QA.md`](MERMAID-QA.md) — explicit isolated parser/render QA for generated Mermaid source; normal CodeSleuth runtime remains browser-free.
-- [`GRAPHIFY-PROVIDER.md`](GRAPHIFY-PROVIDER.md) — isolated, explicitly enabled Graphify structural-provider contract, provenance and fail-closed mapping rules.
-- [`GRAPHIFY-CORPUS.md`](GRAPHIFY-CORPUS.md) — deterministic representative-corpus comparison, hardening cases and honest measurement limits for the optional provider.
-- [`PLAYBOOKS-CATALOG-TUI.md`](PLAYBOOKS-CATALOG-TUI.md) — first-instance notes and sketches for the Playbooks Catalog/Detail/Load-wizard surface. Shared unit contract: [`EXTENSION-LOAD-UNITS.md`](EXTENSION-LOAD-UNITS.md). Sketches under [`sketches/`](sketches/) are incubation, not live-TUI manuals.
+- [`USER-GUIDE.md`](USER-GUIDE.md) — human install/configure/validate/update/use guide.
+- [`LLM-OPERATOR.md`](LLM-OPERATOR.md) — coding-agent/LLM operator guide for safe unattended lifecycle work.
+- [`PROJECT-LIFECYCLE.md`](PROJECT-LIFECYCLE.md) — install/adopt/bind/unbind/uninstall ownership and reversibility.
+- [`SELF-UPDATE.md`](SELF-UPDATE.md) — update, Verify, restart/reload, and pinned update boundaries.
+- [`MAINTAINER-SUBREPO.md`](MAINTAINER-SUBREPO.md) — standalone/subrepo maintenance and integration.
+- [`CODESLEUTH-BRANDING.md`](CODESLEUTH-BRANDING.md) and [`CODESLEUTH-COLORMAP.json`](CODESLEUTH-COLORMAP.json) — terminal-native UI/interaction identity and semantic colormap.
+- [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — staged namespace compatibility migration; still active while post-0.4 rename work remains.
+
+## Current implementation references and integrations
+
+- [`GRAPHIFY-PROVIDER.md`](GRAPHIFY-PROVIDER.md) — current optional Graphify structural-provider boundary and runtime identity.
+- [`GRAPHIFY-CORPUS.md`](GRAPHIFY-CORPUS.md) — representative provider corpus/hardening reference.
+- [`MERMAID-QA.md`](MERMAID-QA.md) — isolated Mermaid QA; normal runtime remains browser-free.
+- [`MODEL-CONTEXT-CAPSULE.md`](MODEL-CONTEXT-CAPSULE.md) — bounded model-visible context capsule.
+- [`EXPORT-SURFACES.md`](EXPORT-SURFACES.md) — explicit retained derived exports and their non-authority status.
+- [`NOVACLAW-MCP.md`](NOVACLAW-MCP.md) — external-host MCP/read-only repository-evidence boundary.
+- [`PROVENANCE-WATERMARK.md`](PROVENANCE-WATERMARK.md) — contribution provenance watermark discipline.
+- [`CONTRIBUTOR-ERROR-PATTERNS.md`](CONTRIBUTOR-ERROR-PATTERNS.md) — recurrent agent/contributor failure patterns and negative knowledge.
+
+## ROAD: theory and future discipline
+
+The `ROAD/` directory is forward-looking doctrine, not proof that the proposed runtime mechanisms already exist.
+
+- [`ROAD/Whitepaper.md`](ROAD/Whitepaper.md) — Context Epistemics theory for true/false/unknown claims, authority, Negative Claims, and forbidden inference.
+- [`ROAD/ROADMAP.md`](ROAD/ROADMAP.md) — implementation roadmap for durable negative knowledge and fail-closed context/mutation discipline.
+- [`ROAD/ROAP.md`](ROAD/ROAP.md) — Remote Operator Assurance Protocol for disconnected-host work.
+- [`ROAD/INDEX.md`](ROAD/INDEX.md) — full documentation lifecycle/authority index and retirement ledger.
+
+## Engineering articles and retrospectives
+
+Long-form explanatory material under [`articles/`](articles/) is non-normative. Contracts and executable acceptance remain authoritative.
+
+- [`articles/STABLE-BASELINES-RU.md`](articles/STABLE-BASELINES-RU.md) — Russian explanation of SIB0/SIB1/SIB2.
+- [`LESSONS-LEARNED-SIB2-SEMANTIC-REFIT.md`](LESSONS-LEARNED-SIB2-SEMANTIC-REFIT.md) — SIB2/semantic-refit retrospective and preserved negative knowledge.
+- [`LESSONS-LEARNED-VIEWPORT-HARDENING.md`](LESSONS-LEARNED-VIEWPORT-HARDENING.md) — TUI viewport/collapse hardening retrospective.
+
+## Retired documentation
+
+Retired design/evaluation packets keep compatibility tombstones at their old paths so stale links fail safe into an explicit `RETIRED` state rather than silently presenting historical plans as current instruction.
+
+- [`MERMAID-GRAPHIFY-AUDIT.md`](MERMAID-GRAPHIFY-AUDIT.md) — RETIRED historical provider evaluation; current provider contract is `GRAPHIFY-PROVIDER.md`.
+- [`FEATURE-MERMAID-GRAPHIFY-PLAN.md`](FEATURE-MERMAID-GRAPHIFY-PLAN.md) — RETIRED historical implementation plan.
+- [`PLAYBOOKS-CATALOG-TUI.md`](PLAYBOOKS-CATALOG-TUI.md) — RETIRED historical UI design sketch; current behavior is owned by `EXTENSION-LOAD-UNITS.md`, implementation, and tests.
+
+Exact historical blobs are retained under [`archive/`](archive/) with `.retired` suffixes. See [`ROAD/INDEX.md`](ROAD/INDEX.md) for reasons and replacement authorities.
+
+## Cross-agent documentation
+
+Root [`../AGENTS.md`](../AGENTS.md) is the compact cross-agent discovery and repository-instruction entry point. Keep it short enough that agents do not spend permanent context on task-specific operating detail.
+
+[`LLM-OPERATOR.md`](LLM-OPERATOR.md) is the maintained task-specific agent operator guide. Multi-step CodeSleuth workflows live under `pack/.opencode/playbooks/`; atomic competencies under `pack/.opencode/skills/`; execution remains owned by the host.
+
+A document or prompt does not gain instruction authority merely because it is in the repository or relevant to the target. See [`ROAD/ROAP.md`](ROAD/ROAP.md) and [`ROAD/Whitepaper.md`](ROAD/Whitepaper.md).
 
 ## README language maintenance
 
@@ -46,100 +90,16 @@ The public README is maintained in three complete language versions:
 - [`../README.ru.md`](../README.ru.md) — Russian translation;
 - [`../README.uk.md`](../README.uk.md) — Ukrainian translation.
 
-Every semantic change to `README.md` must update both translations in the same change. Each translated README records the Git blob identity of the English source in a `README-SOURCE-BLOB` comment, and `tests/test_docs_contract.py` fails when either translation is stale. The language selector at the top of every README must continue to link the other two versions.
-
-## Cross-agent documentation
-
-Root [`../AGENTS.md`](../AGENTS.md) is the compact cross-agent discovery and repository-instruction entry point. Keep it short and broadly applicable so agents do not spend permanent context on task-specific operating detail.
-
-[`LLM-OPERATOR.md`](LLM-OPERATOR.md) is the maintained task-specific LLM/coding-agent operator README. It explains how another agent should install, configure unattended, verify, use, bind, unbind, and remove CodeSleuth without violating the product/lifecycle contracts.
-
-`LLM-OPERATOR.md` records the canonical English `README.md` Git blob identity with `README-SOURCE-BLOB`. A README change therefore requires an explicit operator-guide parity review before that marker can be advanced. The guide only needs textual changes when agent-operational behavior changed, but its marker must not be refreshed without reviewing the current README and relevant implementation contracts.
-
-The executable docs contract checks that `AGENTS.md` continues to route operator tasks to `LLM-OPERATOR.md`, that the operator guide retains the critical unattended-install and lifecycle surfaces, and that internal relative links resolve.
-
-Post-SIB2 feature and regression work is additionally routed through the Protected Capability Registry and its atomic Skills/Playbook. Contract lookup, code/docs/test triangulation, forbidden-regression audit, and dependency closure are separate competencies rather than one permanently loaded protocol.
-
-Multi-step CodeSleuth workflows live under `pack/.opencode/playbooks/`. The host reads a manifest, exposes one Step at a time, and loads only the atomic Skills required by that Step. Direct user-facing Skills remain slash-callable where the host supports it; `/playbook` starts a stored multi-step workflow. See [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md).
+Every semantic change to the root English README must update both translations in the same change. Each translation records the Git blob identity of the English source via `README-SOURCE-BLOB`.
 
 ## Documentation media policy
 
-CodeSleuth documentation is text-first and terminal-native.
-
-- The canonical ASCII brand lives in `pack/.opencode/bin/codesleuth_tui.py` as `CODESLEUTH_ART` (documentation identity; not rendered by the live TUI); the root README may copy it verbatim.
-- UI manuals use terminal/text snapshots captured from the real application and exact implemented labels.
-- Maintained PNG/JPEG/WebP/SVG UI mockups/reference boards are not part of the documentation contract.
-- Mermaid is the allowed diagram format when relationships are materially clearer as encoded text. Repository context, protected-capability impact, and EHA history each retain their separate underlying authority; Mermaid source is bounded reviewable presentation, not a second source of truth or an acceptance-transfer mechanism.
+CodeSleuth documentation is text-first and terminal-native. Mermaid is allowed when relationships are materially clearer as encoded text, but remains bounded presentation rather than repository/evidence/acceptance authority. Historical Canvas sketches are design artifacts, not live-TUI manuals.
 
 ## Completed implementation packets
 
-- [`archive/CURSOR-PRODUCTION-HANDOFF.md`](archive/CURSOR-PRODUCTION-HANDOFF.md) — completed PR #2 production-hardening packet, retained for historical evidence only. It is not an active task or branch instruction.
+- [`archive/CURSOR-PRODUCTION-HANDOFF.md`](archive/CURSOR-PRODUCTION-HANDOFF.md) — completed PR #2 production-hardening packet, retained for **historical evidence only**. It is not an active task or branch instruction.
 
-## User and operations
+## Documentation verification
 
-- [`USER-GUIDE.md`](USER-GUIDE.md) — install, configure, validate, update, and operate CodeSleuth.
-- [`LLM-OPERATOR.md`](LLM-OPERATOR.md) — task-specific cross-agent operator manual for safe installation, unattended configuration, verification, use, and removal.
-- [`SELF-UPDATE.md`](SELF-UPDATE.md) — floating update, post-update Verify, controlled CodeSleuth process restart, source-checkout reload, and pinned-update boundaries.
-- [`_includes/build-controller-blurb.md`](_includes/build-controller-blurb.md) — canonical OpenCode `build` controller blurb. Public copy: [root README](../README.md#opencode-build-controller).
-
-## Maintainers
-
-- [`MAINTAINER-SUBREPO.md`](MAINTAINER-SUBREPO.md) — standalone/subrepo maintenance and integration guidance.
-- [`RELEASE-PROCESS.md`](RELEASE-PROCESS.md) — numbered release branch policy and acceptance gates.
-- [`CODESLEUTH-NAMING-CUTOVER.md`](CODESLEUTH-NAMING-CUTOVER.md) — product-namespace inventory; runtime rename remains post-0.4.0 work.
-- [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — required acceptance identity contract for SIB promotion, accepted integration states, RCs, and releases.
-- [`EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md`](EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md) — maintained conservative vocabulary for evidence-backed engineering claims and the project's crosswalk to established assurance/configuration/provenance practice.
-- [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — required repair discipline when exact-head acceptance fails.
-- [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — required operator workflow for EHA campaigns on the release stream.
-- [`GITHUB-EHA-BRIDGE.md`](GITHUB-EHA-BRIDGE.md) — remote EHA adapter, trusted-runner contract, durable evidence wiring, and owner-only GitHub control-plane rules.
-- [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — required candidate-selection contract for future SIB promotion.
-- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — required durable evidence authority and append-only ledger semantics.
-- [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — required SIB2 TUI visual-regression gate and artifact contract.
-- [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) — required preservation discipline for accepted capabilities and their contract-owned forbidden regressions during release feature population.
-- [`protected-capabilities.json`](protected-capabilities.json) — queryable machine contract/forbidden-regression registry used for impact selection and preservation review.
-- [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md) — required design contract for atomic Skills and step-isolated Playbooks.
-- [`EXTENSION-LOAD-UNITS.md`](EXTENSION-LOAD-UNITS.md) — required shared Catalog, Detail, and Load-wizard units for user-loadable pack content.
-- [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — semantic-refit authority and refit-readiness criteria for preserving product claims across future change.
-- [`LESSONS-LEARNED-SIB2-SEMANTIC-REFIT.md`](LESSONS-LEARNED-SIB2-SEMANTIC-REFIT.md) — non-normative retrospective on the 0.4.0 SIB2 assembly: exact-head identity, Semantic Refit, repair discipline, hardening, promotion, branch archaeology, and preserved negative knowledge.
-- [`LESSONS-LEARNED-VIEWPORT-HARDENING.md`](LESSONS-LEARNED-VIEWPORT-HARDENING.md) — TUI collapse/Tools viewport acceptance lessons and anti-patterns (paired with `.cursor/rules/tui-viewport-acceptance.mdc`).
-
-## Contract map
-
-```text
-CODESLEUTH-PRODUCT-CONTRACT.md
-        |
-        +--> CODESLEUTH-BRANDING.md
-        |       +--> CODESLEUTH-COLORMAP.json
-        |       +--> pack/.opencode/bin/codesleuth_tui.py  (canonical ASCII/TUI)
-        |
-        +--> CONTEXT-GRAPH-DISCIPLINE.md                  (Mermaid when useful)
-        |       +--> MERMAID-GRAPHIFY-AUDIT.md            (roadmap/incubation only)
-        +--> NOVACLAW-MCP.md                              (external host seam)
-        +--> ../AGENTS.md                                 (compact cross-agent entry point)
-        +--> LLM-OPERATOR.md                              (task-specific operator surface)
-        +--> PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md      (Playbook/Step/Skill/Command/Tool composition)
-        +--> EXTENSION-LOAD-UNITS.md                      (Catalog / Detail / Load wizard; Playbooks first)
-        +--> STABLE-INTEGRATION-BASELINE.md               (SIB0 -> SIB1 -> SIB2)
-        |       +--> SIB0-CAPABILITY-INVENTORY.md         (frozen capability-class inventory)
-        |       +--> EXACT-HEAD-ACCEPTANCE.md             (what is proven -> exact SHA carrying the proof)
-        |       |       +--> EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md (claim/evidence/authority vocabulary)
-        |       +--> EHA-REPAIR-LOOP.md                   (failed EHA target -> repair -> new campaign)
-        |       +--> EHA-OPERATING-PLAYBOOK.md            (release-stream EHA operator workflow)
-        |       |       +--> GITHUB-EHA-BRIDGE.md         (remote trigger -> same OpenCode EHA Playbook)
-        |       +--> SIB-CANDIDATE-SELECTION.md           (literal release-stream head -> EHA target)
-        |       +--> DURABLE-EVIDENCE-STORE.md            (checkpoint + append-only ledgers + derived views)
-        |       +--> TUI-VISUAL-REGRESSION.md             (canonical SIB2 interface evidence)
-        |       +--> PROTECTED-CAPABILITY-CONTRACTS.md    (accepted behavior -> preservation obligations)
-        |               +--> protected-capabilities.json  (contracts + impact graph + per-contract FR registry)
-        +--> SEMANTIC-REFIT.md                            (semantic surface -> claim reconciliation -> evidence)
-        |
-        +--> pack/.opencode/themes/codesleuth.json
-        +--> pack/.opencode/CODESLEUTH-REPORTS.md
-        +--> pack/.opencode/playbooks/                    (stored workflow manifests + isolated Steps)
-        +--> pack/.opencode/skills/                       (atomic on-demand competencies)
-        +--> .opencode/state/reviews/<reviewId>/eha.ndjson (append-only EHA/SIB/repair ledger)
-        +--> host runtime / commands / tools
-        +--> .codesleuth/reports/                         (host-written analysis where supported)
-```
-
-Core CodeSleuth is feature-frozen. Growth continues through profiles, Skills, Playbooks, small tools, host integrations, and extension-management UX without adding a second execution runtime.
+Pure human-readable documentation changes may use the reduced **DOCUMENTATION-ONLY** profile described in [`ROAD/INDEX.md`](ROAD/INDEX.md). That result is deliberately narrower than full repository acceptance or EHA.
