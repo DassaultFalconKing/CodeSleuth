@@ -21,6 +21,7 @@ A document being old does not make it stale. A retrospective may remain useful i
 | [`Whitepaper.md`](Whitepaper.md) | ROAD | Context Epistemics theory: truth/falsehood/unknown, authority boundaries, Negative Claims, forbidden inference, risk-weighted reasoning. |
 | [`ROADMAP.md`](ROADMAP.md) | ROAD | Implementation roadmap for Context Epistemics, durable negative knowledge, Skills/Playbooks, long-context degradation tests, and fail-closed mutation gates. |
 | [`ROAP.md`](ROAP.md) | ROAD / OPERATING DOCTRINE | Remote Operator Assurance Protocol for disconnected-host work: claim triangulation, authority correlation, mutation accounting, residual uncertainty, and fail-closed continuation. |
+| [`DOCUMENT-LIFECYCLE-ASSURANCE.md`](DOCUMENT-LIFECYCLE-ASSURANCE.md) | ROAD / OPERATING DOCTRINE | Safe retirement, movement, archival, semantic-anchor preservation, and verification of disappearing documentation context. |
 
 ROAD documents may guide future implementation but do not silently create a new SIB0 capability, tool authority, or accepted runtime behavior.
 
@@ -220,3 +221,21 @@ DOCUMENTATION-ONLY PASS
 The reduced profile is an explicitly narrower claim, not a cheaper way to obtain a broader green label.
 
 Escalate to targeted/full acceptance whenever documentation changes machine-consumed behavior, changes an accepted operational contract whose implementation may now be inconsistent, or accompanies any runtime/configuration delta.
+
+## 13. Disappearing-document assurance
+
+The detailed retirement/reorganization doctrine is [`DOCUMENT-LIFECYCLE-ASSURANCE.md`](DOCUMENT-LIFECYCLE-ASSURANCE.md).
+
+The key negative claim is:
+
+```text
+"I cannot find this document/concept in the new navigation"
+    -/->
+"the document/concept is obsolete"
+```
+
+A document can disappear physically, navigationally, semantically, as an authority pointer, or as a recoverable historical identity. Verification must distinguish those cases.
+
+The ROAD/index cleanup itself supplied a regression witness: shortening `docs/README.md` initially dropped required semantic anchors (`eha.ndjson`, `semantic-continuity criterion`, and `semantic surface -> claim reconciliation -> evidence`) while the underlying documents still existed. That was semantic/navigational disappearance, not physical deletion and not a runtime regression.
+
+Accordingly, document retirement and index cleanup require both path continuity checks and semantic contract checks. A clean link graph alone is insufficient evidence of context continuity.
