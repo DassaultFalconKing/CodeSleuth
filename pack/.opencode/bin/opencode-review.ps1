@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root = (Resolve-Path (Join-Path $Here '../..')).Path
+$RepoRoot = (Resolve-Path (Join-Path $Here '../../..')).Path
 $Settings = Join-Path $Root '.opencode/review-pack-user.json'
 $TuiConfig = Join-Path $Root '.opencode/tui.json'
 $ExaEnabled = $true
@@ -14,5 +15,24 @@ if (Test-Path $Settings) {
 }
 if ($ExaEnabled) { $env:OPENCODE_ENABLE_EXA = '1' } else { Remove-Item Env:OPENCODE_ENABLE_EXA -ErrorAction SilentlyContinue }
 if (Test-Path $TuiConfig) { $env:OPENCODE_TUI_CONFIG = $TuiConfig }
+
+# The EHA bridge may request an external writable config mirror. Keep
+# OPENCODE_CONFIG pointing at the exact tracked config selected by the bridge;
+# redirect only OPENCODE_CONFIG_DIR, which is OpenCode's discovery/bootstrap
+# surface and may receive generated package metadata.
+if (-not [string]::IsNullOrWhiteSpace($env:CODESLEUTH_EHA_RUNTIME_CONFIG)) {
+  $RuntimeConfig = [System.IO.Path]::GetFullPath($env:CODESLEUTH_EHA_RUNTIME_CONFIG)
+  $SourceConfig = Join-Path $Root '.opencode'
+  $Helper = Join-Path $RepoRoot 'scripts/eha_opencode_runtime.py'
+  if (-not (Test-Path -LiteralPath $Helper -PathType Leaf)) {
+    throw "CodeSleuth EHA runtime-config helper missing at exact target: $Helper"
+  }
+  & python3 $Helper --source $SourceConfig --target $RuntimeConfig
+  if ($LASTEXITCODE -ne 0) {
+    throw "CodeSleuth EHA runtime-config preparation failed with exit code $LASTEXITCODE"
+  }
+  $env:OPENCODE_CONFIG_DIR = $RuntimeConfig
+}
+
 & opencode @args
 exit $LASTEXITCODE
