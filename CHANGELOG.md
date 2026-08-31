@@ -2,6 +2,27 @@
 
 Numbered CodeSleuth releases are recorded here. Published release identity is the promoted exact `main` commit plus the immutable `vX.Y.Z` tag; the source version authority is the root `VERSION` file.
 
+## [0.4.0-Rc5] - 2026-08-31
+
+Release-readiness repair candidate after Rc4 completed canonical EHA reasoning successfully but the GitHub bridge failed its final transport/postcondition because OpenCode bootstrap wrote generated package metadata into the tracked candidate pack.
+
+### Repairs
+
+- separates immutable exact-target OpenCode configuration from the writable custom configuration/bootstrap directory used by OpenCode runtime discovery;
+- keeps `OPENCODE_CONFIG` bound to the exact tracked `pack/.opencode/opencode.json` while routing only `OPENCODE_CONFIG_DIR` to a unique external per-run mirror;
+- creates that mirror only after exact-target checkout, by copying the selected target's own `pack/.opencode` tree through a fail-closed helper;
+- refuses runtime-mirror reuse and refuses any mirror located inside the candidate repository;
+- keeps the strict post-EHA Git cleanliness check unchanged instead of hiding generated `package.json` or `package-lock.json` through Git ignore/exclude rules;
+- adds regression coverage reproducing OpenCode bootstrap package residue in the external mirror and proving the source candidate remains untouched;
+- includes the current ROAD/ROAP/document-lifecycle documentation line already integrated on `main` after Rc4.
+
+### Rc4 EHA evidence boundary
+
+- exact Rc4 target `86a7dc59574fd6e48d8eadc108b60ac3773bee9a` recorded durable `SIB0 PASS`, `SIB1 PASS`, and `SIB2 PASS` in campaign `EHA-20260831065932-86a7dc59574f-a95d1ac9`, review `20260831065923-86a7dc59574f-lzgGTV2J-6969e5d2`;
+- the bridge subsequently reported `ERROR` because `pack/.opencode/package.json` and `pack/.opencode/package-lock.json` were untracked after OpenCode bootstrap;
+- that terminal adapter/postcondition error does not rewrite the already durable Rc4 EHA PASS verdict, but it is a real release-readiness defect;
+- Rc5 is a new exact source identity. Rc4 EHA PASS and repository acceptance do not transfer to Rc5; Rc5 must earn fresh hosted acceptance and fresh canonical EHA.
+
 ## [0.4.0-Rc4] - 2026-08-30
 
 Release-readiness repair candidate for the platform-native GitHub-to-OpenCode EHA invocation boundary. Rc3 is repository-accepted on its own exact SHA and repaired the report-persistence ownership conflict, but fresh EHA run `33334931489` then exposed a separate Windows adapter error before canonical `/eha-test` could start.
