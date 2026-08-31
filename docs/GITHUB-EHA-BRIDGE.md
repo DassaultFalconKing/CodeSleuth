@@ -27,7 +27,7 @@ GitHub owner / connector
 .github/workflows/eha.yml
         |
         | owner gate
-        | immutable controller SHA from the trigger event
+        | immutable controller SHA from trigger event
         | trusted self-hosted runner: codesleuth-eha
         v
 scripts/eha_github_bridge.py
@@ -42,9 +42,18 @@ scripts/eha_github_bridge.py
         |       |
         |       +--> .opencode/state -> <persist-root>/state
         |       +--> .codesleuth/reports -> <persist-root>/reports
-        |       +--> private OpenCode transcript -> <persist-root>/bridge-logs
+        |       +--> private transcript -> <persist-root>/bridge-logs
         |
-        +--> OpenCode config from exact target pack/.opencode
+        +--> exact tracked configuration file
+        |       |
+        |       +--> OPENCODE_CONFIG=<exact-target>/pack/.opencode/opencode.json
+        |
+        +--> external per-run OpenCode custom-config mirror
+        |       |
+        |       +--> exact copy of <exact-target>/pack/.opencode
+        |       +--> <persist-root>/bridge-runtime/<run>/opencode-config
+        |       +--> writable bootstrap/package metadata stays outside checkout
+        |       +--> OPENCODE_CONFIG_DIR=<external mirror>
         |
         +--> opencode-review run --command eha-test
                 |
@@ -170,6 +179,72 @@ Therefore the existing `review_state` and `eha_state` tools continue to use thei
 
 That record contains target identity, campaign/review IDs, SIB verdict labels, OpenCode version, adapter outcome, and a relative pointer to the private transcript record. It intentionally does not duplicate finding excerpts or EHA evidence payloads.
 
+## Immutable config versus writable OpenCode bootstrap
+
+The EHA candidate contains the CodeSleuth OpenCode pack at:
+
+```text
+<exact-target>/pack/.opencode
+```
+
+Two different roles must not be conflated:
+
+```text
+OPENCODE_CONFIG
+    = exact tracked configuration identity
+
+OPENCODE_CONFIG_DIR
+    = custom discovery/bootstrap directory
+    = may be written by OpenCode runtime/bootstrap
+```
+
+The bridge keeps the first role bound directly to the exact target:
+
+```text
+OPENCODE_CONFIG=<exact-target>/pack/.opencode/opencode.json
+```
+
+For the second role, the workflow allocates a unique external path:
+
+```text
+<persist-root>/bridge-runtime/<github-run-id>-attempt-<n>/opencode-config
+```
+
+The shipped `opencode-review` / `opencode-review.ps1` wrapper, after the bridge has already frozen and checked out the exact target, invokes `scripts/eha_opencode_runtime.py` to copy that target's `pack/.opencode` tree into the external path. It then sets only:
+
+```text
+OPENCODE_CONFIG_DIR=<external exact-target mirror>
+```
+
+The helper fails closed when:
+
+- the exact source pack is missing;
+- `opencode.json` is missing;
+- the requested mirror is inside the candidate repository;
+- the per-run mirror already exists and would be reused.
+
+The mirror is a runtime/discovery surface, not repository authority and not EHA evidence authority. Generated `package.json`, `package-lock.json`, plugin bootstrap files, or similar runtime metadata may exist there without changing the candidate.
+
+This separation is necessary because OpenCode legitimately treats a custom configuration directory as a runtime discovery/bootstrap surface. Making the tracked candidate pack serve both as immutable source and writable runtime directory weakens exact-target cleanliness.
+
+## Rc4 negative witness
+
+Rc4 exact target `86a7dc59574fd6e48d8eadc108b60ac3773bee9a` recorded durable SIB0/SIB1/SIB2 PASS verdicts, then the bridge failed the post-EHA cleanliness check because OpenCode bootstrap had created:
+
+```text
+?? pack/.opencode/package-lock.json
+?? pack/.opencode/package.json
+```
+
+The correct classification is:
+
+```text
+durable exact-SHA EHA verdict = PASS
+bridge transport/postcondition = ERROR
+```
+
+The repair does not add those paths to `.gitignore`, does not add them to `.git/info/exclude`, and does not relax the post-EHA cleanliness check. It removes the incorrect writable-runtime role from the tracked pack.
+
 ## Private transcript boundary
 
 `opencode run --format json` can contain repository snippets, tool output, findings, prompts, and other evidence that does not belong in a public Actions log. The bridge therefore never streams the OpenCode process output to Actions stdout/stderr.
@@ -194,20 +269,15 @@ A failure is evidence, not permission to rerun history until the dashboard becom
 
 ## Headless OpenCode boundary
 
-The bridge loads the candidate's own CodeSleuth runtime directly with:
+The exact candidate remains the source of configuration, commands, Skills, Playbooks, Tools, and wrappers. The external runtime mirror is created only after exact-target checkout and from that exact target.
+
+The wrapper then invokes:
 
 ```text
-OPENCODE_CONFIG=<exact-target>/pack/.opencode/opencode.json
-OPENCODE_CONFIG_DIR=<exact-target>/pack/.opencode
+opencode-review run --command eha-test --format json ...
 ```
 
-It then invokes the existing command through the shipped wrapper:
-
-```text
-pack/.opencode/bin/opencode-review run --command eha-test --format json ...
-```
-
-The workflow checks out with `persist-credentials: false` and repository permission `contents: read`. OpenCode may inspect and test the candidate, but the EHA command contract forbids application/source mutation. The bridge additionally denies Git mutation commands in the headless permission overlay and re-checks worktree cleanliness after OpenCode exits. It fails closed if tracked or untracked repository state was changed outside ignored runtime/evidence locations.
+The workflow checks out with `persist-credentials: false` and repository permission `contents: read`. OpenCode may inspect and test the candidate, but the EHA command contract forbids application/source mutation. The bridge additionally denies Git mutation commands in the headless permission overlay and re-checks worktree cleanliness after OpenCode exits. It fails closed if tracked or untracked repository state was changed outside the explicitly bound evidence/report paths.
 
 Only `.codesleuth/reports/**` is granted through OpenCode's edit permission override. The persistent state itself is written by the existing bounded CodeSleuth tools.
 
@@ -224,9 +294,16 @@ ERROR      identity, persistence, OpenCode, ledger, or cleanliness invariant fai
 
 A GitHub job marked successful therefore means the delegated canonical campaign reached all three PASS verdicts on the exact SHA and the adapter itself completed cleanly.
 
-A failed GitHub job does not erase the ledger. In particular, an EHA FAIL remains durable evidence and the failed SHA stays failed.
+A failed GitHub job does not erase the ledger. In particular:
 
-Ordinary `.github/workflows/acceptance.yml` runs are still useful exact-head development gates. They do not substitute for this EHA workflow and do not write SIB verdicts.
+```text
+GitHub/bridge ERROR after durable PASS
+    -/-> EHA FAIL
+```
+
+Likewise an EHA FAIL remains durable evidence even if some later transport layer also errors.
+
+Ordinary `.github/workflows/acceptance.yml` runs are useful exact-head development gates. They do not substitute for this EHA workflow and do not write SIB verdicts.
 
 ## Promotion boundary
 
@@ -264,10 +341,12 @@ For a new future-SIB candidate:
 2. Capture its literal full head SHA.
 3. Run ordinary exact-head development gates as required.
 4. Dispatch CodeSleuth EHA from main, or post the owner-only /eha-test command.
-5. The bridge freezes that release head and invokes OpenCode.
-6. Inspect the durable campaign with /eha-status or eha_state_load.
-7. If any level FAILs, preserve the failed SHA and use /eha-repair.
-8. If SIB2 is claimable, promotion is a separate explicit action.
+5. The bridge freezes that release head.
+6. The exact target's OpenCode pack is mirrored to a unique external runtime dir.
+7. OpenCode executes canonical /eha-test against the frozen target.
+8. Inspect the durable campaign with /eha-status or eha_state_load.
+9. If any level FAILs, preserve the failed SHA and use /eha-repair.
+10. If SIB2 is claimable, promotion is a separate explicit action.
 ```
 
 This is the same EHA discipline as a local OpenCode session, with GitHub acting only as a remote trigger and execution envelope.
