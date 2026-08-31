@@ -2,6 +2,25 @@
 
 Numbered CodeSleuth releases are recorded here. Published release identity is the promoted exact `main` commit plus the immutable `vX.Y.Z` tag; the source version authority is the root `VERSION` file.
 
+## [0.4.0-Rc5b] - 2026-08-31
+
+Exact-head replacement candidate for Rc5a after the canonical EHA agent left a repository-local scratch file and the bridge correctly rejected the dirty postcondition.
+
+### Repairs
+
+- replaces the headless EHA shell's allow-all-plus-known-denies policy with a fail-closed allowlist for bounded inspection, canonical tests, and the dedicated reports route;
+- denies unknown commands by default, including the witnessed PowerShell `Out-File` pipeline and arbitrary inline interpreter commands that could bypass the native edit boundary;
+- allocates a unique external per-run scratch directory, exports it through `CODESLEUTH_EHA_SCRATCH_DIR`, `TEMP`, `TMP`, and `TMPDIR`, and refuses reuse;
+- keeps the strict post-EHA Git cleanliness check unchanged: no residue is ignored, excluded, or cleaned after execution;
+- adds deterministic regression coverage for the observed Rc5a command, external scratch binding, default-deny policy, and scratch reuse refusal.
+
+### Rc5a EHA evidence boundary
+
+- exact Rc5a target `b3da975a2cfb189b93bd3c29756d06e0491f8cc8` recorded durable `SIB0 PASS`, `SIB1 PASS`, and `SIB2 PASS` before the bridge found `?? temp.txt`;
+- the scratch file came from an EHA-agent PowerShell pipeline ending in `Out-File -Encoding utf8 temp.txt`; it was not product behavior or bootstrap residue;
+- the Rc5a bridge outcome remains `ERROR`; its ledger verdicts and hosted repository results do not transfer to Rc5b;
+- Rc5b requires a new exact source identity, full hosted acceptance, and a fresh canonical EHA campaign. It does not move `SIB`, create a tag, or publish a GitHub Release.
+
 ## [0.4.0-Rc5a] - 2026-08-31
 
 Queue-closed exact-head replacement candidate for Rc5. The Rc5 bootstrap-cleanliness repair remains unchanged, but Rc5a receives a new source identity so release acceptance starts only after the open GitHub issue and pull-request queue has been explicitly dispositioned.

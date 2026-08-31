@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+from fnmatch import fnmatchcase
 
 import pytest
 
@@ -161,28 +162,48 @@ def test_private_transcript_is_host_local_unique_and_not_public_stdout(
         bridge.private_transcript_path(persist_root)
 
 
-def test_headless_opencode_permission_denies_git_mutation() -> None:
+def test_headless_opencode_permission_is_fail_closed_for_repository_writes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     bridge = load_bridge()
-    permissions = json.loads(bridge.opencode_environment(ROOT)["OPENCODE_PERMISSION"])
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    persist = tmp_path / "persist"
+    monkeypatch.setenv("GITHUB_RUN_ID", "rc5b-regression")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    scratch = bridge.prepare_scratch_dir(repo, persist)
+    environment = bridge.opencode_environment(repo, scratch)
+    permissions = json.loads(environment["OPENCODE_PERMISSION"])
+
     assert permissions["edit"]["*"] == "deny"
     assert permissions["edit"][".codesleuth/reports/**"] == "allow"
-    assert permissions["bash"]["*"] == "allow"
-    for pattern in (
-        "git add*",
-        "git checkout*",
-        "git clean*",
-        "git commit*",
-        "git merge*",
-        "git push*",
-        "git rebase*",
-        "git reset*",
-        "git restore*",
-        "git switch*",
-        "git tag*",
-        "git update-ref*",
-        "git worktree*",
-    ):
-        assert permissions["bash"][pattern] == "deny"
+    assert permissions["bash"]["*"] == "deny"
+    assert permissions["bash"]["git status*"] == "allow"
+    assert permissions["bash"]["python -m pytest*"] == "allow"
+    assert permissions["bash"]["*Out-File*"] == "deny"
+    assert permissions["bash"]["*>*"] == "deny"
+    assert "python3 -c*" not in permissions["bash"]
+
+    def decision(command: str) -> str:
+        result = "ask"
+        for pattern, action in permissions["bash"].items():
+            if fnmatchcase(command, pattern):
+                result = action
+        return result
+
+    assert decision('Get-Content ".codesleuth/reports/INDEX.md" -Raw') == "allow"
+    assert decision("Out-File -Encoding utf8 temp.txt") == "deny"
+    assert decision('Get-Content "VERSION" > temp.txt') == "deny"
+    assert decision("python3 -c \"open('temp.txt', 'w').write('x')\"") == "deny"
+
+    assert scratch == persist / "bridge-runtime" / "rc5b-regression-attempt-1" / "scratch"
+    assert scratch.is_dir()
+    assert not scratch.is_relative_to(repo)
+    for key in ("CODESLEUTH_EHA_SCRATCH_DIR", "TEMP", "TMP", "TMPDIR"):
+        assert environment[key] == str(scratch)
+
+    with pytest.raises(bridge.BridgeError, match="refusing to reuse"):
+        bridge.prepare_scratch_dir(repo, persist)
 
 
 def test_workflow_is_a_delegating_owner_gated_self_hosted_bridge() -> None:
@@ -202,6 +223,8 @@ def test_workflow_is_a_delegating_owner_gated_self_hosted_bridge() -> None:
     assert '"run", "--command", "eha-test", "--format", "json"' in script
     assert "OPENCODE_CONFIG_DIR" in script
     assert "OPENCODE_DISABLE_AUTOUPDATE" in script
+    assert "CODESLEUTH_EHA_SCRATCH_DIR" in script
+    assert '"*": "deny"' in script
     assert "literal release-stream head" in script
     assert "refs/remotes/origin/" in script
     assert "prior_failed_sha" in script

@@ -26,6 +26,77 @@ SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 RELEASE_BRANCH_RE = re.compile(r"^dev/release-[0-9]+\.[0-9]+\.[0-9]+$")
 LEVELS = ("SIB0", "SIB1", "SIB2")
 DEFAULT_SCOPE = "SIB0/SIB1/SIB2 exact-head acceptance"
+EHA_READ_ONLY_BASH_PATTERNS = (
+    "git status*",
+    "git diff*",
+    "git log*",
+    "git show*",
+    "git rev-parse*",
+    "git ls-files*",
+    "git branch --show-current*",
+    "git merge-base*",
+    "git cat-file*",
+    "git blame*",
+    "git grep*",
+    "git ls-tree*",
+    "git rev-list*",
+    "Get-Content*",
+    "Get-ChildItem*",
+    "Get-Item*",
+    "Get-Date*",
+    "Test-Path*",
+    "Resolve-Path*",
+    "Select-String*",
+    "Select-Object*",
+    "Format-List*",
+    "Format-Table*",
+    "Out-String*",
+    "head*",
+    "tail*",
+    "grep*",
+    "rg*",
+    "sort*",
+    "uniq*",
+    "wc*",
+    "echo*",
+    "pwd",
+    "ls*",
+    "python -m pytest*",
+    "python3 -m pytest*",
+    "python scripts/contributor_antipatterns.py scan --strict*",
+    "python3 scripts/contributor_antipatterns.py scan --strict*",
+    "python -m ruff check*",
+    "python3 -m ruff check*",
+    "ruff check*",
+    "bun --version*",
+    "bun run test*",
+    "bun tests/*",
+    ".opencode/bin/codesleuth-reports sync*",
+    "./.opencode/bin/codesleuth-reports sync*",
+    ".opencode/bin/codesleuth-reports publish*",
+    "./.opencode/bin/codesleuth-reports publish*",
+    ".opencode/bin/codesleuth-reports.ps1 sync*",
+    ".opencode/bin/codesleuth-reports.ps1 publish*",
+    "pack/.opencode/bin/codesleuth-reports sync*",
+    "pack/.opencode/bin/codesleuth-reports publish*",
+    "pack/.opencode/bin/codesleuth-reports.ps1 sync*",
+    "pack/.opencode/bin/codesleuth-reports.ps1 publish*",
+    "gh run list*",
+    "gh run view*",
+)
+EHA_BASH_DENY_PATTERNS = (
+    "*>*",
+    "*Out-File*",
+    "*Set-Content*",
+    "*Add-Content*",
+    "*Clear-Content*",
+    "*New-Item*",
+    "*Remove-Item*",
+    "*Move-Item*",
+    "*Copy-Item*",
+    "*Rename-Item*",
+    "*Tee-Object*",
+)
 
 
 class BridgeError(RuntimeError):
@@ -255,32 +326,39 @@ def verdict_summary(start: dict[str, Any], events: list[dict[str, Any]]) -> dict
     return result
 
 
-def opencode_environment(root: Path) -> dict[str, str]:
+def eha_bash_permissions() -> dict[str, str]:
+    """Return a fail-closed allowlist for EHA inspection and test commands."""
+    return {
+        "*": "deny",
+        **{pattern: "allow" for pattern in EHA_READ_ONLY_BASH_PATTERNS},
+        **{pattern: "deny" for pattern in EHA_BASH_DENY_PATTERNS},
+    }
+
+
+def prepare_scratch_dir(root: Path, persist_root: Path) -> Path:
+    """Allocate one external scratch directory without weakening checkout cleanliness."""
+    external = ensure_external(root, persist_root)
+    scratch = external / "bridge-runtime" / bridge_run_key() / "scratch"
+    try:
+        scratch.mkdir(parents=True, exist_ok=False, mode=0o700)
+    except FileExistsError as exc:
+        raise BridgeError(f"refusing to reuse existing EHA scratch directory: {scratch}") from exc
+    return scratch
+
+
+def opencode_environment(root: Path, scratch_dir: Path) -> dict[str, str]:
     env = os.environ.copy()
     env["OPENCODE_CONFIG"] = str(root / "pack" / ".opencode" / "opencode.json")
     env["OPENCODE_CONFIG_DIR"] = str(root / "pack" / ".opencode")
     env["OPENCODE_DISABLE_AUTOUPDATE"] = "true"
+    env["CODESLEUTH_EHA_SCRATCH_DIR"] = str(scratch_dir)
+    env["TEMP"] = str(scratch_dir)
+    env["TMP"] = str(scratch_dir)
+    env["TMPDIR"] = str(scratch_dir)
     env["OPENCODE_PERMISSION"] = json.dumps(
         {
             "edit": {"*": "deny", ".codesleuth/reports/**": "allow"},
-            "bash": {
-                "*": "allow",
-                "git add*": "deny",
-                "git branch*": "deny",
-                "git checkout*": "deny",
-                "git cherry-pick*": "deny",
-                "git clean*": "deny",
-                "git commit*": "deny",
-                "git merge*": "deny",
-                "git push*": "deny",
-                "git rebase*": "deny",
-                "git reset*": "deny",
-                "git restore*": "deny",
-                "git switch*": "deny",
-                "git tag*": "deny",
-                "git update-ref*": "deny",
-                "git worktree*": "deny"
-            },
+            "bash": eha_bash_permissions(),
             "external_directory": "allow",
             "question": "deny",
             "doom_loop": "deny",
@@ -364,7 +442,11 @@ def invoke_opencode(
         f"Release stream: {release_branch}. Expected literal release HEAD and checkout SHA: "
         f"{expected_sha}. Scope: {scope}. The bridge already verified the remote release ref, "
         "checked out the exact SHA detached, and attached host-persistent canonical review/EHA state. "
-        "Do not modify application/source files. Run the canonical eha-sib-acceptance Playbook only."
+        "The candidate checkout is read-only for this campaign: do not create, modify, rename, or "
+        "delete any path inside it, including temporary or scratch files. If transient storage is "
+        "unavoidable, use only the external CODESLEUTH_EHA_SCRATCH_DIR. Write analytical reports "
+        "only through the bounded .codesleuth/reports route. Run the canonical "
+        "eha-sib-acceptance Playbook only."
     )
     command = opencode_wrapper_command(root)
     command.extend(["run", "--command", "eha-test", "--format", "json"])
@@ -373,11 +455,12 @@ def invoke_opencode(
     command.append(message)
     print(f"OPENCODE VERSION {version}", flush=True)
     print(f"EHA EXACT TARGET {expected_sha} FROM {release_branch}", flush=True)
+    scratch_dir = prepare_scratch_dir(root, transcript_path.parent.parent)
     with transcript_path.open("w", encoding="utf-8", errors="replace") as transcript:
         completed = subprocess.run(
             command,
             cwd=root,
-            env=opencode_environment(root),
+            env=opencode_environment(root, scratch_dir),
             check=False,
             stdout=transcript,
             stderr=subprocess.STDOUT,

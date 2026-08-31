@@ -55,6 +55,11 @@ scripts/eha_github_bridge.py
         |       +--> writable bootstrap/package metadata stays outside checkout
         |       +--> OPENCODE_CONFIG_DIR=<external mirror>
         |
+        +--> external per-run scratch directory
+        |       |
+        |       +--> TEMP / TMP / TMPDIR=<external scratch>
+        |       +--> CODESLEUTH_EHA_SCRATCH_DIR=<external scratch>
+        |
         +--> opencode-review run --command eha-test
                 |
                 v
@@ -277,9 +282,31 @@ The wrapper then invokes:
 opencode-review run --command eha-test --format json ...
 ```
 
-The workflow checks out with `persist-credentials: false` and repository permission `contents: read`. OpenCode may inspect and test the candidate, but the EHA command contract forbids application/source mutation. The bridge additionally denies Git mutation commands in the headless permission overlay and re-checks worktree cleanliness after OpenCode exits. It fails closed if tracked or untracked repository state was changed outside the explicitly bound evidence/report paths.
+The workflow checks out with `persist-credentials: false` and repository permission `contents: read`. OpenCode may inspect and test the candidate, but the EHA command contract forbids every checkout mutation, including temporary and scratch files.
+
+The bridge enforces that boundary with a fail-closed headless shell allowlist. The catch-all shell rule is `deny`; only bounded Git inspection, file inspection, canonical test commands, and the dedicated reports launcher are allowed. Arbitrary shell interpreters, inline Python, redirection helpers such as PowerShell `Out-File`, and Git mutation commands therefore remain denied. This is stronger than enumerating known mutation commands because an unknown command does not inherit permission to run.
+
+Commands and tools that honor conventional temporary-directory variables receive a unique external directory under:
+
+```text
+<persist-root>/bridge-runtime/<github-run-id>-attempt-<n>/scratch
+```
+
+The bridge exports that path through `CODESLEUTH_EHA_SCRATCH_DIR`, `TEMP`, `TMP`, and `TMPDIR`. Reuse is refused. The strict post-EHA worktree-cleanliness check remains unchanged and still fails closed if tracked or untracked repository state changes outside the explicitly bound evidence/report paths.
 
 Only `.codesleuth/reports/**` is granted through OpenCode's edit permission override. The persistent state itself is written by the existing bounded CodeSleuth tools.
+
+## Rc5a negative witness
+
+Rc5a exact target `b3da975a2cfb189b93bd3c29756d06e0491f8cc8` recorded durable `SIB0 PASS`, `SIB1 PASS`, and `SIB2 PASS`, then the bridge correctly failed its post-EHA cleanliness check after the headless agent ran a PowerShell pipeline ending in:
+
+```text
+Out-File -Encoding utf8 temp.txt
+```
+
+That created `?? temp.txt` in the exact candidate checkout. It was tester scratch residue, not application behavior and not OpenCode bootstrap metadata. The Rc5a bridge result is therefore `ERROR` even though the exact-SHA ledger contains the three durable PASS verdicts.
+
+Rc5b does not hide or clean that residue after the fact. It prevents the observed path through the fail-closed shell allowlist, supplies an explicit external scratch directory, and retains the cleanliness oracle. Rc5a remains an immutable failed bridge campaign; Rc5b requires a new exact SHA and new acceptance evidence.
 
 ## Workflow result versus EHA result
 
