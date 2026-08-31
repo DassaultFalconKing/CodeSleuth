@@ -2,6 +2,7 @@
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/../.." && pwd)
+REPO_ROOT=$(CDPATH= cd -- "$HERE/../../.." && pwd)
 SETTINGS="$ROOT/.opencode/review-pack-user.json"
 TUI_CONFIG="$ROOT/.opencode/tui.json"
 EXA=1
@@ -16,4 +17,20 @@ fi
 if [ -f "$TUI_CONFIG" ]; then
   export OPENCODE_TUI_CONFIG="$TUI_CONFIG"
 fi
+
+# EHA may supply an external writable custom-config directory. Keep the exact
+# tracked OPENCODE_CONFIG selected by the bridge and redirect only the custom
+# discovery/bootstrap directory where OpenCode may generate package metadata.
+if [ -n "${CODESLEUTH_EHA_RUNTIME_CONFIG:-}" ]; then
+  HELPER="$REPO_ROOT/scripts/eha_opencode_runtime.py"
+  if [ ! -f "$HELPER" ]; then
+    printf '%s\n' "CodeSleuth EHA runtime-config helper missing at exact target: $HELPER" >&2
+    exit 2
+  fi
+  python3 "$HELPER" \
+    --source "$ROOT/.opencode" \
+    --target "$CODESLEUTH_EHA_RUNTIME_CONFIG"
+  export OPENCODE_CONFIG_DIR="$CODESLEUTH_EHA_RUNTIME_CONFIG"
+fi
+
 exec opencode "$@"
