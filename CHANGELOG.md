@@ -2,6 +2,19 @@
 
 Numbered CodeSleuth releases are recorded here. Published release identity is the promoted exact `main` commit plus the immutable `vX.Y.Z` tag; the source version authority is the root `VERSION` file.
 
+## [0.4.0-Rc5a] - 2026-08-31
+
+Queue-closed exact-head replacement candidate for Rc5. The Rc5 bootstrap-cleanliness repair remains unchanged, but Rc5a receives a new source identity so release acceptance starts only after the open GitHub issue and pull-request queue has been explicitly dispositioned.
+
+### Candidate boundary
+
+- preserves the Rc5 bootstrap/runtime isolation repair without admitting additional runtime or experimental feature work;
+- records issue `#103` as completed by the Rc5 repair while treating Rc5 SHA `c698049fd9f4b1f9fcd891a10a88a7a2065550da` as repository-green provenance only, not canonical EHA evidence for Rc5a;
+- records issue `#104` as deferred post-0.4 runtime work: its ROAP doctrine remains in the ROAD documents, but its proposed Skills/Playbooks are not implemented in this candidate;
+- closes experimental PR `#89` unmerged; its stale/conflicting User Witness implementation and historical Windows/Python 3.12 failure are not part of Rc5a;
+- requires fresh hosted repository acceptance and a fresh canonical SIB0/SIB1/SIB2 EHA campaign on the literal Rc5a SHA;
+- does not move `SIB`, create a tag, or publish a GitHub Release.
+
 ## [0.4.0-Rc5] - 2026-08-31
 
 Release-readiness repair candidate after Rc4 completed canonical EHA reasoning successfully but the GitHub bridge failed its final transport/postcondition because OpenCode bootstrap wrote generated package metadata into the tracked candidate pack.
