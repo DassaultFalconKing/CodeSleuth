@@ -11,7 +11,7 @@ Start with [`ROAD/INDEX.md`](ROAD/INDEX.md) when you need to know **which docume
 - [`EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md`](EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md) — canonical EBCA vocabulary for subject identity, evidence, authority, assurance, negative knowledge, SIB/EHA, and conservative claim language.
 - [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — durable review/evidence authority and append-only ledger semantics, including append-only EHA history in `eha.ndjson`.
 - [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) and [`protected-capabilities.json`](protected-capabilities.json) — post-acceptance preservation discipline and machine-readable protected registry.
-- [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — normative **semantic-continuity criterion** and refit discipline across implementation and history changes.
+- [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — normative **semantic-continuity criterion**: `semantic surface -> claim reconciliation -> evidence`, plus refit discipline across implementation and history changes.
 - [`CONTEXT-GRAPH-DISCIPLINE.md`](CONTEXT-GRAPH-DISCIPLINE.md) — source -> durable review state -> bounded RepositoryContextProjection -> derived graph/Mermaid discipline.
 - [`GRAPH-CONSUMPTION-CONTRACT.md`](GRAPH-CONSUMPTION-CONTRACT.md) — bounded consumption of derived graph context.
 - [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md) — atomic Skills, isolated Playbook Steps, Commands, and bounded Tools.
