@@ -9,9 +9,9 @@ Start with [`ROAD/INDEX.md`](ROAD/INDEX.md) when you need to know **which docume
 - [`STABLE-INTEGRATION-BASELINE.md`](STABLE-INTEGRATION-BASELINE.md) — SIB0/SIB1/SIB2 baseline model.
 - [`EXACT-HEAD-ACCEPTANCE.md`](EXACT-HEAD-ACCEPTANCE.md) — exact-SHA acceptance identity and non-transfer of proof across identities.
 - [`EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md`](EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md) — canonical EBCA vocabulary for subject identity, evidence, authority, assurance, negative knowledge, SIB/EHA, and conservative claim language.
-- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — durable review/evidence authority and append-only ledger semantics.
+- [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — durable review/evidence authority and append-only ledger semantics, including append-only EHA history in `eha.ndjson`.
 - [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) and [`protected-capabilities.json`](protected-capabilities.json) — post-acceptance preservation discipline and machine-readable protected registry.
-- [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — semantic continuity/refit discipline across implementation and history changes.
+- [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — normative **semantic-continuity criterion** and refit discipline across implementation and history changes.
 - [`CONTEXT-GRAPH-DISCIPLINE.md`](CONTEXT-GRAPH-DISCIPLINE.md) — source -> durable review state -> bounded RepositoryContextProjection -> derived graph/Mermaid discipline.
 - [`GRAPH-CONSUMPTION-CONTRACT.md`](GRAPH-CONSUMPTION-CONTRACT.md) — bounded consumption of derived graph context.
 - [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md) — atomic Skills, isolated Playbook Steps, Commands, and bounded Tools.
@@ -21,7 +21,7 @@ Start with [`ROAD/INDEX.md`](ROAD/INDEX.md) when you need to know **which docume
 
 - [`EHA-REPAIR-LOOP.md`](EHA-REPAIR-LOOP.md) — failed-target classification, repair, and new-campaign discipline.
 - [`EHA-OPERATING-PLAYBOOK.md`](EHA-OPERATING-PLAYBOOK.md) — release-stream EHA operator workflow.
-- [`GITHUB-EHA-BRIDGE.md`](GITHUB-EHA-BRIDGE.md) — trusted self-hosted GitHub bridge to canonical OpenCode EHA while durable state remains authority.
+- [`GITHUB-EHA-BRIDGE.md`](GITHUB-EHA-BRIDGE.md) — trusted self-hosted GitHub bridge to canonical OpenCode EHA while durable `eha.ndjson` state remains verdict authority.
 - [`SIB-CANDIDATE-SELECTION.md`](SIB-CANDIDATE-SELECTION.md) — literal release-stream candidate selection.
 - [`RELEASE-PROCESS.md`](RELEASE-PROCESS.md) — release branch policy and acceptance sequence.
 - [`TUI-VISUAL-REGRESSION.md`](TUI-VISUAL-REGRESSION.md) — TUI visual-regression gate and artifact contract.
