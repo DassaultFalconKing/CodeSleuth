@@ -1,9 +1,11 @@
 # Step: triangulate discovered contracts
 
-Consume `candidate_contracts`. For each material candidate, use `contract-triangulation` against the exact target SHA and the narrowest exact code/config, normative/public documentation, and executable test evidence available.
+Consume `candidate_contracts`. For each material proposal, use `contract-triangulation` against the exact target SHA and the narrowest exact code/config, normative/public documentation, and executable test evidence available.
 
-Classify each candidate as exactly one of `AGREE`, `CODE_AHEAD`, `DOC_AHEAD`, `TEST_AHEAD`, `CONTRADICTED`, or `UNPROVEN`. Never average disagreement into a synthetic contract and never invent a missing evidence family.
+Classify each proposal as exactly one of `AGREE`, `CODE_AHEAD`, `DOC_AHEAD`, `TEST_AHEAD`, `CONTRADICTED`, or `UNPROVEN`. Never average disagreement into a synthetic contract and never invent a missing evidence family.
 
-If the provisional candidate record needs correction after exact triangulation, record a new candidate with a new contract id suffix only when the prior candidate cannot be safely represented; otherwise stop and report the mismatch for repair of the bootstrap proposal. Do not edit application source or the tracked registry in this Step.
+Only **after** that classification is established, call `contract_bootstrap_state_record_candidate` exactly once for the proposed contract id with the final statement, final evidence paths/family absences, final triangulation status, affected paths/dependencies, and concrete forbidden-regression candidates. Do not record provisional classifications and do not create suffixed duplicates merely to correct earlier model output.
 
-Return only `triangulated_candidates`: candidate id, contract id, exact status, evidence triad or explicit absence, and the user decision choices that are actually legal. `AGREE` may be offered for `adopt`; `UNPROVEN` may be offered only for explicit `adopt_unproven`; drift or contradiction may only be rejected/deferred until resolved.
+If exact evidence materially changes the proposed contract meaning rather than merely its wording, report the proposal as needing renewed discovery instead of silently substituting a different contract. Do not edit application source or the tracked registry in this Step.
+
+Return only `triangulated_candidates`: durable candidate id, contract id, exact status, evidence triad or explicit absence, and the user decision choices that are actually legal. `AGREE` may be offered for `adopt`; `UNPROVEN` may be offered only for explicit `adopt_unproven`; drift or contradiction may only be rejected/deferred until resolved.
