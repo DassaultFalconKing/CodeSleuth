@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import sys
 import tempfile
 import time
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-
 from codesleuth_obsidian_adapter.profile import ProjectionProfile
 from codesleuth_obsidian_adapter.render import render_projection
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def synthetic_records(count: int) -> list[dict]:
