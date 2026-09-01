@@ -29,6 +29,12 @@ async function git(root: string, args: string[], allowFailure = false): Promise<
   if (code !== 0 && !allowFailure) throw new Error(stderr.trim() || `git ${args.join(" ")} failed`)
   return { code, stdout: stdout.trim(), stderr: stderr.trim() }
 }
+async function trackedPaths(root: string): Promise<string[]> {
+  const proc = Bun.spawn(["git", "-C", root, "ls-files", "-z"], { stdout: "pipe", stderr: "pipe" })
+  const stdout = await new Response(proc.stdout).text(); const stderr = await new Response(proc.stderr).text(); const code = await proc.exited
+  if (code !== 0) throw new Error(stderr.trim() || "git ls-files -z failed")
+  return stdout.split("\0").filter(Boolean).map((item) => item.replace(/\\/g, "/")).sort()
+}
 async function currentHead(root: string) { return (await git(root, ["rev-parse", "HEAD"])).stdout.toLowerCase() }
 async function requireExactClean(root: string, sha: string) {
   if (!SHA_RE.test(sha)) throw new Error("target SHA must be a full lowercase Git SHA")
@@ -79,9 +85,12 @@ async function trackedBlob(root: string, file: string) {
   return blob
 }
 async function boundedText(root: string, file: string): Promise<string> {
-  const absolute = path.join(root, ...file.split("/")); const info = await stat(absolute)
-  if (!info.isFile() || info.size > MAX_READ_BYTES) return ""
-  try { return await readFile(absolute, "utf8") } catch { return "" }
+  const absolute = path.join(root, ...file.split("/"))
+  try {
+    const info = await stat(absolute)
+    if (!info.isFile() || info.size > MAX_READ_BYTES) return ""
+    return await readFile(absolute, "utf8")
+  } catch { return "" }
 }
 function addReason(index: Map<string, { kinds: Set<SurfaceKind>; reasons: Set<string> }>, file: string, kind: SurfaceKind, reason: string) {
   const item = index.get(file) ?? { kinds: new Set<SurfaceKind>(), reasons: new Set<string>() }; item.kinds.add(kind); item.reasons.add(reason); index.set(file, item)
@@ -103,7 +112,7 @@ export const derive = tool({
   args: { targetSha: tool.schema.string().optional(), seedPaths: tool.schema.array(tool.schema.string().min(1)).min(1).max(50) },
   async execute(args, context) {
     const root = context.worktree; const targetSha = (args.targetSha ?? await currentHead(root)).trim().toLowerCase(); await requireExactClean(root, targetSha)
-    const tracked = (await git(root, ["ls-files"])).stdout.split(/\r?\n/).filter(Boolean).sort()
+    const tracked = await trackedPaths(root)
     if (tracked.length > MAX_TRACKED_FILES) throw new Error(`pre-registry change-surface inventory exceeds ${MAX_TRACKED_FILES} tracked files; narrow the active scope first`)
     const trackedSet = new Set(tracked); const seeds = unique(args.seedPaths.map((item) => normalizeRepoPath(root, item))).sort()
     for (const seed of seeds) if (!trackedSet.has(seed)) throw new Error(`change-surface seed is not tracked at exact target: ${seed}`)
