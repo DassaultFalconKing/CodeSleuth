@@ -1,0 +1,7 @@
+{
+  "profileId": "generic",
+  "profileVersion": 1,
+  "schemaFieldCandidates": ["schemaId", "schema", "type"],
+  "defaultIdFields": ["id", "objectId"],
+  "kinds": {}
+}

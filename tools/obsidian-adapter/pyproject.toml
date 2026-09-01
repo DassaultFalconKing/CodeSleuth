@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codesleuth-obsidian-adapter"
+version = "0.1.0"
+description = "Portable render-only structured-object to Obsidian vault adapter"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+codesleuth-obsidian = "codesleuth_obsidian_adapter.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
