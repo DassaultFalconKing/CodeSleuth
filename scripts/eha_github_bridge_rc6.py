@@ -27,6 +27,7 @@ def invoke_opencode_rc6(
     *,
     review_id: str,
     campaign_id: str,
+    provenance_watermark: str,
 ) -> bridge.OpenCodeExecution:
     """Invoke OpenCode only after trusted controller authority already exists."""
     binary = shutil.which("opencode")
@@ -47,21 +48,22 @@ def invoke_opencode_rc6(
         "trusted campaign. "
         f"Release stream: {release_branch}. Expected literal release HEAD and checkout SHA: "
         f"{expected_sha}. Scope: {scope}. Trusted review: {review_id}. Trusted campaign: "
-        f"{campaign_id}. The controller already verified the remote release ref, checked out the "
-        "exact SHA detached, attached host-persistent canonical review/EHA state, created the review "
-        "checkpoint, and appended campaign_started BEFORE provider/model execution. Do not create, "
-        "restart, replace, or supersede that campaign. For Step 1 run only "
+        f"{campaign_id}. Verified prebound provenance: {provenance_watermark}. The controller already "
+        "verified the remote release ref, checked out the exact SHA detached, attached host-persistent "
+        "canonical review/EHA state, bound immutable provenance through the canonical watermark "
+        "implementation, and appended campaign_started BEFORE provider/model execution. Do not create, "
+        "restart, replace, or supersede that campaign and do not rebind provenance. For Step 1 run only "
         "`python scripts/eha_candidate_status.py` and use its bounded JSON as candidate_identity; "
-        "do not rediscover refs or enumerate the persistence root. Then load review_state/eha_state, "
-        "verify the supplied exact campaign is fresh, incomplete, and bound to the same target SHA, "
-        "and continue directly with its SIB profiles one Playbook Step at a time. The candidate "
-        "checkout is read-only for this campaign: do not create, modify, rename, or delete any path "
-        "inside it, including temporary or scratch files. If transient storage is unavoidable, use "
-        "only the external CODESLEUTH_EHA_SCRATCH_DIR. Write analytical reports only through the "
-        "bounded .codesleuth/reports route. Run the canonical eha-sib-acceptance Playbook only. "
-        "After SIB0, SIB1 and SIB2 durable verdicts and report persistence, append the durable "
-        "campaign_completed handshake for the supplied campaign; do not wait for a final provider "
-        "frame after that marker."
+        "do not rediscover refs or enumerate the persistence root. Then load review_state, "
+        "provenance_state and eha_state, verify the supplied exact campaign is fresh, incomplete, and "
+        "bound to the same target SHA, and continue directly with its SIB profiles one Playbook Step "
+        "at a time. The candidate checkout is read-only for this campaign: do not create, modify, "
+        "rename, or delete any path inside it, including temporary or scratch files. If transient "
+        "storage is unavoidable, use only the external CODESLEUTH_EHA_SCRATCH_DIR. Write analytical "
+        "reports only through the bounded .codesleuth/reports route. Run the canonical "
+        "eha-sib-acceptance Playbook only. After SIB0, SIB1 and SIB2 durable verdicts and report "
+        "persistence, append the durable campaign_completed handshake for the supplied campaign; do "
+        "not wait for a final provider frame after that marker."
     )
     command = bridge.opencode_wrapper_command(root)
     command.extend(["run", "--command", "eha-test", "--format", "json"])
@@ -71,6 +73,15 @@ def invoke_opencode_rc6(
     print(f"EHA MODEL {model}", flush=True)
     print(f"EHA EXACT TARGET {expected_sha} FROM {release_branch}", flush=True)
     scratch_dir = bridge.prepare_scratch_dir(root, transcript_path.parent.parent)
+    env = bridge.opencode_environment(
+        root,
+        scratch_dir,
+        release_branch=release_branch,
+        expected_sha=expected_sha,
+    )
+    env["CODESLEUTH_EHA_REVIEW_ID"] = review_id
+    env["CODESLEUTH_EHA_CAMPAIGN_ID"] = campaign_id
+    env["CODESLEUTH_EHA_PROVENANCE"] = provenance_watermark
     (
         returncode,
         reason,
@@ -82,12 +93,7 @@ def invoke_opencode_rc6(
     ) = bridge.run_monitored_process(
         command,
         cwd=root,
-        env=bridge.opencode_environment(
-            root,
-            scratch_dir,
-            release_branch=release_branch,
-            expected_sha=expected_sha,
-        ),
+        env=env,
         transcript_path=transcript_path,
         state_dir=state_dir,
         expected_sha=expected_sha,
@@ -107,6 +113,56 @@ def invoke_opencode_rc6(
         last_activity_at=last_activity_at,
         stalled_at=stalled_at,
     )
+
+
+def bootstrap_then_invoke(
+    root: Path,
+    state_dir: Path,
+    persist_root: Path,
+    *,
+    release_branch: str,
+    expected_sha: str,
+    scope: str,
+    model: str,
+    transcript_path: Path,
+    started_at: datetime,
+    watchdog: bridge.WatchdogConfig,
+) -> tuple[dict[str, Any], bridge.OpenCodeExecution]:
+    """Establish durable authority first; provider invocation is unreachable on bootstrap failure."""
+    bootstrap = eha_campaign_bootstrap.start_trusted_campaign(
+        root,
+        state_dir,
+        target_sha=expected_sha,
+        target_branch=release_branch,
+        scope=scope,
+        controller_session=f"github-eha-{bridge.bridge_run_key()}",
+        now=started_at,
+    )
+    campaign = bootstrap["campaign"]
+    provenance = bootstrap["provenance"]
+    review_id = str(bootstrap["reviewId"])
+    campaign_id = str(campaign["campaignId"])
+    watermark = str(provenance["watermark"])
+    print(
+        "EHA TRUSTED CAMPAIGN BOOTSTRAP "
+        f"campaign={campaign_id} review={review_id} target={expected_sha} provenance={watermark}",
+        flush=True,
+    )
+    execution = invoke_opencode_rc6(
+        root,
+        release_branch,
+        expected_sha,
+        scope,
+        model,
+        transcript_path,
+        state_dir,
+        started_at,
+        watchdog,
+        review_id=review_id,
+        campaign_id=campaign_id,
+        provenance_watermark=watermark,
+    )
+    return bootstrap, execution
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -145,37 +201,21 @@ def main(argv: list[str] | None = None) -> int:
 
         transcript_path = bridge.private_transcript_path(persist_root)
         started = datetime.now(timezone.utc)
-        bootstrap = eha_campaign_bootstrap.start_trusted_campaign(
+        bootstrap, execution = bootstrap_then_invoke(
             root,
             state_dir,
-            target_sha=expected_sha,
-            target_branch=release_branch,
+            persist_root,
+            release_branch=release_branch,
+            expected_sha=expected_sha,
             scope=scope,
-            controller_session=f"github-eha-{bridge.bridge_run_key()}",
-            now=started,
+            model=model,
+            transcript_path=transcript_path,
+            started_at=started,
+            watchdog=watchdog,
         )
-        prestarted_campaign = bootstrap["campaign"]
         trusted_review_id = str(bootstrap["reviewId"])
-        trusted_campaign_id = str(prestarted_campaign["campaignId"])
-        print(
-            "EHA TRUSTED CAMPAIGN BOOTSTRAP "
-            f"campaign={trusted_campaign_id} review={trusted_review_id} target={expected_sha}",
-            flush=True,
-        )
+        trusted_campaign_id = str(bootstrap["campaign"]["campaignId"])
 
-        execution = invoke_opencode_rc6(
-            root,
-            release_branch,
-            expected_sha,
-            scope,
-            model,
-            transcript_path,
-            state_dir,
-            started,
-            watchdog,
-            review_id=trusted_review_id,
-            campaign_id=trusted_campaign_id,
-        )
         postcondition_error: str | None = None
         try:
             bridge.require_clean(root, "post-EHA exact-target check")
