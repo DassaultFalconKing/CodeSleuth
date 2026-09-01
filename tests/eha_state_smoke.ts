@@ -1,8 +1,8 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { start as startReview } from "../pack/.opencode/tools/review_state"
-import { load, mermaid, record_repair, record_verdict, renderEhaMermaid, start_campaign } from "../pack/.opencode/tools/eha_state"
+import { complete_campaign, load, mermaid, record_repair, record_verdict, renderEhaMermaid, start_campaign } from "../pack/.opencode/tools/eha_state"
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -63,6 +63,7 @@ async function main() {
   assert(state.latestCampaign.claimable.SIB0 === true, "SIB0 should be claimable")
   assert(state.latestCampaign.claimable.SIB1 === false, "failed SIB1 must not be claimable")
   assert(state.latestCampaign.claimable.SIB2 === false, "SIB2 cannot be inherited or implied")
+  assert(state.latestCampaign.completion === null, "failed campaign cannot be completed")
 
   let failToPassRejected = false
   try {
@@ -152,11 +153,50 @@ async function main() {
     }, context)
   }
 
+  const reports = path.join(root, ".codesleuth", "reports")
+  await mkdir(reports, { recursive: true })
+  const badReport = ".codesleuth/reports/eha-bad.md"
+  await writeFile(
+    path.join(root, badReport),
+    `---\nreportType: eha\ntargetSha: ${shaA}\nprovenance: test\n---\n\nwrong target\n`,
+    "utf8",
+  )
+  let wrongReportRejected = false
+  try {
+    await complete_campaign.execute({ campaignId: campaignB.campaignId, reportPath: badReport }, context)
+  } catch (error) {
+    wrongReportRejected = String(error).includes("does not equal campaign target")
+  }
+  assert(wrongReportRejected, "completion must reject a report for another exact SHA")
+
+  const reportPath = ".codesleuth/reports/eha-complete.md"
+  await writeFile(
+    path.join(root, reportPath),
+    `---\nreportType: eha\ntargetSha: ${shaB}\nprovenance: test\n---\n\naccepted exact head\n`,
+    "utf8",
+  )
+  const completed = JSON.parse(await complete_campaign.execute({
+    campaignId: campaignB.campaignId,
+    reportPath,
+  }, context))
+  assert(completed.type === "campaign_completed", "successful campaign must append terminal event")
+  assert(completed.targetSha === shaB, "completion must retain exact target")
+  assert(completed.reportPath === reportPath, "completion must retain finalized report path")
+
+  let duplicateCompletionRejected = false
+  try {
+    await complete_campaign.execute({ campaignId: campaignB.campaignId, reportPath }, context)
+  } catch {
+    duplicateCompletionRejected = true
+  }
+  assert(duplicateCompletionRejected, "campaign completion must be append-once")
+
   state = JSON.parse(await load.execute({}, context))
   assert(state.campaignCount === 2, "repair SHA must start a new EHA campaign")
   assert(state.campaigns[0].verdicts.SIB1.verdict === "FAIL", "failing SHA must remain failed in history")
   assert(state.latestCampaign.targetSha === shaB, "latest campaign must target repaired SHA")
   assert(state.latestCampaign.claimable.SIB2 === true, "new SHA must become SIB2 claimable only after fresh SIB0/SIB1/SIB2 PASS")
+  assert(state.latestCampaign.completion.reportPath === reportPath, "load must expose durable completion")
 
   state = JSON.parse(await load.execute({}, context))
   assert(state.campaigns[0].verdicts.SIB1.verdict === "FAIL", "failed SHA must remain failed after later repair events")
@@ -222,6 +262,7 @@ async function main() {
   const raw = await readFile(ledger, "utf8")
   assert(raw.includes('"type":"campaign_started"'), "ledger must persist campaign events")
   assert(raw.includes('"type":"repair"'), "ledger must persist repair events")
+  assert(raw.includes('"type":"campaign_completed"'), "ledger must persist terminal completion event")
 
   console.log("EHA STATE SMOKE PASS")
 }
