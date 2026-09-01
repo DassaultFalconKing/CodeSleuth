@@ -16,6 +16,8 @@ from uuid import uuid4
 COMMAND_ALIASES: dict[str, str] = {
     "repository-deep-review": "/repo-review",
     "protected-capability-assessment": "/repo-contracts",
+    "repository-contract-bootstrap": "/repo-contract-bootstrap",
+    "repository-development-continuation": "/repo-continue",
     "repository-documentation": "/repo-docs",
     "repository-map": "/repo-map",
     "feature-port": "/repo-port",
