@@ -195,7 +195,7 @@ When a candidate delta derives from historical or divergent work:
 9. identify the resulting literal release-stream head SHA;
 10. start fresh EHA on that resulting SHA.
 
-Historical green CI never transfers to the refitted composition. Implementation difficulty is not evidence that a historical requirement disappeared.
+A stale branch's green CI never transfers to the refitted composition. Historical green CI is provenance only, and implementation difficulty is not evidence that a historical requirement disappeared.
 
 ## Reporting
 
