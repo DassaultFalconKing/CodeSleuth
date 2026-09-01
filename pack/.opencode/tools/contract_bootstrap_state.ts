@@ -248,6 +248,7 @@ export const start = tool({
     await requireExactHead(root, targetSha)
     const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)
     const bootstrapId = `CB-${stamp}-${targetSha.slice(0, 12)}-${randomUUID().slice(0, 8)}`
+    await mkdir(baseDir(root), { recursive: true })
     const dir = bootstrapDir(root, bootstrapId)
     await mkdir(dir, { recursive: false })
     const now = new Date().toISOString()
