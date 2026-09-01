@@ -59,6 +59,7 @@ async function main() {
   }, context))
   const loadedPacket = JSON.parse(await packetLoad.execute({ packetId: packet.packetId }, context))
   assert(loadedPacket.scopeAuthority === "CONFIRMED", "packet must require confirmed authority")
+  assert(loadedPacket.pathScopeAuthority === "DECLARED", "declared allowed paths must remain explicitly distinguished")
   assert(loadedPacket.changeSurface.surfaceMapId === surface.surfaceMapId, "packet load must resolve exact change-surface projection")
   assert(loadedPacket.changeSurface.entries.some((entry: any) => entry.path === "src/core/lib.rs"), "packet projection must expose derived change surface")
   assert(Array.isArray(loadedPacket.nativeGates) && loadedPacket.nativeGates.length === 3, "packet projection must expose bounded native gates")
@@ -71,7 +72,19 @@ async function main() {
   const adjacent = JSON.parse(await scope_guard.execute({ packetId: packet.packetId, proposedPaths: ["src/graph/lib.rs"] }, context))
   assert(adjacent.overall === "ADJACENT_TRACK", "adjacent graph path must not be auto-expanded")
   const undeclared = JSON.parse(await scope_guard.execute({ packetId: packet.packetId, proposedPaths: ["README.md"] }, context))
-  assert(undeclared.overall === "UNDECLARED", "undeclared path must remain undeclared")
+  assert(undeclared.overall === "UNDECLARED", "undeclared path must remain undeclared when an allowlist exists")
+
+  const noPathAuthorityPacket = JSON.parse(await save_packet.execute({
+    targetSha: sha, authorityMapId: authority.mapId, nativeGateMapId: gateMap.gateMapId, changeSurfaceMapId: surface.surfaceMapId,
+    planningAuthority: ["TODO.md"], activeScope: "docs/SESSION.md", objective: "continue scope whose authority declares no path allowlist", prerequisites: [], acceptedPredecessors: [], requiredReading: ["TODO.md", "docs/SESSION.md"],
+    allowedPaths: [], forbiddenOrAdjacentPaths: [{ pattern: "src/graph/**", classification: "ADJACENT_TRACK", rationale: "separate graph track remains explicit even without an allowlist" }],
+    repoProvableChecks: ["./verify.sh fast"], hostedCiProvableChecks: ["GitHub Actions ci"], liveRuntimeRequiredChecks: ["live service smoke"], operatorDecisionRequired: ["confirm concrete mutation paths before editing"], blockers: [], uncertainties: ["repository authority does not declare allowed path globs"], authorityEdgeIds: [planning.edgeId, active.edgeId],
+  }, context))
+  assert(noPathAuthorityPacket.pathScopeAuthority === "NOT_DECLARED", "missing repository path allowlist must remain explicit, never invented")
+  const unresolvedPath = JSON.parse(await scope_guard.execute({ packetId: noPathAuthorityPacket.packetId, proposedPaths: ["src/core/lib.rs"] }, context))
+  assert(unresolvedPath.overall === "SCOPE_AUTHORITY_UNPROVEN", "a path cannot become IN_SCOPE or merely UNDECLARED when path-level authority was never declared")
+  const stillAdjacent = JSON.parse(await scope_guard.execute({ packetId: noPathAuthorityPacket.packetId, proposedPaths: ["src/graph/lib.rs"] }, context))
+  assert(stillAdjacent.overall === "ADJACENT_TRACK", "explicit restrictions must still take precedence when positive path authority is absent")
 
   await record_result.execute({ gateMapId: gateMap.gateMapId, gateId: hostedGate.gateId, outcome: "PASS", nativeEvidence: "hosted workflow exact-head success" }, context)
   gates = JSON.parse(await gateLoad.execute({ gateMapId: gateMap.gateMapId }, context))
