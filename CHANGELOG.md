@@ -14,6 +14,7 @@ Exact-head replacement candidate for Rc5b after two canonical EHA transports rem
 - gives bridged Step 1 a bounded exact-candidate helper so the agent does not recursively enumerate the persistence root or rediscover already-frozen refs;
 - records schema-version-2 bridge status with explicit model, transport outcome, stall reason, campaign/response observations, and activity timestamps;
 - adds deterministic process-level regressions for pre-token, pre-campaign, and post-campaign stalls plus real disposable-Git coverage for the bounded candidate helper.
+- adds a dedicated Puppeteer-for-agents guide covering reproducible configuration, capabilities, bounded execution, sandboxing, process ownership, and the observed Windows user-browser failure mode.
 
 ### Rc5b EHA evidence boundary
 

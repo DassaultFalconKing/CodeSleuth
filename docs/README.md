@@ -41,6 +41,7 @@ Start with [`ROAD/INDEX.md`](ROAD/INDEX.md) when you need to know **which docume
 - [`GRAPHIFY-PROVIDER.md`](GRAPHIFY-PROVIDER.md) — current optional Graphify structural-provider boundary and runtime identity.
 - [`GRAPHIFY-CORPUS.md`](GRAPHIFY-CORPUS.md) — representative provider corpus/hardening reference.
 - [`MERMAID-QA.md`](MERMAID-QA.md) — isolated Mermaid QA; normal runtime remains browser-free.
+- [`puppeteer-agent/`](puppeteer-agent/README.md) — safe Puppeteer configuration, capabilities, process ownership, and browser-backed testing guidance for coding agents.
 - [`MODEL-CONTEXT-CAPSULE.md`](MODEL-CONTEXT-CAPSULE.md) — bounded model-visible context capsule.
 - [`EXPORT-SURFACES.md`](EXPORT-SURFACES.md) — explicit retained derived exports and their non-authority status.
 - [`NOVACLAW-MCP.md`](NOVACLAW-MCP.md) — external-host MCP/read-only repository-evidence boundary.
