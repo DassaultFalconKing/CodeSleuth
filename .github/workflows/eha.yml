@@ -80,7 +80,7 @@ jobs:
           set -euo pipefail
           persist_root="${CODESLEUTH_EHA_PERSIST_ROOT:-${RUNNER_WORKSPACE}/.codesleuth-eha/${GITHUB_REPOSITORY//\//-}}"
           export CODESLEUTH_EHA_RUNTIME_CONFIG="${persist_root}/bridge-runtime/${GITHUB_RUN_ID}-attempt-${GITHUB_RUN_ATTEMPT}/opencode-config"
-          python3 scripts/eha_github_bridge_rc6.py \
+          python3 scripts/eha_github_bridge.py \
             --request "$CODESLEUTH_EHA_REQUEST" \
             --model "$CODESLEUTH_EHA_MODEL" \
             --persist-root "$persist_root"
@@ -96,7 +96,7 @@ jobs:
           set -euo pipefail
           persist_root="${CODESLEUTH_EHA_PERSIST_ROOT:-${RUNNER_WORKSPACE}/.codesleuth-eha/${GITHUB_REPOSITORY//\//-}}"
           export CODESLEUTH_EHA_RUNTIME_CONFIG="${persist_root}/bridge-runtime/${GITHUB_RUN_ID}-attempt-${GITHUB_RUN_ATTEMPT}/opencode-config"
-          python3 scripts/eha_github_bridge_rc6.py \
+          python3 scripts/eha_github_bridge.py \
             --release-branch "$CODESLEUTH_EHA_RELEASE_BRANCH" \
             --expected-sha "$CODESLEUTH_EHA_EXPECTED_SHA" \
             --scope "$CODESLEUTH_EHA_SCOPE" \
