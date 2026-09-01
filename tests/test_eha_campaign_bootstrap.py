@@ -13,7 +13,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 BOOTSTRAP_SCRIPT = ROOT / "scripts" / "eha_campaign_bootstrap.py"
 BRIDGE_SCRIPT = ROOT / "scripts" / "eha_github_bridge.py"
-RC6_BRIDGE_SCRIPT = ROOT / "scripts" / "eha_github_bridge_rc6.py"
+CONTROLLER_SCRIPT = ROOT / "scripts" / "eha_github_bridge_controller.py"
+CORE_SCRIPT = ROOT / "scripts" / "eha_github_bridge_core.py"
 WORKFLOW = ROOT / ".github" / "workflows" / "eha.yml"
 
 
@@ -169,22 +170,22 @@ def test_prestarted_campaign_removes_campaign_start_watchdog_dependency(tmp_path
 
 
 def test_bootstrap_failure_makes_provider_invocation_unreachable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    rc6 = load_module("eha_github_bridge_rc6_failure", RC6_BRIDGE_SCRIPT)
+    controller = load_module("eha_github_bridge_controller_failure", CONTROLLER_SCRIPT)
     invoked = False
 
     def fail_bootstrap(*args, **kwargs):
-        raise rc6.eha_campaign_bootstrap.BootstrapError("bootstrap failed")
+        raise controller.eha_campaign_bootstrap.BootstrapError("bootstrap failed")
 
     def fake_invoke(*args, **kwargs):
         nonlocal invoked
         invoked = True
         raise AssertionError("provider must not be invoked")
 
-    monkeypatch.setattr(rc6.eha_campaign_bootstrap, "start_trusted_campaign", fail_bootstrap)
-    monkeypatch.setattr(rc6, "invoke_opencode_rc6", fake_invoke)
+    monkeypatch.setattr(controller.eha_campaign_bootstrap, "start_trusted_campaign", fail_bootstrap)
+    monkeypatch.setattr(controller, "invoke_opencode_rc6", fake_invoke)
 
-    with pytest.raises(rc6.eha_campaign_bootstrap.BootstrapError, match="bootstrap failed"):
-        rc6.bootstrap_then_invoke(
+    with pytest.raises(controller.eha_campaign_bootstrap.BootstrapError, match="bootstrap failed"):
+        controller.bootstrap_then_invoke(
             tmp_path,
             tmp_path / "state",
             tmp_path / "persist",
@@ -194,13 +195,13 @@ def test_bootstrap_failure_makes_provider_invocation_unreachable(tmp_path: Path,
             model="provider/model",
             transcript_path=tmp_path / "transcript.log",
             started_at=datetime.now(timezone.utc),
-            watchdog=rc6.bridge.WatchdogConfig(),
+            watchdog=controller.bridge.WatchdogConfig(),
         )
     assert invoked is False
 
 
 def test_prestarted_identity_is_forwarded_immutably_to_provider(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    rc6 = load_module("eha_github_bridge_rc6_success", RC6_BRIDGE_SCRIPT)
+    controller = load_module("eha_github_bridge_controller_success", CONTROLLER_SCRIPT)
     started = datetime.now(timezone.utc)
     captured = {}
     bootstrap = {
@@ -209,11 +210,11 @@ def test_prestarted_identity_is_forwarded_immutably_to_provider(tmp_path: Path, 
         "provenance": {"watermark": "github-eha-0123456789ab"},
     }
 
-    monkeypatch.setattr(rc6.eha_campaign_bootstrap, "start_trusted_campaign", lambda *args, **kwargs: bootstrap)
+    monkeypatch.setattr(controller.eha_campaign_bootstrap, "start_trusted_campaign", lambda *args, **kwargs: bootstrap)
 
     def fake_invoke(*args, **kwargs):
         captured.update(kwargs)
-        return rc6.bridge.OpenCodeExecution(
+        return controller.bridge.OpenCodeExecution(
             0,
             "test",
             "provider/model",
@@ -227,8 +228,8 @@ def test_prestarted_identity_is_forwarded_immutably_to_provider(tmp_path: Path, 
             None,
         )
 
-    monkeypatch.setattr(rc6, "invoke_opencode_rc6", fake_invoke)
-    returned, _ = rc6.bootstrap_then_invoke(
+    monkeypatch.setattr(controller, "invoke_opencode_rc6", fake_invoke)
+    returned, _ = controller.bootstrap_then_invoke(
         tmp_path,
         tmp_path / "state",
         tmp_path / "persist",
@@ -238,7 +239,7 @@ def test_prestarted_identity_is_forwarded_immutably_to_provider(tmp_path: Path, 
         model="provider/model",
         transcript_path=tmp_path / "transcript.log",
         started_at=started,
-        watchdog=rc6.bridge.WatchdogConfig(),
+        watchdog=controller.bridge.WatchdogConfig(),
     )
 
     assert returned is bootstrap
@@ -247,10 +248,16 @@ def test_prestarted_identity_is_forwarded_immutably_to_provider(tmp_path: Path, 
     assert captured["provenance_watermark"] == "github-eha-0123456789ab"
 
 
-def test_workflow_uses_prestarted_rc6_bridge_until_canonical_entrypoint_refactor() -> None:
+def test_workflow_uses_one_canonical_bridge_entrypoint() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
-    rc6 = RC6_BRIDGE_SCRIPT.read_text(encoding="utf-8")
-    assert "python3 scripts/eha_github_bridge_rc6.py" in workflow
-    assert "bootstrap_then_invoke" in rc6
-    assert "Do not create, restart, replace, or supersede that campaign" in rc6
-    assert "do not rebind provenance" in rc6
+    canonical = BRIDGE_SCRIPT.read_text(encoding="utf-8")
+    controller = CONTROLLER_SCRIPT.read_text(encoding="utf-8")
+    assert "python3 scripts/eha_github_bridge.py" in workflow
+    assert "eha_github_bridge_rc6.py" not in workflow
+    assert not (ROOT / "scripts" / "eha_github_bridge_rc6.py").exists()
+    assert CORE_SCRIPT.exists()
+    assert "eha_github_bridge_core" in canonical
+    assert "eha_github_bridge_controller" in canonical
+    assert "bootstrap_then_invoke" in controller
+    assert "Do not create, restart, replace, or supersede that campaign" in controller
+    assert "do not rebind provenance" in controller
