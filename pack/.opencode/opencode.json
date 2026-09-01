@@ -45,6 +45,7 @@
       "*": "ask",
       "exact-target-identity": "allow",
       "repository-deep-review": "allow",
+      "contract-archaeology": "allow",
       "feature-porting-discipline": "allow",
       "protected-capability-registry": "allow",
       "contract-triangulation": "allow",
