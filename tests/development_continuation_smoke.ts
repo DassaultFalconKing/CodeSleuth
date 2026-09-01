@@ -3,6 +3,7 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import { start as authorityStart, record_edge, load as authorityLoad } from "../pack/.opencode/tools/development_authority_state"
 import { start as gateStart, record_gate, record_result, load as gateLoad } from "../pack/.opencode/tools/native_gate_state"
+import { derive as deriveSurface } from "../pack/.opencode/tools/change_surface_state"
 import { save_packet, load as packetLoad, scope_guard } from "../pack/.opencode/tools/development_continuation_state"
 
 function assert(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message) }
@@ -19,6 +20,7 @@ async function main() {
   await writeFile(path.join(root, "TODO.md"), "# Current plan\nThis file is the only planning source of truth. Current implementation scope is docs/SESSION.md. OLD_ROADMAP.md is superseded.\n", "utf8")
   await writeFile(path.join(root, "OLD_ROADMAP.md"), "# Historical roadmap\nSuperseded by TODO.md.\n", "utf8")
   await writeFile(path.join(root, "docs", "SESSION.md"), "# Session\nAllowed paths: src/core/**. Adjacent graph track: src/graph/**. Required gate: ./verify.sh fast. Hosted CI is also required.\n", "utf8")
+  await writeFile(path.join(root, "Cargo.toml"), "[package]\nname = \"continuation-fixture\"\nversion = \"0.0.0\"\n", "utf8")
   await writeFile(path.join(root, "verify.sh"), "#!/bin/sh\nexit 0\n", "utf8")
   await writeFile(path.join(root, ".github", "workflows", "ci.yml"), "name: ci\non: [push]\njobs: {}\n", "utf8")
   await writeFile(path.join(root, "src", "core", "lib.rs"), "pub fn core() {}\n", "utf8")
@@ -45,14 +47,24 @@ async function main() {
   let gates = JSON.parse(await gateLoad.execute({ gateMapId: gateMap.gateMapId }, context))
   assert(gates.handoffState === "CLOUD_TESTABILITY_REMAINING", "unexecuted hosted CI must block live handoff")
 
+  const surface = JSON.parse(await deriveSurface.execute({ targetSha: sha, seedPaths: ["src/core/lib.rs"] }, context))
+  assert(surface.entries.some((entry: any) => entry.path === "src/core/lib.rs"), "derived change surface must contain active seed")
+  assert(surface.entries.some((entry: any) => entry.path === "Cargo.toml"), "derived change surface must include owning workspace manifest")
+
   const packet = JSON.parse(await save_packet.execute({
-    targetSha: sha, authorityMapId: authority.mapId, nativeGateMapId: gateMap.gateMapId,
+    targetSha: sha, authorityMapId: authority.mapId, nativeGateMapId: gateMap.gateMapId, changeSurfaceMapId: surface.surfaceMapId,
     planningAuthority: ["TODO.md"], activeScope: "docs/SESSION.md", objective: "continue current session", prerequisites: [], acceptedPredecessors: [], requiredReading: ["TODO.md", "docs/SESSION.md"],
-    allowedPaths: ["src/core/**"], forbiddenOrAdjacentPaths: [{ pattern: "src/graph/**", classification: "ADJACENT_TRACK", rationale: "separate graph track" }], changeSurface: ["src/core/**"],
+    allowedPaths: ["src/core/**"], forbiddenOrAdjacentPaths: [{ pattern: "src/graph/**", classification: "ADJACENT_TRACK", rationale: "separate graph track" }],
     repoProvableChecks: ["./verify.sh fast"], hostedCiProvableChecks: ["GitHub Actions ci"], liveRuntimeRequiredChecks: ["live service smoke"], operatorDecisionRequired: [], blockers: [], uncertainties: [], authorityEdgeIds: [planning.edgeId, active.edgeId],
   }, context))
   const loadedPacket = JSON.parse(await packetLoad.execute({ packetId: packet.packetId }, context))
   assert(loadedPacket.scopeAuthority === "CONFIRMED", "packet must require confirmed authority")
+  assert(loadedPacket.changeSurface.surfaceMapId === surface.surfaceMapId, "packet load must resolve exact change-surface projection")
+  assert(loadedPacket.changeSurface.entries.some((entry: any) => entry.path === "src/core/lib.rs"), "packet projection must expose derived change surface")
+  assert(Array.isArray(loadedPacket.nativeGates) && loadedPacket.nativeGates.length === 3, "packet projection must expose bounded native gates")
+  assert(loadedPacket.nativeGates.some((gate: any) => gate.gateId === localGate.gateId), "packet projection must preserve native gate identity")
+  assert(Array.isArray(loadedPacket.authorityEvidence) && loadedPacket.authorityEvidence.length === 2, "packet projection must expose selected authority edges")
+  assert(loadedPacket.authorityEvidence.every((edge: any) => edge.targetSha === sha && edge.evidence?.length > 0), "authority projection must remain exact-evidence bound")
 
   const inScope = JSON.parse(await scope_guard.execute({ packetId: packet.packetId, proposedPaths: ["src/core/lib.rs"] }, context))
   assert(inScope.overall === "IN_SCOPE", "declared core path must be in scope")
