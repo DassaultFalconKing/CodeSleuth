@@ -25,19 +25,22 @@ RC7 scope must be frozen deliberately before implementation. Until then, the acc
 - [`RC7-SIB-EHA-MATURITY-LOOPS.md`](RC7-SIB-EHA-MATURITY-LOOPS.md) — project-portable SIB0/SIB1/SIB2 profile discovery, human adjudication, generic EHA maturity loops and evidence-bound auto-repair.
 - [`RC7-REPAIR-PACKET-RENDERING.md`](RC7-REPAIR-PACKET-RENDERING.md) — typed `RepairCaseV1` / `RepairPacketV1`, host-specific Jinja2 rendering, template-policy separation, render provenance and postcondition verification.
 - [`RC7-EBCA-GAP-PLAN.md`](RC7-EBCA-GAP-PLAN.md) — EBCA gap audit, mandatory RC7 hardening and explicitly deferred post-RC7 assurance work.
+- [`RC7-STRUCTURED-OBJECT-MULTIRENDERER.md`](RC7-STRUCTURED-OBJECT-MULTIRENDERER.md) — one typed semantic object rendered through a registry into JSON/NDJSON/Markdown/Jinja prompts/graphs/visuals and bounded ecosystem formats with declared parity/loss contracts.
+- [`RC7-CONTEXT-EPISTEMICS-DISPOSITION.md`](RC7-CONTEXT-EPISTEMICS-DISPOSITION.md) — maps the existing Context Epistemics ROAD phases into the minimal RC7 epistemic core versus coherent post-RC7 capability tracks; also defines the structured repair lessons-learned direction.
 
 These addenda are accepted inputs to the eventual consolidated RC7 design. Consolidation must preserve their material requirements unless a later explicit owner decision supersedes them.
 
-## 4. Non-normative thought experiment
+## 4. Research / non-normative inputs
 
 - [`RC7-DORIS-EVIDENCE-PLANE-THOUGHT-EXPERIMENT.md`](RC7-DORIS-EVIDENCE-PLANE-THOUGHT-EXPERIMENT.md) — possible large-scale derived evidence analytics/search/AI plane. Doris is not RC7 persistence authority and is not required for Ledger Repair, SIB/EHA, Markdown/NDJSON parity or normal CodeSleuth operation.
+- [`RC7-OBSIDIAN-ADAPTER-RESEARCH.md`](RC7-OBSIDIAN-ADAPTER-RESEARCH.md) — research direction for a derived Obsidian vault projection using Markdown/properties/wikilinks/Bases/JSON Canvas, with pluginless export preferred before any live plugin bridge. Obsidian is not evidence authority.
 
 ## 5. Existing post-RC7 road direction
 
 - [`ROAD/ROADMAP.md`](ROAD/ROADMAP.md) — Context Epistemics, durable generic Negative Claims, forbidden inference, risk classes, mutation evidence gates, long-context degradation and grounding suites.
 - [`ROAD/ROAP.md`](ROAD/ROAP.md) — disconnected/live-host Remote Operator Assurance Protocol.
 
-`RC7-EBCA-GAP-PLAN.md` identifies which minimal pieces of those doctrines are required inside RC7 and which remain deliberately post-RC7.
+`RC7-EBCA-GAP-PLAN.md` and `RC7-CONTEXT-EPISTEMICS-DISPOSITION.md` identify which minimal pieces of those doctrines are required inside RC7 and which remain deliberately post-RC7.
 
 ## 6. Consolidation rule
 
@@ -51,10 +54,14 @@ Before RC7 implementation begins, produce one reviewed design/spec that resolves
 6. affected-closure trust and completeness/truncation handling;
 7. cross-ledger stable ID/linkage model;
 8. `RepairCaseV1` / `RepairPacketV1` schemas;
-9. Jinja2 host/project template trust and customization boundary;
-10. Markdown↔NDJSON adapter/profile schema;
-11. NDJSON/Markdown/Graphify/Mermaid semantic parity contract;
-12. install/smoke/catalog/public-doc exposure;
-13. deterministic and live-dogfood acceptance fixtures.
+9. `RepairLearningRecordV1` / lessons-learned derivation and authority boundary;
+10. Jinja2 host/project template trust and customization boundary;
+11. generic structured-object renderer registry, capability/loss declarations and bundle manifests;
+12. Markdown↔NDJSON adapter/profile schema;
+13. NDJSON/Markdown/Graphify/Mermaid/DOT/JSON Canvas/SVG semantic parity contract for applicable domains;
+14. Obsidian pluginless export feasibility and its explicit non-authority boundary;
+15. Context Epistemics minimal RC7 core versus post-RC7 extension hooks;
+16. install/smoke/catalog/public-doc exposure;
+17. deterministic and live-dogfood acceptance fixtures.
 
 Do not implement directly from one addendum while ignoring the others. That would recreate the exact context-fragmentation problem CodeSleuth is supposed to diagnose in other repositories, which would at least be thematically consistent but not useful.
