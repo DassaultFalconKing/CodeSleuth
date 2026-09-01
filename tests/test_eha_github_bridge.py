@@ -85,40 +85,43 @@ def test_bridge_derives_only_the_new_exact_target_campaign(tmp_path: Path) -> No
     review = tmp_path / "state" / "reviews" / "review-new"
     review.mkdir(parents=True)
     ledger = review / "eha.ndjson"
+    records = [
+        {
+            "type": "campaign_started",
+            "campaignId": "EHA-new",
+            "targetSha": target,
+            "recordedAt": "2026-08-27T16:00:00+00:00",
+        },
+        {
+            "type": "verdict",
+            "campaignId": "EHA-new",
+            "targetSha": target,
+            "level": "SIB0",
+            "verdict": "PASS",
+        },
+        {
+            "type": "verdict",
+            "campaignId": "EHA-new",
+            "targetSha": target,
+            "level": "SIB1",
+            "verdict": "PASS",
+        },
+        {
+            "type": "verdict",
+            "campaignId": "EHA-new",
+            "targetSha": target,
+            "level": "SIB2",
+            "verdict": "PASS",
+        },
+        {
+            "type": "campaign_completed",
+            "campaignId": "EHA-new",
+            "targetSha": target,
+            "reportPath": ".codesleuth/reports/eha-new.md",
+        },
+    ]
     ledger.write_text(
-        "\n".join(
-            json.dumps(event)
-            for event in [
-                {
-                    "type": "campaign_started",
-                    "campaignId": "EHA-new",
-                    "targetSha": target,
-                    "recordedAt": "2026-08-27T16:00:00+00:00",
-                },
-                {
-                    "type": "verdict",
-                    "campaignId": "EHA-new",
-                    "targetSha": target,
-                    "level": "SIB0",
-                    "verdict": "PASS",
-                },
-                {
-                    "type": "verdict",
-                    "campaignId": "EHA-new",
-                    "targetSha": target,
-                    "level": "SIB1",
-                    "verdict": "PASS",
-                },
-                {
-                    "type": "verdict",
-                    "campaignId": "EHA-new",
-                    "targetSha": target,
-                    "level": "SIB2",
-                    "verdict": "PASS",
-                },
-            ]
-        )
-        + "\n",
+        "\n".join(json.dumps(event) for event in records) + "\n",
         encoding="utf-8",
     )
 
@@ -133,6 +136,55 @@ def test_bridge_derives_only_the_new_exact_target_campaign(tmp_path: Path) -> No
         "SIB1": "PASS",
         "SIB2": "PASS",
     }
+    assert bridge.campaign_completion(campaign, events)["reportPath"] == (
+        ".codesleuth/reports/eha-new.md"
+    )
+
+
+def test_completion_requires_all_pass_and_exact_target() -> None:
+    bridge = load_bridge()
+    target = "a" * 40
+    start = {"campaignId": "EHA-x", "targetSha": target}
+    events = [
+        start | {"type": "campaign_started"},
+        {
+            "type": "verdict",
+            "campaignId": "EHA-x",
+            "targetSha": target,
+            "level": "SIB0",
+            "verdict": "PASS",
+        },
+        {
+            "type": "campaign_completed",
+            "campaignId": "EHA-x",
+            "targetSha": target,
+            "reportPath": ".codesleuth/reports/x.md",
+        },
+    ]
+    with pytest.raises(bridge.BridgeError, match="before all SIB verdicts are PASS"):
+        bridge.campaign_completion(start, events)
+
+    complete_events = [
+        start | {"type": "campaign_started"},
+        *[
+            {
+                "type": "verdict",
+                "campaignId": "EHA-x",
+                "targetSha": target,
+                "level": level,
+                "verdict": "PASS",
+            }
+            for level in bridge.LEVELS
+        ],
+        {
+            "type": "campaign_completed",
+            "campaignId": "EHA-x",
+            "targetSha": "b" * 40,
+            "reportPath": ".codesleuth/reports/x.md",
+        },
+    ]
+    with pytest.raises(bridge.BridgeError, match="target mismatch"):
+        bridge.campaign_completion(start, complete_events)
 
 
 def test_persistence_root_must_live_outside_disposable_checkout(tmp_path: Path) -> None:
@@ -255,12 +307,13 @@ def test_root_watchdog_stops_a_provider_before_first_response(tmp_path: Path) ->
         ),
     )
 
-    returncode, reason, first_response, campaign, _, stalled_at = result
+    returncode, reason, first_response, campaign, completion, _, stalled_at = result
     assert time.monotonic() - before < 5
     assert returncode != 0
     assert reason == "FIRST_RESPONSE_TIMEOUT"
     assert first_response is False
     assert campaign is False
+    assert completion is False
     assert stalled_at is not None
 
 
@@ -286,11 +339,12 @@ def test_root_watchdog_stops_a_responsive_session_without_campaign(tmp_path: Pat
         ),
     )
 
-    returncode, reason, first_response, campaign, _, _ = result
+    returncode, reason, first_response, campaign, completion, _, _ = result
     assert returncode != 0
     assert reason == "CAMPAIGN_START_TIMEOUT"
     assert first_response is True
     assert campaign is False
+    assert completion is False
 
 
 def test_root_watchdog_preserves_a_started_campaign_as_incomplete_evidence(
@@ -334,11 +388,12 @@ def test_root_watchdog_preserves_a_started_campaign_as_incomplete_evidence(
         ),
     )
 
-    returncode, reason, first_response, campaign, _, _ = result
+    returncode, reason, first_response, campaign, completion, _, _ = result
     assert returncode != 0
     assert reason == "NO_PROGRESS_TIMEOUT"
     assert first_response is True
     assert campaign is True
+    assert completion is False
     found = bridge.latest_new_campaign(state, target, started)
     assert found is not None
     assert bridge.verdict_summary(found[1], found[2]) == {
@@ -346,6 +401,75 @@ def test_root_watchdog_preserves_a_started_campaign_as_incomplete_evidence(
         "SIB1": "PENDING",
         "SIB2": "PENDING",
     }
+
+
+def test_root_monitor_terminates_provider_after_durable_completion(tmp_path: Path) -> None:
+    bridge = load_bridge()
+    transcript = tmp_path / "bridge.log"
+    state = tmp_path / "state"
+    review = state / "reviews" / "review-complete"
+    review.mkdir(parents=True)
+    target = "e" * 40
+    recorded = bridge.datetime.now(bridge.timezone.utc).isoformat()
+    campaign_id = "EHA-complete"
+    records = [
+        {
+            "type": "campaign_started",
+            "campaignId": campaign_id,
+            "targetSha": target,
+            "recordedAt": recorded,
+        },
+        *[
+            {
+                "type": "verdict",
+                "campaignId": campaign_id,
+                "targetSha": target,
+                "level": level,
+                "verdict": "PASS",
+            }
+            for level in bridge.LEVELS
+        ],
+        {
+            "type": "campaign_completed",
+            "campaignId": campaign_id,
+            "targetSha": target,
+            "reportPath": ".codesleuth/reports/eha-complete.md",
+            "recordedAt": recorded,
+        },
+    ]
+    payload = "\n".join(json.dumps(record) for record in records) + "\n"
+    child = (
+        "from pathlib import Path; import time; "
+        "print('{}', flush=True); time.sleep(0.05); "
+        f"Path({str(review / 'eha.ndjson')!r}).write_text({payload!r}, encoding='utf-8'); "
+        "time.sleep(30)"
+    )
+    started = bridge.datetime.fromisoformat(recorded) - bridge.timedelta(seconds=1)
+    before = time.monotonic()
+
+    result = bridge.run_monitored_process(
+        [sys.executable, "-c", child],
+        cwd=tmp_path,
+        env=os.environ.copy(),
+        transcript_path=transcript,
+        state_dir=state,
+        expected_sha=target,
+        started_at=started,
+        watchdog=bridge.WatchdogConfig(
+            first_response_seconds=1,
+            campaign_start_seconds=1,
+            idle_seconds=2,
+            poll_seconds=0.02,
+        ),
+    )
+
+    _, reason, first_response, campaign, completion, _, stalled_at = result
+    assert time.monotonic() - before < 5
+    assert reason is None
+    assert first_response is True
+    assert campaign is True
+    assert completion is True
+    assert stalled_at is None
 
 
 def test_bridge_status_records_transport_error_without_inventing_eha_verdict(
@@ -376,17 +500,19 @@ def test_bridge_status_records_transport_error_without_inventing_eha_verdict(
         transcript_path=transcript,
         first_response_observed=False,
         campaign_observed=False,
+        durable_completion_observed=False,
         started_at=now,
         last_activity_at=now,
         stalled_at=now,
     )
 
     payload = json.loads(path.read_text(encoding="utf-8"))
-    assert payload["schemaVersion"] == 2
+    assert payload["schemaVersion"] == 3
     assert payload["outcome"] == "NOT_RUN"
     assert payload["transportOutcome"] == "ERROR"
     assert payload["reason"] == "FIRST_RESPONSE_TIMEOUT"
     assert payload["campaignId"] is None
+    assert payload["durableCompletionObserved"] is False
     assert set(payload["verdicts"].values()) == {"PENDING"}
 
 
@@ -421,6 +547,8 @@ def test_workflow_is_a_delegating_owner_gated_self_hosted_bridge() -> None:
     assert "FIRST_RESPONSE_TIMEOUT" in script
     assert "CAMPAIGN_START_TIMEOUT" in script
     assert "NO_PROGRESS_TIMEOUT" in script
+    assert "campaign_completed" in script
+    assert "NO_DURABLE_COMPLETION" in script
     assert "PRIVATE EHA TRANSCRIPT AND BRIDGE STATUS RECORDED ON TRUSTED HOST" in script
 
 

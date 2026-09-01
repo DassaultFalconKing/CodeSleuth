@@ -395,7 +395,7 @@ async def test_playbooks_surface_opens_catalog_not_suggested_prompts(tmp_path: P
         await pilot.pause()
         detail = str(app.query_one("#playbooks-detail-body").render())
         assert "eha-sib-acceptance" in detail
-        assert len(app._playbook_records["eha-sib-acceptance"].steps) == 6
+        assert app._playbook_records["eha-sib-acceptance"].steps[-1].id == "complete-campaign"
         assert app.query(".skill-chip")
         await pilot.click(".skill-chip")
         await pilot.pause()

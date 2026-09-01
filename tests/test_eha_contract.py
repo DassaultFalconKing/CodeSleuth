@@ -49,6 +49,7 @@ def test_eha_playbook_carries_sib_exact_head_and_release_stream_contract() -> No
         "eha_state_start_campaign",
         "eha_state_record_verdict",
         "eha_state_record_repair",
+        "eha_state_complete_campaign",
         "eha_state_mermaid",
         "semantic-refit",
     ):
@@ -90,6 +91,8 @@ def test_structured_eha_evidence_uses_existing_review_state_boundary() -> None:
     assert "EHA INVALIDATED" in tool_source
     assert "claimable" in tool_source
     assert "renderMermaid" in tool_source
+    assert "campaign_completed" in tool_source
+    assert "validateFinalReport" in tool_source
     assert ".opencode/state/reviews/<reviewId>/" in reports
     assert "eha.ndjson" in reports
     assert "SIB0" in reports and "SIB1" in reports and "SIB2" in reports
