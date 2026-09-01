@@ -82,7 +82,7 @@ def test_discover_overlay_wins_over_pack(tmp_path: Path) -> None:
     assert records["repository-map"].origin == "overlay"
     assert records["repository-map"].description == "overlay description wins"
     assert records["eha-sib-acceptance"].origin == "pack"
-    assert len(records["eha-sib-acceptance"].steps) == 6
+    assert records["eha-sib-acceptance"].steps[-1].id == "complete-campaign"
 
 
 def test_discover_marks_overlay_origin_when_only_step_content_differs(tmp_path: Path) -> None:
