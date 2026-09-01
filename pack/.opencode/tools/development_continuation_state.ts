@@ -6,9 +6,11 @@ import path from "node:path"
 const SHA_RE = /^[0-9a-f]{40}$/
 const SAFE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/
 const RESTRICTIONS = ["ADJACENT_TRACK", "FORBIDDEN_BY_ACTIVE_SCOPE"] as const
+const PATH_SCOPE_AUTHORITIES = ["DECLARED", "NOT_DECLARED"] as const
 const MAX_PROJECTION_ITEMS = 200
 
 type Restriction = (typeof RESTRICTIONS)[number]
+type PathScopeAuthority = (typeof PATH_SCOPE_AUTHORITIES)[number]
 type RestrictedPath = { pattern: string; classification: Restriction; rationale: string }
 type BoundEvidence = { path: string; blobHash: string; locator?: string }
 type AuthorityEdge = {
@@ -58,6 +60,7 @@ type Packet = {
   prerequisites: string[]
   acceptedPredecessors: string[]
   requiredReading: string[]
+  pathScopeAuthority: PathScopeAuthority
   allowedPaths: string[]
   forbiddenOrAdjacentPaths: RestrictedPath[]
   repoProvableChecks: string[]
@@ -69,6 +72,7 @@ type Packet = {
   authorityEdgeIds: string[]
   recordedAt: string
 }
+type StoredPacket = Omit<Packet, "pathScopeAuthority"> & { pathScopeAuthority?: PathScopeAuthority }
 
 async function git(root: string, args: string[], allowFailure = false): Promise<{ code: number; stdout: string; stderr: string }> {
   const proc = Bun.spawn(["git", "-C", root, ...args], { stdout: "pipe", stderr: "pipe" })
@@ -157,7 +161,13 @@ async function resolvePacketId(root: string, explicit?: string) {
   if (explicit) { if (!SAFE_ID_RE.test(explicit)) throw new Error("invalid continuation packet id"); return explicit }
   const latest = await readOptional(path.join(baseDir(root), "latest.txt")); if (!latest?.trim()) throw new Error("no Development Continuation Packet found; create one first"); return latest.trim()
 }
-async function loadPacket(root: string, id: string): Promise<Packet> { return JSON.parse(await readFile(path.join(packetDir(root, id), "packet.json"), "utf8")) as Packet }
+async function loadPacket(root: string, id: string): Promise<Packet> {
+  const stored = JSON.parse(await readFile(path.join(packetDir(root, id), "packet.json"), "utf8")) as StoredPacket
+  const allowedPaths = Array.isArray(stored.allowedPaths) ? stored.allowedPaths : []
+  const pathScopeAuthority = stored.pathScopeAuthority ?? (allowedPaths.length > 0 ? "DECLARED" : "NOT_DECLARED")
+  if (!PATH_SCOPE_AUTHORITIES.includes(pathScopeAuthority)) throw new Error("invalid continuation path scope authority")
+  return { ...stored, allowedPaths, pathScopeAuthority } as Packet
+}
 async function resolvePacketProjections(root: string, packet: Packet) {
   const authority = await loadAuthority(root, packet.authorityMapId, packet.targetSha)
   const gateMap = await loadGateMap(root, packet.nativeGateMapId, packet.targetSha)
@@ -174,7 +184,7 @@ export const save_packet = tool({
     targetSha: tool.schema.string().optional(), authorityMapId: tool.schema.string().min(1), nativeGateMapId: tool.schema.string().min(1), changeSurfaceMapId: tool.schema.string().min(1),
     planningAuthority: tool.schema.array(tool.schema.string()).min(1), activeScope: tool.schema.string().min(1), objective: tool.schema.string().min(1),
     prerequisites: tool.schema.array(tool.schema.string()).optional(), acceptedPredecessors: tool.schema.array(tool.schema.string()).optional(), requiredReading: tool.schema.array(tool.schema.string()).optional(),
-    allowedPaths: tool.schema.array(tool.schema.string()).min(1),
+    allowedPaths: tool.schema.array(tool.schema.string()).optional(),
     forbiddenOrAdjacentPaths: tool.schema.array(tool.schema.object({ pattern: tool.schema.string().min(1), classification: tool.schema.enum(RESTRICTIONS), rationale: tool.schema.string().min(1) })).optional(),
     repoProvableChecks: tool.schema.array(tool.schema.string()).optional(), hostedCiProvableChecks: tool.schema.array(tool.schema.string()).optional(),
     liveRuntimeRequiredChecks: tool.schema.array(tool.schema.string()).optional(), operatorDecisionRequired: tool.schema.array(tool.schema.string()).optional(), blockers: tool.schema.array(tool.schema.string()).optional(), uncertainties: tool.schema.array(tool.schema.string()).optional(), authorityEdgeIds: tool.schema.array(tool.schema.string()).min(1),
@@ -184,12 +194,13 @@ export const save_packet = tool({
     const authority = await loadAuthority(root, args.authorityMapId, targetSha); await loadGateMap(root, args.nativeGateMapId, targetSha); await loadChangeSurface(root, args.changeSurfaceMapId, targetSha)
     const edgeIds = unique(args.authorityEdgeIds); const known = new Set(authority.edges.map((edge) => edge.edgeId)); for (const id of edgeIds) if (!known.has(id)) throw new Error(`authority edge not found: ${id}`)
     const allowedPaths = unique(args.allowedPaths).map(validatePattern)
+    const pathScopeAuthority: PathScopeAuthority = allowedPaths.length > 0 ? "DECLARED" : "NOT_DECLARED"
     const restricted: RestrictedPath[] = (args.forbiddenOrAdjacentPaths ?? []).map((item) => ({ pattern: validatePattern(item.pattern), classification: item.classification, rationale: item.rationale.trim() }))
     const packetId = `DCP-${new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}-${targetSha.slice(0, 12)}-${randomUUID().slice(0, 8)}`
     const packet: Packet = {
       schemaVersion: 1, packetId, targetSha, authorityMapId: args.authorityMapId, nativeGateMapId: args.nativeGateMapId, changeSurfaceMapId: args.changeSurfaceMapId,
       planningAuthority: unique(args.planningAuthority), activeScope: args.activeScope.trim(), objective: args.objective.trim(), prerequisites: unique(args.prerequisites), acceptedPredecessors: unique(args.acceptedPredecessors), requiredReading: unique(args.requiredReading),
-      allowedPaths, forbiddenOrAdjacentPaths: restricted, repoProvableChecks: unique(args.repoProvableChecks), hostedCiProvableChecks: unique(args.hostedCiProvableChecks), liveRuntimeRequiredChecks: unique(args.liveRuntimeRequiredChecks), operatorDecisionRequired: unique(args.operatorDecisionRequired), blockers: unique(args.blockers), uncertainties: unique(args.uncertainties), authorityEdgeIds: edgeIds, recordedAt: new Date().toISOString(),
+      pathScopeAuthority, allowedPaths, forbiddenOrAdjacentPaths: restricted, repoProvableChecks: unique(args.repoProvableChecks), hostedCiProvableChecks: unique(args.hostedCiProvableChecks), liveRuntimeRequiredChecks: unique(args.liveRuntimeRequiredChecks), operatorDecisionRequired: unique(args.operatorDecisionRequired), blockers: unique(args.blockers), uncertainties: unique(args.uncertainties), authorityEdgeIds: edgeIds, recordedAt: new Date().toISOString(),
     }
     await mkdir(baseDir(root), { recursive: true }); await mkdir(packetDir(root, packetId), { recursive: false }); await atomicWrite(path.join(packetDir(root, packetId), "packet.json"), `${JSON.stringify(packet, null, 2)}\n`); await atomicWrite(path.join(baseDir(root), "latest.txt"), `${packetId}\n`)
     return JSON.stringify(packet, null, 2)
@@ -218,11 +229,12 @@ export const scope_guard = tool({
       const candidate = validatePattern(raw)
       const restricted = packet.forbiddenOrAdjacentPaths.find((item) => matches(item.pattern, candidate))
       if (restricted) return { path: candidate, classification: restricted.classification, matchedPattern: restricted.pattern, rationale: restricted.rationale }
+      if (packet.pathScopeAuthority === "NOT_DECLARED") return { path: candidate, classification: "SCOPE_AUTHORITY_UNPROVEN", matchedPattern: null, rationale: "active repository authority does not declare positive allowed path patterns" }
       const allowed = packet.allowedPaths.find((pattern) => matches(pattern, candidate))
       if (allowed) return { path: candidate, classification: "IN_SCOPE", matchedPattern: allowed, rationale: "declared by accepted continuation packet" }
       return { path: candidate, classification: "UNDECLARED", matchedPattern: null, rationale: "path is not declared by the active scope; scope is not auto-expanded" }
     })
-    const overall = results.every((item) => item.classification === "IN_SCOPE") ? "IN_SCOPE" : results.some((item) => item.classification === "FORBIDDEN_BY_ACTIVE_SCOPE") ? "FORBIDDEN_BY_ACTIVE_SCOPE" : results.some((item) => item.classification === "ADJACENT_TRACK") ? "ADJACENT_TRACK" : "UNDECLARED"
+    const overall = results.some((item) => item.classification === "FORBIDDEN_BY_ACTIVE_SCOPE") ? "FORBIDDEN_BY_ACTIVE_SCOPE" : results.some((item) => item.classification === "ADJACENT_TRACK") ? "ADJACENT_TRACK" : results.some((item) => item.classification === "SCOPE_AUTHORITY_UNPROVEN") ? "SCOPE_AUTHORITY_UNPROVEN" : results.every((item) => item.classification === "IN_SCOPE") ? "IN_SCOPE" : "UNDECLARED"
     return JSON.stringify({ packetId: id, targetSha: packet.targetSha, overall, paths: results }, null, 2)
   },
 })
