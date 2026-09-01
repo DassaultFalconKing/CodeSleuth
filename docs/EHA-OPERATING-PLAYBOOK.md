@@ -189,12 +189,13 @@ When a candidate delta derives from historical or divergent work:
 3. resolve current normative authority by triangulating current code/config, normative/public docs, and executable tests;
 4. preserve `UNPROVEN`/conflict states rather than averaging contradictions;
 5. record semantic status separately from delivery disposition;
-6. preserve accepted forbidden regressions and current ownership/authority contracts;
-7. integrate only the minimum target-native delta through the active release stream;
-8. identify the resulting literal release-stream head SHA;
-9. start fresh EHA on that resulting SHA.
+6. require positive coverage evidence for `SUPERSEDED`, and explicit current authority for `RETIRED`;
+7. preserve accepted forbidden regressions and current ownership/authority contracts;
+8. integrate only the minimum target-native delta through the active release stream;
+9. identify the resulting literal release-stream head SHA;
+10. start fresh EHA on that resulting SHA.
 
-Historical green CI never transfers to the refitted composition.
+Historical green CI never transfers to the refitted composition. Implementation difficulty is not evidence that a historical requirement disappeared.
 
 ## Reporting
 
