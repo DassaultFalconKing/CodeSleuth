@@ -127,6 +127,8 @@ def test_product_commands_route_broad_work_to_playbooks() -> None:
     expected = {
         "repo-review.md": "repository-deep-review",
         "repo-contracts.md": "protected-capability-assessment",
+        "repo-contract-bootstrap.md": "repository-contract-bootstrap",
+        "repo-continue.md": "repository-development-continuation",
         "repo-docs.md": "repository-documentation",
         "repo-map.md": "repository-map",
         "repo-port.md": "feature-port",
@@ -137,6 +139,27 @@ def test_product_commands_route_broad_work_to_playbooks() -> None:
         path = COMMANDS / command
         assert path.is_file(), path
         assert playbook_id in path.read_text(encoding="utf-8"), path
+
+
+def test_catalog_exposes_every_product_playbook_alias() -> None:
+    import sys
+
+    sys.path.insert(0, str(ROOT / "pack" / ".opencode" / "bin"))
+    import playbook_catalog  # noqa: E402
+
+    expected = {
+        "repository-deep-review": "/repo-review",
+        "protected-capability-assessment": "/repo-contracts",
+        "repository-contract-bootstrap": "/repo-contract-bootstrap",
+        "repository-development-continuation": "/repo-continue",
+        "repository-documentation": "/repo-docs",
+        "repository-map": "/repo-map",
+        "feature-port": "/repo-port",
+        "eha-sib-acceptance": "/eha-test",
+        "eha-repair": "/eha-repair",
+    }
+    for playbook_id, alias in expected.items():
+        assert playbook_catalog.COMMAND_ALIASES.get(playbook_id) == alias
 
 
 def test_discovery_docs_point_to_playbook_skill_contract() -> None:
