@@ -1,558 +1,188 @@
 # RC6 Implementation Ledger
 
-Status: **ACTIVE IMPLEMENTATION AUTHORITY COMPANION**
+Status: **CURRENT DEVELOPMENT STATUS**
 
-Scope authority: `docs/RC6-FEATURE-PLAN.md` as accepted by `docs/RC6-SCOPE-ACCEPTANCE.md`.
+Scope authority: `docs/RC6-FEATURE-PLAN.md`, accepted by `docs/RC6-SCOPE-ACCEPTANCE.md`.
 
-Purpose: this file is the compact, durable state ledger for RC6 implementation. It exists so a future CodeSleuth/LLM session can reconstruct what is planned, implemented, missing, tested, or blocked without relying on chat history.
+This ledger is the current RC6 state surface. It records what is implemented, what is actually verified, and what still blocks live-host handoff. It supersedes the earlier implementation-state snapshot that stopped at head `93c0deffe19d7753f6497435a22d8c5ef2def6e8`.
 
-This ledger **does not replace** the accepted feature plan. If this ledger conflicts with the feature plan, the feature plan wins and this ledger must be repaired.
+## 1. Exact evidence baseline
 
----
+Last fully hosted-accepted implementation head before this status/archive-only documentation commit:
 
-## 0. Reading contract for future sessions
+`34546d19bc9fcf77c3f0a4ec408c3e9c19ab19ad`
 
-### Status enum
+Canonical hosted acceptance:
 
-Use exactly these statuses:
+- workflow: `CodeSleuth acceptance`
+- run: `33560728115`
+- result: **PASS — 7/7**
+- exact checkout SHA: `34546d19bc9fcf77c3f0a4ec408c3e9c19ab19ad`
 
-- `PLANNED` — required by accepted RC6 scope; implementation not yet present.
-- `PARTIAL` — some implementation exists, but the accepted contract is not fully satisfied.
-- `IMPLEMENTED_UNVERIFIED` — implementation appears complete, but required acceptance evidence is missing.
-- `CLOUD_VERIFIED` — required repository/hosted deterministic checks pass on the recorded exact head.
-- `LIVE_PENDING` — cloud contract is closed; remaining proof explicitly requires live host/runtime evidence.
-- `LIVE_VERIFIED` — live-host acceptance completed with recorded evidence.
-- `BLOCKED` — cannot proceed until the stated blocker is resolved.
-- `DEFERRED` — explicitly outside RC6 or postponed by accepted authority. Do not silently treat as complete.
+Verified jobs on that exact head:
 
-### Update rules
-
-For every item:
-
-1. Never mark an item complete from prose, intent, filenames, model confidence, or a PR description.
-2. Prefer exact file/tool/test evidence and exact Git SHA.
-3. `CLOUD_VERIFIED` requires the relevant test/gate to have actually passed on one exact head.
-4. A later source change invalidates prior exact-head acceptance unless the change is proven tree/content irrelevant to that gate.
-5. `LIVE_VERIFIED` is forbidden while any required `REPO_PROVABLE` or `HOSTED_CI_PROVABLE` gate remains open.
-6. If a requirement from `RC6-FEATURE-PLAN.md` is absent here, add it as `PLANNED`; do not assume omission means cancellation.
-7. Any newly discovered useful feature that is not required to satisfy accepted RC6 scope belongs after RC6 unless explicitly re-accepted.
-
-### Current integration baseline
-
-Last audited implementation head before creation of this ledger:
-
-`93c0deffe19d7753f6497435a22d8c5ef2def6e8`
-
-Last audited hosted acceptance run:
-
-`33547907918`
-
-Observed result at that head:
-
-- TUI visual regression: PASS
+- Python 3.10 / Ubuntu: PASS
+- Python 3.12 / Ubuntu: PASS
+- Python 3.10 / Windows: PASS
+- Python 3.12 / Windows: PASS
 - Durable state / context graph: PASS
-- Graphify enabled runtime: PASS
-- Python suite: FAIL due to 3 stale/prose/source-layout assertions
-- exact result: `403 passed, 3 failed, 9 skipped` on Python 3.10 Ubuntu
+- TUI visual regression / Ubuntu: PASS
+- Graphify enabled runtime / Python 3.12 / Ubuntu: PASS
 
-The commit that adds this ledger is a **new head**. Re-run acceptance after implementation changes before assigning `CLOUD_VERIFIED` to the final RC6 candidate.
+Important: this documentation/archive update creates a new Git head. The PASS above remains evidence for the implementation tree at `34546d19...`; the new documentation head must receive fresh hosted acceptance before it can itself be used as an exact-head candidate.
 
----
+## 2. Status vocabulary
 
-## 1. Executive state
+Use only:
 
-| Slice | Contract | Status | Next blocking action |
-| --- | --- | --- | --- |
-| RC6-0 | Current cloud-testable defect closure | `PARTIAL` | Remove prose/source-layout tests; finish distribution/docs parity |
-| RC6-A | Deterministic EHA authority | `IMPLEMENTED_UNVERIFIED` | Behavioral tests + exact-head hosted pass |
-| RC6-B | Brownfield contract bootstrap | `IMPLEMENTED_UNVERIFIED` | Distribution parity + full fixtures + hosted pass |
-| RC6-C | Development Authority Map | `IMPLEMENTED_UNVERIFIED` | Fixture coverage + normative docs |
-| RC6-D | Continuation packet and scope guard | `PARTIAL` | Derive pre-registry change surface; packet projection parity |
-| RC6-E | Native Gate Map / cloud boundary | `IMPLEMENTED_UNVERIFIED` | Fixture and docs parity + hosted pass |
-| RC6-F | External evidence manifest | `IMPLEMENTED_UNVERIFIED` | Normative docs + packaging/installed parity |
-| Wave 6 | Distribution, docs, fixtures | `PARTIAL` | Main remaining context-loss cluster |
-| Wave 7 | Exact-head acceptance and live dogfood | `PLANNED` | Forbidden until Wave 6 + hosted 7/7 close |
+- `CLOUD_VERIFIED` — implementation behavior is covered by repository/hosted checks that passed on the recorded exact head.
+- `IMPLEMENTED_UNVERIFIED` — implementation exists but its required acceptance proof is incomplete.
+- `PARTIAL` — accepted RC6 contract is only partly implemented.
+- `BLOCKED` — work cannot advance to the next authority boundary.
+- `LIVE_PENDING` — all required cloud-testable proof is complete and only live-host evidence remains.
+- `LIVE_VERIFIED` — required live-host proof completed.
+- `DEFERRED` — explicitly outside RC6.
 
----
+## 3. Executive state
 
-## 2. RC6-0 — Current defect closure
+| Slice | State | Exact evidence / blocker |
+| --- | --- | --- |
+| RC6-A deterministic EHA authority | `CLOUD_VERIFIED` | behavioral EHA tests and hosted Python matrix PASS on `34546d19...` |
+| RC6-B brownfield contract bootstrap | `CLOUD_VERIFIED` core | durable bootstrap state passes; distribution parity still belongs to Wave 6 |
+| RC6-C Development Authority Map | `CLOUD_VERIFIED` core | durable authority state + deterministic fixtures PASS |
+| RC6-D continuation packet / scope guard | `CLOUD_VERIFIED` core | deterministic change-surface derivation, packet projections, scope guard and fixtures PASS |
+| RC6-E Native Gate Map / cloud boundary | `CLOUD_VERIFIED` core | durable gate state and continuation smoke PASS |
+| RC6-F ExternalEvidenceManifestV1 | `CLOUD_VERIFIED` core | durable external-evidence smoke PASS |
+| Wave 6 distribution/docs parity | `PARTIAL` | new RC6 surfaces are not yet required by installed/source smoke contracts; normative docs remain incomplete |
+| Wave 7 live dogfood / EHA | `BLOCKED` | forbidden until Wave 6 is closed and the resulting exact head is hosted-green |
 
-### RC6-0-D1 — One canonical EHA bridge entry point
+## 4. Closed context-loss items
 
-**Status:** `IMPLEMENTED_UNVERIFIED`
+The following previously missing requirements are now implemented and passed inside the hosted acceptance tree at `34546d19...`.
 
-**Required contract:** one production CLI entry point; stable RC5d watchdog/core must not be accidentally forked into competing authorities.
+### CL-001 — prose/source-layout EHA tests
 
-**Implementation evidence:**
+State: `CLOUD_VERIFIED`.
 
-- `scripts/eha_github_bridge.py` — canonical public entry point.
-- `scripts/eha_github_bridge_controller.py` — RC6 trusted controller.
-- `scripts/eha_github_bridge_core.py` — stable bridge/watchdog primitives.
-- `.github/workflows/eha.yml` invokes `scripts/eha_github_bridge.py` only.
+The three stale source-string assertions that failed run `33547907918` were replaced by behavioral/import-level coverage. Python 3.10 and 3.12 pass on Ubuntu and Windows.
 
-**Open proof:** replace source-layout/prose assertions with import/behavior tests and obtain hosted PASS.
+### CL-004 — layered TODO/worklog fixture
 
-### RC6-0-D2 — Deterministic provenance before campaign start
+State: `CLOUD_VERIFIED`.
 
-**Status:** `IMPLEMENTED_UNVERIFIED`
+Fixture root: `tests/fixtures/rc6/layered-todo/`.
 
-**Required contract:** trusted controller binds canonical provenance before durable `campaign_started`; provider must not own or rebind that authority.
+It models one planning SSOT, superseded roadmap, current-state evidence, archived shipped work, stop-gate and mixed repo/live acceptance.
 
-**Implementation evidence:**
+### CL-005 — waypoint/session-packet fixture
 
-- `scripts/eha_campaign_bootstrap.py`
-- `scripts/eha_github_bridge_controller.py`
-- `tests/test_eha_campaign_bootstrap.py`
+State: `CLOUD_VERIFIED`.
 
-**Acceptance:** behavioral test must prove provider invocation is unreachable when bootstrap fails, and prestarted campaign identity is passed immutably.
+Fixture root: `tests/fixtures/rc6/waypoint-session/`.
 
-### RC6-0-D3 — No prose-based behavior tests
+It models Orientation -> Waypoint -> session packet -> predecessor handoff -> ADR/native gates plus an adjacent track.
 
-**Status:** `BLOCKED`
+### CL-006 — deterministic pre-registry change surface
 
-**Observed blocker:** hosted run `33547907918` failed three tests that inspect source text rather than behavior:
+State: `CLOUD_VERIFIED`.
 
-1. literal prompt phrase `Do not create, restart, replace, or supersede that campaign`;
-2. literal command list `"run", "--command", "eha-test", "--format", "json"`;
-3. literal identifier `private_transcript_path` in the wrapper source.
+`change_surface_state` derives bounded tracked surfaces from repository-native evidence and binds entries to exact Git blobs rather than accepting an arbitrary LLM-supplied string list as authority.
 
-**Required fix:** replace them with behavioral/import-level tests proving:
+### CL-007 / CL-008 — continuation packet projections
 
-- canonical entry dispatches through trusted controller;
-- controller invokes the canonical OpenCode command semantics;
-- transcript is written only to private persistence and not streamed to public log;
-- provider cannot run before bootstrap authority exists.
+State: `CLOUD_VERIFIED`.
 
-**Done condition:** no RC6 acceptance test depends on English prompt text, implementation symbol names, or module layout when the actual contract is behavioral.
+`development_continuation_state` now resolves bounded semantic projections for native gates and authority evidence instead of exposing only opaque IDs.
 
-### RC6-0-D4 — Dirty/blob-safe brownfield evidence
+## 5. Open cloud-testable work
 
-**Status:** `IMPLEMENTED_UNVERIFIED`
+These items remain mandatory before any Work/Cursor/OpenCode live-host handoff.
 
-**Implementation evidence:** `pack/.opencode/tools/contract_bootstrap_state.ts` stores and revalidates tracked `(path, blobHash)` evidence and fails closed on tracked dirtiness/head change.
+### CL-002 — source/install smoke parity
 
-**Open proof:** fixture must mutate tracked evidence at same conceptual candidate and demonstrate rejection before adjudication/materialization.
+State: `PARTIAL`.
 
-### RC6-0-D5 — Generic foreign registry semantics
+Current evidence: root `smoke.py` still does not require the RC6 surfaces below. Therefore canonical hosted acceptance can be green while an installed pack silently omits them.
 
-**Status:** `IMPLEMENTED_UNVERIFIED`
+Required installed surfaces:
 
-**Required contract:** foreign repository bootstrap must not inherit CodeSleuth self-registry/SIB history.
+- commands: `repo-contract-bootstrap`, `repo-contract-adjudicate`, `repo-continue`
+- playbooks: `repository-contract-bootstrap`, `repository-development-continuation`
+- skills: `contract-archaeology`, `development-authority-discovery`
+- tools: `contract_bootstrap_state`, `development_authority_state`, `change_surface_state`, `development_continuation_state`, `native_gate_state`, `external_evidence_state`
 
-**Expected semantics:**
+Done condition: source smoke, installed `review-pack-smoke.py`, install/update lifecycle inventory and parity tests all require the same RC6 surface set.
 
-- foreign profile: `generic`;
-- no inferred `SIB1`, `SIB2`, or `PROTECTED` status;
-- adopted `AGREE` candidate at most `implemented`;
-- explicitly adopted `UNPROVEN` candidate at most `experimental`.
+### CL-003 — catalog/command exposure parity
 
-**Open proof:** deterministic foreign-repository fixture + materialization assertion.
+State: `PARTIAL`.
 
-### RC6-0-D6 — Resumable human adjudication
+New Playbooks/commands must be discoverable through the normal catalog/control surface without introducing a separate RC6 UI family.
 
-**Status:** `IMPLEMENTED_UNVERIFIED`
+### CL-009 — normative RC6 docs
 
-**Surfaces:**
+State: `PARTIAL`.
 
-- `/repo-contract-adjudicate`
-- durable bootstrap state/decision machinery
-
-**Required contract:** isolated analytical subagent cannot approve its own discovery; adoption is explicit primary-controller/user authority.
-
-### RC6-0-D7 — Distribution/install parity
-
-**Status:** `PARTIAL`
-
-**Missing at last audit:** no corresponding RC6 updates in:
-
-- `smoke.py`
-- `pack/.opencode/bin/review-pack-smoke.py`
-- `tests/test_smoke_parity.py`
-
-`pack/.opencode/bin/playbook_catalog.py` had no substantive RC6 alias/catalog change at the audited head.
-
-**Required installed surfaces include at minimum:**
-
-- `/repo-contract-bootstrap`
-- `/repo-contract-adjudicate`
-- `/repo-continue`
-- `repository-contract-bootstrap`
-- `repository-development-continuation`
-- `contract-archaeology`
-- `development-authority-discovery`
-- `contract_bootstrap_state`
-- `development_authority_state`
-- `development_continuation_state`
-- `native_gate_state`
-- `external_evidence_state`
-
-**Done condition:** source Verify and installed Verify require the same advertised RC6 surfaces and installation smoke proves they survive materialization.
-
-### RC6-0-D8 — Normative documentation current
-
-**Status:** `PARTIAL`
-
-**Missing normative contracts at last audit:**
+Still required as stable operator/product contracts:
 
 - Development Authority Map
-- Development Continuation Packet / scope guard
-- Native Gate Map
+- Development Continuation Packet and scope guard
+- pre-registry change-surface derivation
+- Native Gate Map and cloud/live boundary
 - ExternalEvidenceManifestV1
-- brownfield generic-registry lifecycle/adjudication semantics
-- updated EHA bridge architecture after trusted prestart split
+- brownfield generic registry/adjudication lifecycle
+- trusted EHA prestart architecture
 
-**Metadata drift:** `docs/RC6-FEATURE-PLAN.md` still declared `PROPOSED FOR SCOPE ACCEPTANCE` while `docs/RC6-SCOPE-ACCEPTANCE.md` declares the scope accepted.
+### CL-010 — feature-plan status metadata
 
-### RC6-0-D9 — Exact-head hosted acceptance
+State: `PARTIAL`.
 
-**Status:** `PLANNED`
+`docs/RC6-FEATURE-PLAN.md` still contains the historical header `PROPOSED FOR SCOPE ACCEPTANCE`. Authority is nevertheless unambiguous because `docs/RC6-SCOPE-ACCEPTANCE.md` records acceptance. Correct the stale header during the normative-doc pass; do not treat it as reopening scope.
 
-**Required result:** one final exact RC6 head passes all 7 hosted acceptance jobs. No removal or weakening of existing jobs is allowed.
+### CL-011 — PR metadata
 
----
+State: `PARTIAL`.
 
-## 3. RC6-A — Deterministic EHA authority
+PR #111 description still describes only RC6-A/RC6-B. It must summarize RC6-A through RC6-F and the current cloud/live boundary.
 
-**Status:** `IMPLEMENTED_UNVERIFIED`
+## 6. Current handoff decision
 
-### Contract checklist
+Current decision: **CLOUD_TESTABILITY_REMAINING**.
 
-- [x] exact release SHA frozen before provider execution
-- [x] durable state wired before provider execution
-- [x] deterministic provenance bound before campaign start
-- [x] review checkpoint exists before provider execution
-- [x] `campaign_started` exists before provider execution
-- [x] provider receives already-started campaign identity
-- [x] provider is forbidden from creating/restarting/replacing campaign
-- [x] completion authority remains durable `campaign_completed`
-- [x] transport outcome remains separate from EHA verdict
-- [ ] stale prose/source-layout tests replaced with behavioral tests
-- [ ] hosted matrix green on final exact head
-- [ ] live self-hosted EHA proves campaign is visible before first provider output
-- [ ] live EHA proves SIB0/SIB1/SIB2 + durable completion + clean transport on release candidate
+Reason: the implementation core is hosted-green, but RC6-specific distribution/catalog/doc contracts are still repository-testable and have not all been closed. A 7/7 result from the existing matrix is necessary evidence, not permission to skip missing acceptance coverage.
 
-### Live boundary
+`LIVE_HANDOFF_READY` is allowed only after:
 
-Do **not** move this slice to `LIVE_PENDING` until all required hosted cloud gates are green.
+1. CL-002, CL-003 and CL-009 are closed;
+2. CL-010 and CL-011 metadata drift are repaired;
+3. the resulting exact head passes the full hosted acceptance matrix;
+4. no required repository/hosted RC6 gate remains unexecuted.
 
----
+## 7. Next execution queue
 
-## 4. RC6-B — Brownfield contract bootstrap
+Execute in this order:
 
-**Status:** `IMPLEMENTED_UNVERIFIED`
+1. wire RC6 commands/playbooks/skills/tools into root and installed smoke contracts;
+2. update managed-file/install/update parity tests;
+3. prove catalog exposure for `/repo-contract-bootstrap`, `/repo-contract-adjudicate`, `/repo-continue`;
+4. write normative RC6 authority/continuation/gate/evidence contracts;
+5. correct `RC6-FEATURE-PLAN.md` status metadata and PR #111 body;
+6. run full exact-head hosted acceptance;
+7. re-run final context-loss audit against `RC6-FEATURE-PLAN.md`;
+8. only then move to read-only live dogfood on PII Parser and Aleph Rugent;
+9. finally run fresh RC6 EHA on one release-stream exact SHA.
 
-### Implemented surfaces
+## 8. Active and archived RC6 documents
 
-- `/repo-contract-bootstrap`
-- `/repo-contract-adjudicate`
-- `repository-contract-bootstrap` Playbook
-- `contract-archaeology` Skill
-- `contract_bootstrap_state.ts`
+Active authority/current-state documents:
 
-### Required behavior checklist
+- `docs/RC6-FEATURE-PLAN.md` — accepted feature-scope authority
+- `docs/RC6-SCOPE-ACCEPTANCE.md` — acceptance record
+- `docs/RC6-IMPLEMENTATION-LEDGER.md` — current implementation status and queue
 
-- [x] no existing protected registry required to begin archaeology
-- [x] discovery remains candidate-level, not authority
-- [x] code/docs/tests triangulation precedes durable adoption
-- [x] evidence binds exact tracked blob hashes
-- [x] tracked dirty worktree invalidates authority
-- [x] explicit user adjudication boundary
-- [x] `AGREE + adopt` cannot exceed `implemented`
-- [x] `UNPROVEN + adopt_unproven` cannot exceed `experimental`
-- [x] drift/contradiction cannot be silently adopted
-- [x] foreign registry does not inherit CodeSleuth SIB history
-- [ ] installed-pack parity
-- [ ] dedicated deterministic brownfield fixture proving generic foreign materialization
-- [ ] normative lifecycle docs
+Archived planning/evidence inputs:
 
----
+- `docs/archive/rc6/RC6-CURRENT-DEFECT-FIX-PLAN.md`
+- `docs/archive/rc6/RC6-EXTERNAL-DEVELOPMENT-GAP-AUDIT.md`
 
-## 5. RC6-C — Development Authority Map
-
-**Status:** `IMPLEMENTED_UNVERIFIED`
-
-### Implementation evidence
-
-- `development-authority-discovery` Skill
-- `development_authority_state.ts`
-
-### Required relationship classes
-
-Track all meanings distinctly:
-
-- `CANONICAL_PLANNING_AUTHORITY`
-- `ACTIVE_IMPLEMENTATION_SCOPE`
-- `NORMATIVE_ARCHITECTURE`
-- `ACCEPTANCE_AUTHORITY`
-- `ACCEPTED_PREDECESSOR`
-- `SUPPORTING_EVIDENCE`
-- `SUPERSEDES`
-- `SUPERSEDED_BY`
-- `HISTORICAL_ARCHIVE`
-- `ADJACENT_PARALLEL_TRACK`
-- `FORBIDDEN_COMPETING_AUTHORITY`
-
-### Evidence contract
-
-Every authority edge must remain exact-head bound with tracked evidence. Filename conventions, timestamps, model confidence, or document length may aid discovery but never establish authority.
-
-### Missing proof
-
-- dedicated layered TODO/worklog fixture;
-- dedicated waypoint/session-packet fixture;
-- explicit accepted-predecessor / required-reading acceptance;
-- normative authority-map doc.
-
----
-
-## 6. RC6-D — Development continuation and scope guard
-
-**Status:** `PARTIAL`
-
-### Implemented surfaces
-
-- `/repo-continue`
-- `repository-development-continuation` Playbook
-- `development_continuation_state.ts`
-- deterministic scope guard
-
-### Working contracts
-
-- [x] packet requires confirmed canonical planning authority
-- [x] packet requires confirmed active implementation scope
-- [x] guard classifies `IN_SCOPE`
-- [x] guard classifies `UNDECLARED`
-- [x] guard classifies `ADJACENT_TRACK`
-- [x] guard classifies `FORBIDDEN_BY_ACTIVE_SCOPE`
-- [x] authority failure yields `SCOPE_AUTHORITY_UNPROVEN`
-- [x] guard never auto-expands scope
-
-### RC6-D-GAP1 — Pre-registry change-surface derivation
-
-**Status:** `PLANNED`
-
-**Context-loss finding:** current packet accepts `changeSurface: string[]` supplied by caller. The accepted plan requires CodeSleuth to derive a non-authoritative pre-registry change-surface map from repository evidence such as:
-
-- language/package workspaces;
-- import/module ownership;
-- migrations;
-- schemas / DTOs;
-- API definitions;
-- CI / verify scripts;
-- tests referencing affected surfaces;
-- explicit docs ownership / allowed-path declarations.
-
-**Required principle:** LLM may classify or summarize the derived surface, but it must not be able to manufacture the entire change surface as an unverified string list.
-
-**Done condition:** deterministic bounded derivation exists, carries evidence, and is used by continuation packet creation when no protected registry exists.
-
-### RC6-D-GAP2 — Frozen packet projection parity
-
-**Status:** `PARTIAL`
-
-Accepted minimum packet schema includes semantic outputs `nativeGates` and `authorityEvidence`.
-
-Current implementation stores references such as:
-
-- `nativeGateMapId`
-- `authorityEdgeIds`
-
-This is acceptable internally only if packet load/output exposes bounded resolved projections equivalent to the frozen semantic fields.
-
-**Done condition:** loaded continuation packet contains human/model-readable bounded `nativeGates` and `authorityEvidence`, derived from the referenced exact state rather than copied unverified strings.
-
----
-
-## 7. RC6-E — Native Gate Map and cloud/live boundary
-
-**Status:** `IMPLEMENTED_UNVERIFIED`
-
-### Implementation evidence
-
-- `native_gate_state.ts`
-- continuation smoke exercises repo/hosted/live classifications
-
-### Required classes
-
-- `REPO_PROVABLE`
-- `HOSTED_CI_PROVABLE`
-- `SERVICE_DEPENDENT_REPRODUCIBLE`
-- `LIVE_RUNTIME_REQUIRED`
-- `OPERATOR_DECISION_REQUIRED`
-
-### Required boundary
-
-- any required repo/hosted gate not PASS -> `CLOUD_TESTABILITY_REMAINING`
-- all required repo/hosted gates PASS -> `LIVE_HANDOFF_READY`
-
-### Open proof
-
-- dedicated fixture discovery from project-native workflow/verify/acceptance evidence;
-- installed-pack parity;
-- normative documentation;
-- final exact-head hosted PASS.
-
----
-
-## 8. RC6-F — Generic external evidence manifest
-
-**Status:** `IMPLEMENTED_UNVERIFIED`
-
-### Implementation evidence
-
-- `external_evidence_state.ts`
-- `tests/external_evidence_state_smoke.ts`
-
-### Required contract
-
-- append-only durable evidence
-- exact repository SHA
-- observation timestamp
-- freshness TTL
-- stale remains visible as stale
-- secrets/raw credentials forbidden
-- runtime observation cannot override repository authority by itself
-- PASS/FAIL only if native underlying check defines that outcome
-- no PII-specific or Aleph-specific adapter logic in RC6 core
-
-### Open proof
-
-- installed-pack parity;
-- normative schema/authority documentation;
-- final hosted PASS;
-- later live evidence ingestion during dogfood.
-
----
-
-## 9. Wave 6 — Fixtures, distribution, documentation
-
-**Status:** `PARTIAL`
-
-This is the largest remaining context-loss cluster.
-
-### FIXTURE-A — Layered TODO/worklog authority repository
-
-**Status:** `PLANNED`
-
-Must encode:
-
-- one explicit planning SSOT;
-- superseded roadmaps;
-- supporting current-state evidence;
-- archived shipped work;
-- critical-path stop-gate;
-- mixed repository and live-runtime acceptance.
-
-Must prove:
-
-- only declared SSOT selected;
-- superseded roadmap never revived;
-- prerequisite stop-gate selected as next admissible scope;
-- runtime-only proof separated from cloud proof.
-
-### FIXTURE-B — Waypoint/session-packet authority repository
-
-**Status:** `PLANNED`
-
-Must encode:
-
-- Orientation selecting active track;
-- Waypoint plan ordering work;
-- session packet defining objective/allowed paths/exclusions;
-- accepted predecessor/handoff;
-- required reading;
-- adjacent parallel track;
-- native verify gates;
-- initially absent protected-capability registry.
-
-Must prove:
-
-- active session packet selected;
-- predecessor and required reading preserved;
-- adjacent path rejected by scope guard;
-- registry absence does not block continuation mapping;
-- later brownfield bootstrap can produce target-local contract candidates.
-
-### Distribution parity
-
-**Status:** `PARTIAL`
-
-See `RC6-0-D7`.
-
-### Normative documentation
-
-**Status:** `PARTIAL`
-
-See `RC6-0-D8`.
-
-### PR metadata
-
-**Status:** `PARTIAL`
-
-PR #111 description at last audit described RC6-A/B only while implementation already contained C/D/E/F. Before review readiness, update PR body to the accepted complete RC6 scope and current exact-head acceptance state.
-
----
-
-## 10. Wave 7 — Acceptance sequence
-
-**Status:** `PLANNED`
-
-Required order, no shortcuts:
-
-1. Close every required `PLANNED`, `PARTIAL`, or `BLOCKED` cloud item above.
-2. Produce one exact RC6 feature head.
-3. Run complete hosted acceptance on that exact SHA.
-4. Require 7/7 green.
-5. Re-run this implementation ledger against `docs/RC6-FEATURE-PLAN.md` and record any remaining context loss.
-6. Only then mark live-dependent slices `LIVE_PENDING`.
-7. Perform read-only PII Parser dogfood.
-8. Perform read-only Aleph Rugent dogfood.
-9. Repair any generic CodeSleuth defect discovered by dogfood; repository-specific behavior remains forbidden.
-10. Create/freeze exact release-stream candidate SHA.
-11. Run hosted acceptance again on the exact release candidate if its SHA differs from the feature-head proof.
-12. Run fresh canonical EHA SIB0/SIB1/SIB2 on the exact candidate.
-13. Require durable prestart identity, SIB0 PASS, SIB1 PASS, SIB2 PASS, durable `campaign_completed`, clean checkout, and acceptable transport outcome.
-14. Only then consider SIB/tag/release promotion.
-
----
-
-## 11. Context-loss register
-
-This section exists specifically to answer: **"what fell out of context?"**
-
-| ID | Lost/omitted obligation | Current status | Recovery |
-| --- | --- | --- | --- |
-| CL-001 | Replace prose/source-layout EHA tests with behavioral tests | `BLOCKED` | Rewrite 3 failing Python tests |
-| CL-002 | Source/install smoke parity for new RC6 surfaces | `PARTIAL` | Update source + installed required lists and parity tests |
-| CL-003 | Playbook catalog aliases/exposure for new RC6 workflows | `PARTIAL` | Add semantic catalog assertions and aliases |
-| CL-004 | Separate layered TODO/worklog deterministic fixture | `PLANNED` | Implement Fixture A |
-| CL-005 | Separate waypoint/session-packet deterministic fixture | `PLANNED` | Implement Fixture B |
-| CL-006 | Deterministic pre-registry change-surface derivation | `PLANNED` | Add bounded evidence-backed derivation tool/state |
-| CL-007 | Continuation packet semantic `nativeGates` projection | `PARTIAL` | Resolve from gate map on load/output |
-| CL-008 | Continuation packet semantic `authorityEvidence` projection | `PARTIAL` | Resolve from authority map on load/output |
-| CL-009 | Normative RC6-C/D/E/F documentation | `PARTIAL` | Write/update contracts after runtime shape stabilizes |
-| CL-010 | Feature-plan status still says PROPOSED despite acceptance | `PARTIAL` | Update to ACCEPTED without changing frozen scope text |
-| CL-011 | PR #111 body only describes A/B | `PARTIAL` | Refresh before review readiness |
-| CL-012 | Final context-loss audit before live handoff | `PLANNED` | Compare plan ↔ ledger ↔ PR diff ↔ tests on final cloud-green head |
-
-Do not delete a context-loss row when fixed. Change its status to `CLOUD_VERIFIED` and add exact evidence so future sessions can see that it was intentionally recovered.
-
----
-
-## 12. Next execution queue
-
-Execute in this order unless a failing gate proves a different dependency:
-
-1. `CL-001` behavioral EHA tests.
-2. `CL-006` deterministic pre-registry change-surface derivation.
-3. `CL-007` + `CL-008` resolved continuation-packet projections.
-4. `CL-004` Fixture A.
-5. `CL-005` Fixture B.
-6. `CL-002` + `CL-003` distribution/catalog parity.
-7. `CL-009` + `CL-010` normative/document status cleanup.
-8. `CL-011` PR metadata refresh.
-9. full hosted acceptance on one exact head.
-10. `CL-012` context-loss audit.
-11. live dogfood only after cloud green.
-
-The queue is implementation ordering, not new scope authority.
+The archived files remain evidence for why RC6 was designed as it was, but they no longer control implementation order or current status.
