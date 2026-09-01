@@ -1,17 +1,17 @@
 # RC6 Feature Plan — Evidence-Bound Development Continuation
 
-Status: **PROPOSED FOR SCOPE ACCEPTANCE**
+Status: **ACCEPTED / FROZEN FOR RC6 IMPLEMENTATION**
 
-This document is the RC6 feature-plan authority once accepted. Implementation must not silently grow beyond it.
+This document is the accepted RC6 feature-plan authority. Implementation must not silently grow beyond it.
 
 Design baseline examined: RC6 branch at `94c77236e4a5f5100ae4785d246118a6925bcaf7`, plus the planning documents added afterwards.
 
 RC5d base: `4370c0d63173d27556b11d629746afee07f3cf62`.
 
-Supporting documents:
+Supporting historical design inputs:
 
-- `docs/RC6-CURRENT-DEFECT-FIX-PLAN.md`
-- `docs/RC6-EXTERNAL-DEVELOPMENT-GAP-AUDIT.md`
+- `docs/archive/rc6/RC6-CURRENT-DEFECT-FIX-PLAN.md`
+- `docs/archive/rc6/RC6-EXTERNAL-DEVELOPMENT-GAP-AUDIT.md`
 
 ## 1. RC6 product objective
 
@@ -56,7 +56,7 @@ RC6 consists of six feature slices plus current-defect closure.
 
 ### RC6-0 — Close all current cloud-testable defects
 
-Implement `RC6-CURRENT-DEFECT-FIX-PLAN.md` before declaring any new feature slice complete.
+Implement the accepted defect-closure requirements before declaring any new feature slice complete.
 
 Required outcomes:
 
