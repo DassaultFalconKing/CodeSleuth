@@ -98,6 +98,14 @@ def test_discover_marks_overlay_origin_when_only_step_content_differs(tmp_path: 
     assert record.summary == "overlay-only body"
 
 
+def test_rc6_playbooks_are_discoverable_with_product_aliases(tmp_path: Path) -> None:
+    records = {item.id: item for item in discover_playbooks(tmp_path / "target", ROOT)}
+    assert records["repository-contract-bootstrap"].origin == "pack"
+    assert records["repository-contract-bootstrap"].command_alias == "/repo-contract-bootstrap"
+    assert records["repository-development-continuation"].origin == "pack"
+    assert records["repository-development-continuation"].command_alias == "/repo-continue"
+
+
 def test_validate_rejects_cyclic_and_broken_packages(tmp_path: Path) -> None:
     cyclic = _write_playbook(tmp_path, "cyclic", cyclic=True)
     report = validate_playbook_dir(cyclic)
@@ -194,3 +202,5 @@ def test_pack_ids_include_builtins() -> None:
     ids = pack_playbook_ids(ROOT, ROOT)
     assert "eha-sib-acceptance" in ids
     assert "eha-repair" in ids
+    assert "repository-contract-bootstrap" in ids
+    assert "repository-development-continuation" in ids
