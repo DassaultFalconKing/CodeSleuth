@@ -128,6 +128,7 @@ class OpenCodeExecution(NamedTuple):
     reason: str | None
     first_response_observed: bool
     campaign_observed: bool
+    completion_observed: bool
     started_at: datetime
     last_activity_at: datetime
     stalled_at: datetime | None
@@ -381,6 +382,36 @@ def verdict_summary(start: dict[str, Any], events: list[dict[str, Any]]) -> dict
     return result
 
 
+def campaign_completion(
+    start: dict[str, Any], events: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """Return only a valid durable completion event for the exact campaign."""
+    campaign_id = start.get("campaignId")
+    target_sha = start.get("targetSha")
+    verdicts = verdict_summary(start, events)
+    for event in reversed(events):
+        if event.get("type") != "campaign_completed" or event.get("campaignId") != campaign_id:
+            continue
+        if event.get("targetSha") != target_sha:
+            raise BridgeError(
+                f"campaign completion target mismatch for {campaign_id}: "
+                f"expected {target_sha}, got {event.get('targetSha')}"
+            )
+        report_path = event.get("reportPath")
+        if not isinstance(report_path, str) or not report_path.startswith(
+            ".codesleuth/reports/"
+        ):
+            raise BridgeError(
+                f"campaign completion for {campaign_id} lacks a canonical report path"
+            )
+        if not all(verdicts[level] == "PASS" for level in LEVELS):
+            raise BridgeError(
+                f"campaign completion for {campaign_id} exists before all SIB verdicts are PASS"
+            )
+        return event
+    return None
+
+
 def eha_bash_permissions() -> dict[str, str]:
     """Return a fail-closed allowlist for EHA inspection and test commands."""
     return {
@@ -538,8 +569,8 @@ def run_monitored_process(
     expected_sha: str,
     started_at: datetime,
     watchdog: WatchdogConfig,
-) -> tuple[int, str | None, bool, bool, datetime, datetime | None]:
-    """Run OpenCode with root-session progress fuses independent of its plugins."""
+) -> tuple[int, str | None, bool, bool, bool, datetime, datetime | None]:
+    """Run OpenCode with root-session progress fuses and a durable completion handshake."""
     creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
     with transcript_path.open("w", encoding="utf-8", errors="replace") as transcript:
         process = subprocess.Popen(
@@ -557,12 +588,16 @@ def run_monitored_process(
         last_activity_at = started_at
         signature = evidence_activity_signature(transcript_path, state_dir)
         first_response_observed = transcript_path.stat().st_size > 0
+        campaign_observed = False
+        completion_observed = False
         try:
-            campaign_observed = (
-                latest_new_campaign(state_dir, expected_sha, started_at) is not None
-            )
+            found = latest_new_campaign(state_dir, expected_sha, started_at)
+            campaign_observed = found is not None
+            if found:
+                completion_observed = campaign_completion(found[1], found[2]) is not None
         except BridgeError:
             campaign_observed = False
+            completion_observed = False
         reason: str | None = None
         stalled_at: datetime | None = None
 
@@ -578,15 +613,28 @@ def run_monitored_process(
                 last_activity_at = now
             if not first_response_observed and transcript_path.stat().st_size > 0:
                 first_response_observed = True
-            if not campaign_observed and activity_changed:
+            if activity_changed:
                 try:
-                    campaign_observed = (
-                        latest_new_campaign(state_dir, expected_sha, started_at) is not None
-                    )
+                    found = latest_new_campaign(state_dir, expected_sha, started_at)
+                    if found:
+                        campaign_observed = True
+                        completion_observed = campaign_completion(found[1], found[2]) is not None
                 except BridgeError:
                     # A writer can be between bytes of one append-only record. The
                     # final read remains fail-closed after the process exits.
-                    campaign_observed = False
+                    pass
+
+            if completion_observed:
+                returncode = terminate_process_tree(process)
+                return (
+                    returncode,
+                    None,
+                    first_response_observed,
+                    campaign_observed,
+                    True,
+                    last_activity_at,
+                    None,
+                )
 
             elapsed = now_monotonic - started_monotonic
             idle = now_monotonic - last_activity_monotonic
@@ -607,6 +655,7 @@ def run_monitored_process(
                     reason,
                     first_response_observed,
                     campaign_observed,
+                    False,
                     last_activity_at,
                     stalled_at,
                 )
@@ -617,16 +666,19 @@ def run_monitored_process(
             last_activity_at = now
         first_response_observed = first_response_observed or transcript_path.stat().st_size > 0
         try:
-            campaign_observed = campaign_observed or (
-                latest_new_campaign(state_dir, expected_sha, started_at) is not None
-            )
+            found = latest_new_campaign(state_dir, expected_sha, started_at)
+            campaign_observed = campaign_observed or found is not None
+            if found:
+                completion_observed = campaign_completion(found[1], found[2]) is not None
         except BridgeError:
             campaign_observed = False
+            completion_observed = False
         return (
             int(process.returncode or 0),
             None,
             first_response_observed,
             campaign_observed,
+            completion_observed,
             last_activity_at,
             None,
         )
@@ -669,7 +721,8 @@ def invoke_opencode(
         "delete any path inside it, including temporary or scratch files. If transient storage is "
         "unavoidable, use only the external CODESLEUTH_EHA_SCRATCH_DIR. Write analytical reports "
         "only through the bounded .codesleuth/reports route. Run the canonical "
-        "eha-sib-acceptance Playbook only."
+        "eha-sib-acceptance Playbook only. After report persistence, write the durable "
+        "campaign_completed handshake; do not wait for a final provider frame after that marker."
     )
     command = opencode_wrapper_command(root)
     command.extend(["run", "--command", "eha-test", "--format", "json"])
@@ -684,6 +737,7 @@ def invoke_opencode(
         reason,
         first_response_observed,
         campaign_observed,
+        completion_observed,
         last_activity_at,
         stalled_at,
     ) = run_monitored_process(
@@ -709,6 +763,7 @@ def invoke_opencode(
         reason=reason,
         first_response_observed=first_response_observed,
         campaign_observed=campaign_observed,
+        completion_observed=completion_observed,
         started_at=started_at,
         last_activity_at=last_activity_at,
         stalled_at=stalled_at,
@@ -732,6 +787,7 @@ def write_bridge_status(
     transcript_path: Path,
     first_response_observed: bool,
     campaign_observed: bool,
+    durable_completion_observed: bool,
     started_at: datetime,
     last_activity_at: datetime,
     stalled_at: datetime | None,
@@ -742,7 +798,7 @@ def write_bridge_status(
     if path.exists():
         raise BridgeError(f"refusing to overwrite existing EHA bridge record: {path.name}")
     payload = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "adapter": "github-opencode-eha",
         "repository": os.environ.get("GITHUB_REPOSITORY"),
         "githubRunId": os.environ.get("GITHUB_RUN_ID"),
@@ -760,6 +816,7 @@ def write_bridge_status(
         "opencodeReturnCode": opencode_returncode,
         "firstResponseObserved": first_response_observed,
         "campaignObserved": campaign_observed,
+        "durableCompletionObserved": durable_completion_observed,
         "startedAt": started_at.isoformat(),
         "lastActivityAt": last_activity_at.isoformat(),
         "stalledAt": stalled_at.isoformat() if stalled_at else None,
@@ -865,11 +922,14 @@ def main(argv: list[str] | None = None) -> int:
         found = latest_new_campaign(state_dir, expected_sha, started)
         review_id: str | None = None
         campaign_id: str | None = None
+        completion: dict[str, Any] | None = None
         verdicts = {level: "PENDING" for level in LEVELS}
         if found:
             review_id, start, events = found
             verdicts = verdict_summary(start, events)
             campaign_id = str(start.get("campaignId"))
+            completion = campaign_completion(start, events)
+        completion_observed = execution.completion_observed or completion is not None
         if "FAIL" in verdicts.values():
             outcome = "FAIL"
         elif found and all(verdicts[level] == "PASS" for level in LEVELS):
@@ -884,12 +944,15 @@ def main(argv: list[str] | None = None) -> int:
         if postcondition_error:
             transport_outcome = "ERROR"
             reason = "POSTCONDITION_DIRTY"
-        elif execution.returncode != 0:
+        elif execution.returncode != 0 and not completion_observed:
             transport_outcome = "ERROR"
             reason = reason or "OPENCODE_NONZERO_EXIT"
         elif not found:
             transport_outcome = "ERROR"
             reason = "NO_DURABLE_CAMPAIGN"
+        elif outcome == "PASS" and not completion_observed:
+            transport_outcome = "ERROR"
+            reason = "NO_DURABLE_COMPLETION"
 
         write_bridge_status(
             persist_root,
@@ -907,6 +970,7 @@ def main(argv: list[str] | None = None) -> int:
             transcript_path=transcript_path,
             first_response_observed=execution.first_response_observed,
             campaign_observed=execution.campaign_observed or found is not None,
+            durable_completion_observed=completion_observed,
             started_at=execution.started_at,
             last_activity_at=execution.last_activity_at,
             stalled_at=execution.stalled_at,
@@ -915,7 +979,8 @@ def main(argv: list[str] | None = None) -> int:
             "EHA BRIDGE RESULT "
             f"campaign={campaign_id} review={review_id} target={expected_sha} "
             f"SIB0={verdicts['SIB0']} SIB1={verdicts['SIB1']} SIB2={verdicts['SIB2']} "
-            f"outcome={outcome} transport={transport_outcome} reason={reason}",
+            f"completion={completion_observed} outcome={outcome} "
+            f"transport={transport_outcome} reason={reason}",
             flush=True,
         )
         print("PRIVATE EHA TRANSCRIPT AND BRIDGE STATUS RECORDED ON TRUSTED HOST", flush=True)
