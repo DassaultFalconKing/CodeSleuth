@@ -11,6 +11,7 @@ Start with [`ROAD/INDEX.md`](ROAD/INDEX.md) when you need to know **which docume
 - [`EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md`](EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md) — canonical EBCA vocabulary for subject identity, evidence, authority, assurance, negative knowledge, SIB/EHA, and conservative claim language.
 - [`DURABLE-EVIDENCE-STORE.md`](DURABLE-EVIDENCE-STORE.md) — durable review/evidence authority and append-only ledger semantics, including append-only EHA history in `eha.ndjson`.
 - [`PROTECTED-CAPABILITY-CONTRACTS.md`](PROTECTED-CAPABILITY-CONTRACTS.md) and [`protected-capabilities.json`](protected-capabilities.json) — post-acceptance preservation discipline and machine-readable protected registry.
+- [`DEVELOPMENT-CONTINUATION-CONTRACT.md`](DEVELOPMENT-CONTINUATION-CONTRACT.md) — RC6 Development Authority Map, continuation packet, scope guard, Native Gate Map, brownfield adoption, cloud/live boundary, and `ExternalEvidenceManifestV1`.
 - [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — normative **semantic-continuity criterion**: `semantic surface -> claim reconciliation -> evidence`, plus refit discipline across implementation and history changes.
 - [`CONTEXT-GRAPH-DISCIPLINE.md`](CONTEXT-GRAPH-DISCIPLINE.md) — source -> durable review state -> bounded RepositoryContextProjection -> derived graph/Mermaid discipline.
 - [`GRAPH-CONSUMPTION-CONTRACT.md`](GRAPH-CONSUMPTION-CONTRACT.md) — bounded consumption of derived graph context.
@@ -38,6 +39,9 @@ Start with [`ROAD/INDEX.md`](ROAD/INDEX.md) when you need to know **which docume
 
 ## Current implementation references and integrations
 
+- [`RC6-FEATURE-PLAN.md`](RC6-FEATURE-PLAN.md) — accepted/frozen RC6 implementation scope.
+- [`RC6-SCOPE-ACCEPTANCE.md`](RC6-SCOPE-ACCEPTANCE.md) — explicit acceptance record for that scope.
+- [`RC6-IMPLEMENTATION-LEDGER.md`](RC6-IMPLEMENTATION-LEDGER.md) — current RC6 development-state ledger; it does not replace the feature plan.
 - [`GRAPHIFY-PROVIDER.md`](GRAPHIFY-PROVIDER.md) — current optional Graphify structural-provider boundary and runtime identity.
 - [`GRAPHIFY-CORPUS.md`](GRAPHIFY-CORPUS.md) — representative provider corpus/hardening reference.
 - [`MERMAID-QA.md`](MERMAID-QA.md) — isolated Mermaid QA; normal runtime remains browser-free.
@@ -72,8 +76,9 @@ Retired design/evaluation packets keep compatibility tombstones at their old pat
 - [`MERMAID-GRAPHIFY-AUDIT.md`](MERMAID-GRAPHIFY-AUDIT.md) — RETIRED historical provider evaluation; current provider contract is `GRAPHIFY-PROVIDER.md`.
 - [`FEATURE-MERMAID-GRAPHIFY-PLAN.md`](FEATURE-MERMAID-GRAPHIFY-PLAN.md) — RETIRED historical implementation plan.
 - [`PLAYBOOKS-CATALOG-TUI.md`](PLAYBOOKS-CATALOG-TUI.md) — RETIRED historical UI design sketch; current behavior is owned by `EXTENSION-LOAD-UNITS.md`, implementation, and tests.
+- [`archive/rc6/`](archive/rc6/README.md) — superseded RC6 defect/gap planning inputs retained as historical evidence, not current authority.
 
-Exact historical blobs are retained under [`archive/`](archive/) with `.retired` suffixes. See [`ROAD/INDEX.md`](ROAD/INDEX.md) for reasons and replacement authorities.
+Exact historical blobs are retained under [`archive/`](archive/) with `.retired` suffixes where that retirement format applies. See [`ROAD/INDEX.md`](ROAD/INDEX.md) for reasons and replacement authorities.
 
 ## Cross-agent documentation
 
