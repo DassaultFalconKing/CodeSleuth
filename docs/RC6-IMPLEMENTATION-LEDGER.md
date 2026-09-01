@@ -25,20 +25,35 @@ Canonical hosted acceptance:
 
 That PASS proves only that literal historical SHA.
 
-Subsequent Wave 6 changes added distribution/catalog parity, deterministic fixtures, normative documentation and live-handoff contracts. Their intermediate hosted runs were intentionally used as RED/GREEN evidence rather than treated as acceptance transfer.
+Subsequent Wave 6 changes added distribution/catalog parity, deterministic fixtures, normative documentation and live-handoff contracts. Their intermediate hosted runs are RED/GREEN evidence, not acceptance transfer.
 
-Notable final pre-live diagnostic run:
+### Rejected pre-live candidate `645aedb8364977ebb3b227b3af35e13ed440b0f5`
 
-- exact SHA `645aedb8364977ebb3b227b3af35e13ed440b0f5`
-- run `33564295158`
+Run `33564295158`:
+
 - Durable state/context graph: PASS
 - TUI visual regression: PASS
 - Graphify enabled runtime: PASS
-- all four Python jobs shared one remaining failure in `test_eha_operator_uses_explicit_refit_axes`
-- root cause: the rewritten EHA operating guide retained semantic/delivery axes but lost the explicit positive-evidence rule for `SUPERSEDED`
-- repaired by restoring `SUPERSEDED` positive current coverage evidence and `RETIRED` explicit-current-authority semantics
+- Python matrix: FAIL
 
-The final candidate is the literal head produced by this ledger update. It is not accepted until its own complete hosted matrix is green.
+All Python jobs collapsed to one shared docs-contract defect: the rewritten EHA operating guide had lost the explicit positive-evidence rule for `SUPERSEDED`. The repair restored both `SUPERSEDED` positive current coverage evidence and `RETIRED` explicit-current-authority semantics.
+
+### Rejected pre-live candidate `3a8a374f298e2af4a4be156c6432866ffa63c1ef`
+
+Run `33566241164`:
+
+- Durable state/context graph: PASS
+- TUI visual regression: PASS
+- Graphify enabled runtime: PASS
+- Python 3.10 Ubuntu: FAIL
+- Python 3.12 Ubuntu: FAIL
+- remaining Python jobs were not used to rescue the candidate
+
+The exact shared defect was again normative semantic-refit drift, now narrowed to one established invariant: the EHA operator guide no longer stated the exact non-transfer rule `A stale branch's green CI never transfers`.
+
+That candidate is rejected. Its partial green jobs do not transfer to a repaired descendant.
+
+The rule was restored in the subsequent EHA operating-guide repair. The final candidate for live-readiness is the **literal branch HEAD after this ledger commit**. Its exact SHA is bound by PR metadata and the canonical acceptance run rather than written self-referentially into this file. Any later tracked edit creates another candidate and returns status to `CLOUD_TESTABILITY_REMAINING`.
 
 ## 2. Status vocabulary
 
@@ -55,20 +70,20 @@ Use only:
 
 | Slice | State | Evidence / remaining boundary |
 | --- | --- | --- |
-| RC6-0 defect closure | `IMPLEMENTED_PENDING_FINAL_HEAD` | all identified defects closed; final exact-head hosted matrix pending |
+| RC6-0 defect closure | `IMPLEMENTED_PENDING_FINAL_HEAD` | identified cloud defects closed; final exact-head hosted matrix pending |
 | RC6-A deterministic EHA authority | `IMPLEMENTED_PENDING_FINAL_HEAD` | trusted prestart/controller/core behavior covered; final matrix pending |
 | RC6-B brownfield contract bootstrap | `IMPLEMENTED_PENDING_FINAL_HEAD` | exact blob-bound bootstrap + human adjudication + generic registry core |
 | RC6-C Development Authority Map | `IMPLEMENTED_PENDING_FINAL_HEAD` | typed authority state + separate deterministic fixtures |
-| RC6-D continuation packet / scope guard | `IMPLEMENTED_PENDING_FINAL_HEAD` | deterministic change surface + nativeGates/authorityEvidence projections + guard |
+| RC6-D continuation packet / scope guard | `IMPLEMENTED_PENDING_FINAL_HEAD` | deterministic change surface + `nativeGates`/`authorityEvidence` projections + guard |
 | RC6-E Native Gate Map / cloud boundary | `IMPLEMENTED_PENDING_FINAL_HEAD` | cloud/live/operator gate classes and handoff state implemented |
 | RC6-F ExternalEvidenceManifestV1 | `IMPLEMENTED_PENDING_FINAL_HEAD` | exact-SHA/freshness/secret-safe append-only live evidence boundary |
 | Wave 6 distribution/docs | `IMPLEMENTED_PENDING_FINAL_HEAD` | source/install smoke parity, catalog exposure, normative docs, fixtures closed |
-| Wave 7 hosted exact-head gate | `CLOUD_TESTABILITY_REMAINING` | one fresh 7/7 required on this final tracked head |
+| Wave 7 hosted exact-head gate | `CLOUD_TESTABILITY_REMAINING` | one fresh 7/7 required on the literal resulting HEAD |
 | Live dogfood | `BLOCKED UNTIL FINAL 7/7` | runbook prepared; PII Parser + Aleph Rugent remain read-only live acceptance |
 
 ## 4. Context-loss register
 
-All implementation omissions previously discovered during RC6 context-loss review are now closed in the tracked tree.
+All implementation omissions previously discovered during RC6 context-loss review are closed in the tracked tree.
 
 | ID | Requirement | Disposition |
 | --- | --- | --- |
@@ -82,14 +97,14 @@ All implementation omissions previously discovered during RC6 context-loss revie
 | CL-008 | bounded `authorityEvidence` continuation projection | closed |
 | CL-009 | normative RC6 authority/continuation/gate/evidence docs | closed for live-readiness contract |
 | CL-010 | feature-plan accepted/frozen status metadata | closed |
-| CL-011 | PR body reflects RC6-A through RC6-F and handoff boundary | GitHub metadata update; no Git identity effect |
+| CL-011 | PR body reflects RC6-A through RC6-F and handoff boundary | GitHub metadata; no Git identity effect |
 | CL-012 | final context-loss audit against frozen feature plan | closed by `RC6-CONTEXT-LOSS-AUDIT.md` |
 
-No additional cloud-testable implementation omission was found in the final pre-live audit.
+No additional cloud-testable implementation omission was found in the final pre-live audit. Later failed candidate runs exposed only semantic-refit documentation regressions, which were repaired without expanding RC6 scope.
 
 ## 5. Distribution and product-surface closure
 
-Canonical root `smoke.py` and installed `pack/.opencode/bin/review-pack-smoke.py` now require the same RC6 surface family.
+Canonical root `smoke.py` and installed `pack/.opencode/bin/review-pack-smoke.py` require the same RC6 surface family.
 
 Required commands include:
 
@@ -132,24 +147,24 @@ Current RC6 live-readiness authority is distributed across:
 
 The Development Continuation contract covers authority mapping, continuation packet semantics, pre-registry change surface, scope guard, Native Gate Map/cloud-live boundary, ExternalEvidenceManifestV1 and brownfield lifecycle.
 
-The EHA documents cover deterministic trusted prestart and the separate ordinary `model_started` compatibility path.
+The EHA documents cover deterministic trusted prestart, the separate ordinary `model_started` compatibility path, semantic/delivery refit axes, positive-evidence requirements for supersession/retirement and the non-transfer of stale-branch green CI.
 
-A broader root README/i18n command-table refresh may be performed before numbered release publication. It is not an authority dependency for live dogfood. Any later tracked documentation change necessarily creates a new candidate SHA and must receive fresh hosted acceptance before release promotion.
+A broader root README/i18n command-table refresh may be performed before numbered release publication. It is not an authority dependency for live dogfood. Any later tracked documentation change creates a new candidate SHA and must receive fresh hosted acceptance before release promotion.
 
 ## 7. Current handoff decision
 
-Current decision is still:
+Current decision remains:
 
 ```text
 CLOUD_TESTABILITY_REMAINING
 ```
 
-There is exactly one remaining cloud gate: **complete canonical hosted acceptance on the literal final tracked head created by this update**.
+There is exactly one remaining cloud gate: **complete canonical hosted acceptance on the literal branch HEAD resulting from this ledger commit**.
 
 Transition is legal only as:
 
 ```text
-final tracked RC6 pre-live head
+literal final RC6 pre-live head
 -> hosted acceptance 7/7 on that exact SHA
 -> no subsequent tracked edits
 -> LIVE_HANDOFF_READY
