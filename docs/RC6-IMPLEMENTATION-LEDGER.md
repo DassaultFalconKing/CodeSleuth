@@ -1,14 +1,18 @@
 # RC6 Implementation Ledger
 
-Status: **CURRENT DEVELOPMENT STATUS**
+Status: **PRE-LIVE FINALIZATION — FINAL EXACT-HEAD HOSTED ACCEPTANCE REQUIRED**
 
 Scope authority: `docs/RC6-FEATURE-PLAN.md`, accepted by `docs/RC6-SCOPE-ACCEPTANCE.md`.
 
-This ledger is the current RC6 state surface. It records what is implemented, what is actually verified, and what still blocks live-host handoff. It supersedes the earlier implementation-state snapshot that stopped at head `93c0deffe19d7753f6497435a22d8c5ef2def6e8`.
+Final pre-live context audit: `docs/RC6-CONTEXT-LOSS-AUDIT.md`.
 
-## 1. Exact evidence baseline
+Live procedure after cloud closure: `docs/RC6-LIVE-DOGFOOD-RUNBOOK.md`.
 
-Last fully hosted-accepted implementation head before this status/archive-only documentation commit:
+This Markdown ledger is the human-readable RC6 execution/status surface. It does not transfer acceptance between Git SHAs and does not outrank executable tests, normative contracts or durable EHA evidence.
+
+## 1. Exact evidence history
+
+Last fully hosted-accepted implementation head before Wave 6 closure:
 
 `34546d19bc9fcf77c3f0a4ec408c3e9c19ab19ad`
 
@@ -19,170 +23,168 @@ Canonical hosted acceptance:
 - result: **PASS — 7/7**
 - exact checkout SHA: `34546d19bc9fcf77c3f0a4ec408c3e9c19ab19ad`
 
-Verified jobs on that exact head:
+That PASS proves only that literal historical SHA.
 
-- Python 3.10 / Ubuntu: PASS
-- Python 3.12 / Ubuntu: PASS
-- Python 3.10 / Windows: PASS
-- Python 3.12 / Windows: PASS
-- Durable state / context graph: PASS
-- TUI visual regression / Ubuntu: PASS
-- Graphify enabled runtime / Python 3.12 / Ubuntu: PASS
+Subsequent Wave 6 changes added distribution/catalog parity, deterministic fixtures, normative documentation and live-handoff contracts. Their intermediate hosted runs were intentionally used as RED/GREEN evidence rather than treated as acceptance transfer.
 
-Important: this documentation/archive update creates a new Git head. The PASS above remains evidence for the implementation tree at `34546d19...`; the new documentation head must receive fresh hosted acceptance before it can itself be used as an exact-head candidate.
+Notable final pre-live diagnostic run:
+
+- exact SHA `645aedb8364977ebb3b227b3af35e13ed440b0f5`
+- run `33564295158`
+- Durable state/context graph: PASS
+- TUI visual regression: PASS
+- Graphify enabled runtime: PASS
+- all four Python jobs shared one remaining failure in `test_eha_operator_uses_explicit_refit_axes`
+- root cause: the rewritten EHA operating guide retained semantic/delivery axes but lost the explicit positive-evidence rule for `SUPERSEDED`
+- repaired by restoring `SUPERSEDED` positive current coverage evidence and `RETIRED` explicit-current-authority semantics
+
+The final candidate is the literal head produced by this ledger update. It is not accepted until its own complete hosted matrix is green.
 
 ## 2. Status vocabulary
 
 Use only:
 
-- `CLOUD_VERIFIED` — implementation behavior is covered by repository/hosted checks that passed on the recorded exact head.
-- `IMPLEMENTED_UNVERIFIED` — implementation exists but its required acceptance proof is incomplete.
-- `PARTIAL` — accepted RC6 contract is only partly implemented.
-- `BLOCKED` — work cannot advance to the next authority boundary.
-- `LIVE_PENDING` — all required cloud-testable proof is complete and only live-host evidence remains.
-- `LIVE_VERIFIED` — required live-host proof completed.
+- `CLOUD_VERIFIED` — required repository/hosted behavior has passed applicable tests on recorded exact evidence.
+- `IMPLEMENTED_PENDING_FINAL_HEAD` — implementation/contract is present, but final literal candidate acceptance has not completed.
+- `CLOUD_TESTABILITY_REMAINING` — at least one mandatory repository/hosted gate remains unclosed.
+- `LIVE_PENDING` — final cloud boundary is closed and only live-host acceptance remains.
+- `LIVE_VERIFIED` — required live-host dogfood passed.
 - `DEFERRED` — explicitly outside RC6.
 
 ## 3. Executive state
 
-| Slice | State | Exact evidence / blocker |
+| Slice | State | Evidence / remaining boundary |
 | --- | --- | --- |
-| RC6-A deterministic EHA authority | `CLOUD_VERIFIED` | behavioral EHA tests and hosted Python matrix PASS on `34546d19...` |
-| RC6-B brownfield contract bootstrap | `CLOUD_VERIFIED` core | durable bootstrap state passes; distribution parity still belongs to Wave 6 |
-| RC6-C Development Authority Map | `CLOUD_VERIFIED` core | durable authority state + deterministic fixtures PASS |
-| RC6-D continuation packet / scope guard | `CLOUD_VERIFIED` core | deterministic change-surface derivation, packet projections, scope guard and fixtures PASS |
-| RC6-E Native Gate Map / cloud boundary | `CLOUD_VERIFIED` core | durable gate state and continuation smoke PASS |
-| RC6-F ExternalEvidenceManifestV1 | `CLOUD_VERIFIED` core | durable external-evidence smoke PASS |
-| Wave 6 distribution/docs parity | `PARTIAL` | new RC6 surfaces are not yet required by installed/source smoke contracts; normative docs remain incomplete |
-| Wave 7 live dogfood / EHA | `BLOCKED` | forbidden until Wave 6 is closed and the resulting exact head is hosted-green |
+| RC6-0 defect closure | `IMPLEMENTED_PENDING_FINAL_HEAD` | all identified defects closed; final exact-head hosted matrix pending |
+| RC6-A deterministic EHA authority | `IMPLEMENTED_PENDING_FINAL_HEAD` | trusted prestart/controller/core behavior covered; final matrix pending |
+| RC6-B brownfield contract bootstrap | `IMPLEMENTED_PENDING_FINAL_HEAD` | exact blob-bound bootstrap + human adjudication + generic registry core |
+| RC6-C Development Authority Map | `IMPLEMENTED_PENDING_FINAL_HEAD` | typed authority state + separate deterministic fixtures |
+| RC6-D continuation packet / scope guard | `IMPLEMENTED_PENDING_FINAL_HEAD` | deterministic change surface + nativeGates/authorityEvidence projections + guard |
+| RC6-E Native Gate Map / cloud boundary | `IMPLEMENTED_PENDING_FINAL_HEAD` | cloud/live/operator gate classes and handoff state implemented |
+| RC6-F ExternalEvidenceManifestV1 | `IMPLEMENTED_PENDING_FINAL_HEAD` | exact-SHA/freshness/secret-safe append-only live evidence boundary |
+| Wave 6 distribution/docs | `IMPLEMENTED_PENDING_FINAL_HEAD` | source/install smoke parity, catalog exposure, normative docs, fixtures closed |
+| Wave 7 hosted exact-head gate | `CLOUD_TESTABILITY_REMAINING` | one fresh 7/7 required on this final tracked head |
+| Live dogfood | `BLOCKED UNTIL FINAL 7/7` | runbook prepared; PII Parser + Aleph Rugent remain read-only live acceptance |
 
-## 4. Closed context-loss items
+## 4. Context-loss register
 
-The following previously missing requirements are now implemented and passed inside the hosted acceptance tree at `34546d19...`.
+All implementation omissions previously discovered during RC6 context-loss review are now closed in the tracked tree.
 
-### CL-001 — prose/source-layout EHA tests
+| ID | Requirement | Disposition |
+| --- | --- | --- |
+| CL-001 | replace prose/source-layout EHA behavior assertions | closed |
+| CL-002 | source/install smoke parity for RC6 surfaces | closed |
+| CL-003 | catalog/command exposure parity | closed |
+| CL-004 | separate layered TODO/worklog Fixture A | closed |
+| CL-005 | separate waypoint/session Fixture B | closed |
+| CL-006 | deterministic pre-registry change-surface derivation | closed |
+| CL-007 | bounded `nativeGates` continuation projection | closed |
+| CL-008 | bounded `authorityEvidence` continuation projection | closed |
+| CL-009 | normative RC6 authority/continuation/gate/evidence docs | closed for live-readiness contract |
+| CL-010 | feature-plan accepted/frozen status metadata | closed |
+| CL-011 | PR body reflects RC6-A through RC6-F and handoff boundary | GitHub metadata update; no Git identity effect |
+| CL-012 | final context-loss audit against frozen feature plan | closed by `RC6-CONTEXT-LOSS-AUDIT.md` |
 
-State: `CLOUD_VERIFIED`.
+No additional cloud-testable implementation omission was found in the final pre-live audit.
 
-The three stale source-string assertions that failed run `33547907918` were replaced by behavioral/import-level coverage. Python 3.10 and 3.12 pass on Ubuntu and Windows.
+## 5. Distribution and product-surface closure
 
-### CL-004 — layered TODO/worklog fixture
+Canonical root `smoke.py` and installed `pack/.opencode/bin/review-pack-smoke.py` now require the same RC6 surface family.
 
-State: `CLOUD_VERIFIED`.
+Required commands include:
 
-Fixture root: `tests/fixtures/rc6/layered-todo/`.
+- `repo-contract-bootstrap`
+- `repo-contract-adjudicate`
+- `repo-continue`
 
-It models one planning SSOT, superseded roadmap, current-state evidence, archived shipped work, stop-gate and mixed repo/live acceptance.
+Required Playbooks include:
 
-### CL-005 — waypoint/session-packet fixture
+- `repository-contract-bootstrap`
+- `repository-development-continuation`
 
-State: `CLOUD_VERIFIED`.
+Required Skills include:
 
-Fixture root: `tests/fixtures/rc6/waypoint-session/`.
+- `contract-archaeology`
+- `development-authority-discovery`
 
-It models Orientation -> Waypoint -> session packet -> predecessor handoff -> ADR/native gates plus an adjacent track.
+Required bounded tools include:
 
-### CL-006 — deterministic pre-registry change surface
+- `contract_bootstrap_state`
+- `development_authority_state`
+- `change_surface_state`
+- `development_continuation_state`
+- `native_gate_state`
+- `external_evidence_state`
 
-State: `CLOUD_VERIFIED`.
+Clean-install/managed-file and catalog tests cover the same distributed capability set. RC6 did not introduce a separate UI family or execution runtime.
 
-`change_surface_state` derives bounded tracked surfaces from repository-native evidence and binds entries to exact Git blobs rather than accepting an arbitrary LLM-supplied string list as authority.
+## 6. Normative contract closure
 
-### CL-007 / CL-008 — continuation packet projections
+Current RC6 live-readiness authority is distributed across:
 
-State: `CLOUD_VERIFIED`.
+- `docs/DEVELOPMENT-CONTINUATION-CONTRACT.md`
+- `docs/GITHUB-EHA-BRIDGE.md`
+- `docs/EHA-OPERATING-PLAYBOOK.md`
+- `docs/RC6-FEATURE-PLAN.md`
+- `docs/RC6-SCOPE-ACCEPTANCE.md`
+- `docs/RC6-CONTEXT-LOSS-AUDIT.md`
+- `docs/RC6-LIVE-DOGFOOD-RUNBOOK.md`
 
-`development_continuation_state` now resolves bounded semantic projections for native gates and authority evidence instead of exposing only opaque IDs.
+The Development Continuation contract covers authority mapping, continuation packet semantics, pre-registry change surface, scope guard, Native Gate Map/cloud-live boundary, ExternalEvidenceManifestV1 and brownfield lifecycle.
 
-## 5. Open cloud-testable work
+The EHA documents cover deterministic trusted prestart and the separate ordinary `model_started` compatibility path.
 
-These items remain mandatory before any Work/Cursor/OpenCode live-host handoff.
+A broader root README/i18n command-table refresh may be performed before numbered release publication. It is not an authority dependency for live dogfood. Any later tracked documentation change necessarily creates a new candidate SHA and must receive fresh hosted acceptance before release promotion.
 
-### CL-002 — source/install smoke parity
+## 7. Current handoff decision
 
-State: `PARTIAL`.
+Current decision is still:
 
-Current evidence: root `smoke.py` still does not require the RC6 surfaces below. Therefore canonical hosted acceptance can be green while an installed pack silently omits them.
+```text
+CLOUD_TESTABILITY_REMAINING
+```
 
-Required installed surfaces:
+There is exactly one remaining cloud gate: **complete canonical hosted acceptance on the literal final tracked head created by this update**.
 
-- commands: `repo-contract-bootstrap`, `repo-contract-adjudicate`, `repo-continue`
-- playbooks: `repository-contract-bootstrap`, `repository-development-continuation`
-- skills: `contract-archaeology`, `development-authority-discovery`
-- tools: `contract_bootstrap_state`, `development_authority_state`, `change_surface_state`, `development_continuation_state`, `native_gate_state`, `external_evidence_state`
+Transition is legal only as:
 
-Done condition: source smoke, installed `review-pack-smoke.py`, install/update lifecycle inventory and parity tests all require the same RC6 surface set.
+```text
+final tracked RC6 pre-live head
+-> hosted acceptance 7/7 on that exact SHA
+-> no subsequent tracked edits
+-> LIVE_HANDOFF_READY
+-> read-only PII Parser dogfood
+-> read-only Aleph Rugent dogfood
+-> LIVE_VERIFIED when both satisfy RC6 criteria
+-> select exact release-stream candidate
+-> fresh hosted acceptance + fresh EHA SIB0/SIB1/SIB2
+```
 
-### CL-003 — catalog/command exposure parity
+A green ancestor, tree similarity or partial final matrix does not satisfy this gate.
 
-State: `PARTIAL`.
+## 8. Live dogfood acceptance
 
-New Playbooks/commands must be discoverable through the normal catalog/control surface without introducing a separate RC6 UI family.
+After `LIVE_HANDOFF_READY`, follow `docs/RC6-LIVE-DOGFOOD-RUNBOOK.md`.
 
-### CL-009 — normative RC6 docs
+PII Parser must demonstrate evidence-bound selection of current planning authority, exclusion of superseded roadmaps, next critical-path scope and separation of cloud/live proof without source edits.
 
-State: `PARTIAL`.
+Aleph Rugent must demonstrate Orientation/session/handoff/Waypoint/gate authority reconstruction, active-scope selection, predecessor/required-reading preservation, adjacent-track rejection and registryless brownfield handling without source edits.
 
-Still required as stable operator/product contracts:
+No repository-specific CodeSleuth adapter may be added to make either dogfood pass.
 
-- Development Authority Map
-- Development Continuation Packet and scope guard
-- pre-registry change-surface derivation
-- Native Gate Map and cloud/live boundary
-- ExternalEvidenceManifestV1
-- brownfield generic registry/adjudication lifecycle
-- trusted EHA prestart architecture
-
-### CL-010 — feature-plan status metadata
-
-State: `PARTIAL`.
-
-`docs/RC6-FEATURE-PLAN.md` still contains the historical header `PROPOSED FOR SCOPE ACCEPTANCE`. Authority is nevertheless unambiguous because `docs/RC6-SCOPE-ACCEPTANCE.md` records acceptance. Correct the stale header during the normative-doc pass; do not treat it as reopening scope.
-
-### CL-011 — PR metadata
-
-State: `PARTIAL`.
-
-PR #111 description still describes only RC6-A/RC6-B. It must summarize RC6-A through RC6-F and the current cloud/live boundary.
-
-## 6. Current handoff decision
-
-Current decision: **CLOUD_TESTABILITY_REMAINING**.
-
-Reason: the implementation core is hosted-green, but RC6-specific distribution/catalog/doc contracts are still repository-testable and have not all been closed. A 7/7 result from the existing matrix is necessary evidence, not permission to skip missing acceptance coverage.
-
-`LIVE_HANDOFF_READY` is allowed only after:
-
-1. CL-002, CL-003 and CL-009 are closed;
-2. CL-010 and CL-011 metadata drift are repaired;
-3. the resulting exact head passes the full hosted acceptance matrix;
-4. no required repository/hosted RC6 gate remains unexecuted.
-
-## 7. Next execution queue
-
-Execute in this order:
-
-1. wire RC6 commands/playbooks/skills/tools into root and installed smoke contracts;
-2. update managed-file/install/update parity tests;
-3. prove catalog exposure for `/repo-contract-bootstrap`, `/repo-contract-adjudicate`, `/repo-continue`;
-4. write normative RC6 authority/continuation/gate/evidence contracts;
-5. correct `RC6-FEATURE-PLAN.md` status metadata and PR #111 body;
-6. run full exact-head hosted acceptance;
-7. re-run final context-loss audit against `RC6-FEATURE-PLAN.md`;
-8. only then move to read-only live dogfood on PII Parser and Aleph Rugent;
-9. finally run fresh RC6 EHA on one release-stream exact SHA.
-
-## 8. Active and archived RC6 documents
+## 9. Active and archived RC6 documents
 
 Active authority/current-state documents:
 
-- `docs/RC6-FEATURE-PLAN.md` — accepted feature-scope authority
-- `docs/RC6-SCOPE-ACCEPTANCE.md` — acceptance record
-- `docs/RC6-IMPLEMENTATION-LEDGER.md` — current implementation status and queue
+- `docs/RC6-FEATURE-PLAN.md`
+- `docs/RC6-SCOPE-ACCEPTANCE.md`
+- `docs/RC6-IMPLEMENTATION-LEDGER.md`
+- `docs/RC6-CONTEXT-LOSS-AUDIT.md`
+- `docs/RC6-LIVE-DOGFOOD-RUNBOOK.md`
 
-Archived planning/evidence inputs:
+Archived historical inputs:
 
 - `docs/archive/rc6/RC6-CURRENT-DEFECT-FIX-PLAN.md`
 - `docs/archive/rc6/RC6-EXTERNAL-DEVELOPMENT-GAP-AUDIT.md`
 
-The archived files remain evidence for why RC6 was designed as it was, but they no longer control implementation order or current status.
+The archive explains why RC6 exists; it does not control current execution.
