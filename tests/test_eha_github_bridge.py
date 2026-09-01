@@ -5,6 +5,8 @@ import json
 import os
 from pathlib import Path
 from fnmatch import fnmatchcase
+import sys
+import time
 
 import pytest
 
@@ -172,7 +174,13 @@ def test_headless_opencode_permission_is_fail_closed_for_repository_writes(
     monkeypatch.setenv("GITHUB_RUN_ID", "rc5b-regression")
     monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
     scratch = bridge.prepare_scratch_dir(repo, persist)
-    environment = bridge.opencode_environment(repo, scratch)
+    target = "a" * 40
+    environment = bridge.opencode_environment(
+        repo,
+        scratch,
+        release_branch="dev/release-0.4.0",
+        expected_sha=target,
+    )
     permissions = json.loads(environment["OPENCODE_PERMISSION"])
 
     assert permissions["edit"]["*"] == "deny"
@@ -180,7 +188,9 @@ def test_headless_opencode_permission_is_fail_closed_for_repository_writes(
     assert permissions["bash"]["*"] == "deny"
     assert permissions["bash"]["git status*"] == "allow"
     assert permissions["bash"]["python -m pytest*"] == "allow"
+    assert permissions["bash"]["python scripts/eha_candidate_status.py*"] == "allow"
     assert permissions["bash"]["*Out-File*"] == "deny"
+    assert permissions["bash"]["*Get-ChildItem*-Recurse*"] == "deny"
     assert permissions["bash"]["*>*"] == "deny"
     assert "python3 -c*" not in permissions["bash"]
 
@@ -201,9 +211,183 @@ def test_headless_opencode_permission_is_fail_closed_for_repository_writes(
     assert not scratch.is_relative_to(repo)
     for key in ("CODESLEUTH_EHA_SCRATCH_DIR", "TEMP", "TMP", "TMPDIR"):
         assert environment[key] == str(scratch)
+    assert environment["CODESLEUTH_EHA_PREVERIFIED"] == "1"
+    assert environment["CODESLEUTH_EHA_RELEASE_BRANCH"] == "dev/release-0.4.0"
+    assert environment["CODESLEUTH_EHA_EXPECTED_SHA"] == target
 
     with pytest.raises(bridge.BridgeError, match="refusing to reuse"):
         bridge.prepare_scratch_dir(repo, persist)
+
+
+def test_bridge_requires_an_explicit_provider_model() -> None:
+    bridge = load_bridge()
+
+    assert bridge.validate_model("opencode/nemotron-3.5-lightning-free") == (
+        "opencode/nemotron-3.5-lightning-free"
+    )
+    with pytest.raises(bridge.BridgeError, match="explicit host-qualified model"):
+        bridge.validate_model(None)
+    with pytest.raises(bridge.BridgeError, match="provider/model"):
+        bridge.validate_model("ambient-default")
+
+
+def test_root_watchdog_stops_a_provider_before_first_response(tmp_path: Path) -> None:
+    bridge = load_bridge()
+    transcript = tmp_path / "bridge.log"
+    state = tmp_path / "state"
+    state.mkdir()
+    started = bridge.datetime.now(bridge.timezone.utc)
+    before = time.monotonic()
+
+    result = bridge.run_monitored_process(
+        [sys.executable, "-c", "import time; time.sleep(30)"],
+        cwd=tmp_path,
+        env=os.environ.copy(),
+        transcript_path=transcript,
+        state_dir=state,
+        expected_sha="b" * 40,
+        started_at=started,
+        watchdog=bridge.WatchdogConfig(
+            first_response_seconds=0.15,
+            campaign_start_seconds=2,
+            idle_seconds=2,
+            poll_seconds=0.02,
+        ),
+    )
+
+    returncode, reason, first_response, campaign, _, stalled_at = result
+    assert time.monotonic() - before < 5
+    assert returncode != 0
+    assert reason == "FIRST_RESPONSE_TIMEOUT"
+    assert first_response is False
+    assert campaign is False
+    assert stalled_at is not None
+
+
+def test_root_watchdog_stops_a_responsive_session_without_campaign(tmp_path: Path) -> None:
+    bridge = load_bridge()
+    transcript = tmp_path / "bridge.log"
+    state = tmp_path / "state"
+    state.mkdir()
+
+    result = bridge.run_monitored_process(
+        [sys.executable, "-c", "print('{}', flush=True); import time; time.sleep(30)"],
+        cwd=tmp_path,
+        env=os.environ.copy(),
+        transcript_path=transcript,
+        state_dir=state,
+        expected_sha="c" * 40,
+        started_at=bridge.datetime.now(bridge.timezone.utc),
+        watchdog=bridge.WatchdogConfig(
+            first_response_seconds=1,
+            campaign_start_seconds=0.2,
+            idle_seconds=2,
+            poll_seconds=0.02,
+        ),
+    )
+
+    returncode, reason, first_response, campaign, _, _ = result
+    assert returncode != 0
+    assert reason == "CAMPAIGN_START_TIMEOUT"
+    assert first_response is True
+    assert campaign is False
+
+
+def test_root_watchdog_preserves_a_started_campaign_as_incomplete_evidence(
+    tmp_path: Path,
+) -> None:
+    bridge = load_bridge()
+    transcript = tmp_path / "bridge.log"
+    state = tmp_path / "state"
+    review = state / "reviews" / "review-watchdog"
+    review.mkdir(parents=True)
+    target = "d" * 40
+    recorded = bridge.datetime.now(bridge.timezone.utc).isoformat()
+    event = json.dumps(
+        {
+            "type": "campaign_started",
+            "campaignId": "EHA-watchdog",
+            "targetSha": target,
+            "recordedAt": recorded,
+        }
+    )
+    child = (
+        "from pathlib import Path; import time; "
+        f"Path({str(review / 'eha.ndjson')!r}).write_text({(event + chr(10))!r}, encoding='utf-8'); "
+        "print('{}', flush=True); time.sleep(30)"
+    )
+    started = bridge.datetime.fromisoformat(recorded) - bridge.timedelta(seconds=1)
+
+    result = bridge.run_monitored_process(
+        [sys.executable, "-c", child],
+        cwd=tmp_path,
+        env=os.environ.copy(),
+        transcript_path=transcript,
+        state_dir=state,
+        expected_sha=target,
+        started_at=started,
+        watchdog=bridge.WatchdogConfig(
+            first_response_seconds=1,
+            campaign_start_seconds=1,
+            idle_seconds=0.2,
+            poll_seconds=0.02,
+        ),
+    )
+
+    returncode, reason, first_response, campaign, _, _ = result
+    assert returncode != 0
+    assert reason == "NO_PROGRESS_TIMEOUT"
+    assert first_response is True
+    assert campaign is True
+    found = bridge.latest_new_campaign(state, target, started)
+    assert found is not None
+    assert bridge.verdict_summary(found[1], found[2]) == {
+        "SIB0": "PENDING",
+        "SIB1": "PENDING",
+        "SIB2": "PENDING",
+    }
+
+
+def test_bridge_status_records_transport_error_without_inventing_eha_verdict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bridge = load_bridge()
+    persist = tmp_path / "persist"
+    transcript = persist / "bridge-logs" / "run-attempt-1.log"
+    transcript.parent.mkdir(parents=True)
+    transcript.write_text("", encoding="utf-8")
+    monkeypatch.setenv("GITHUB_RUN_ID", "run")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    now = bridge.datetime.now(bridge.timezone.utc)
+
+    path = bridge.write_bridge_status(
+        persist,
+        review_id=None,
+        campaign_id=None,
+        release_branch="dev/release-0.4.0",
+        target_sha="e" * 40,
+        verdicts={"SIB0": "PENDING", "SIB1": "PENDING", "SIB2": "PENDING"},
+        outcome="NOT_RUN",
+        transport_outcome="ERROR",
+        reason="FIRST_RESPONSE_TIMEOUT",
+        model="opencode/nemotron-3.5-lightning-free",
+        opencode_version="1.18.25",
+        opencode_returncode=1,
+        transcript_path=transcript,
+        first_response_observed=False,
+        campaign_observed=False,
+        started_at=now,
+        last_activity_at=now,
+        stalled_at=now,
+    )
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["schemaVersion"] == 2
+    assert payload["outcome"] == "NOT_RUN"
+    assert payload["transportOutcome"] == "ERROR"
+    assert payload["reason"] == "FIRST_RESPONSE_TIMEOUT"
+    assert payload["campaignId"] is None
+    assert set(payload["verdicts"].values()) == {"PENDING"}
 
 
 def test_workflow_is_a_delegating_owner_gated_self_hosted_bridge() -> None:
@@ -219,6 +403,8 @@ def test_workflow_is_a_delegating_owner_gated_self_hosted_bridge() -> None:
     assert "permissions:\n  contents: read" in text
     assert "persist-credentials: false" in text
     assert "scripts/eha_github_bridge.py" in text
+    assert "CODESLEUTH_EHA_MODEL: ${{ vars.CODESLEUTH_EHA_MODEL }}" in text
+    assert '--model "$CODESLEUTH_EHA_MODEL"' in text
 
     assert '"run", "--command", "eha-test", "--format", "json"' in script
     assert "OPENCODE_CONFIG_DIR" in script
@@ -232,6 +418,9 @@ def test_workflow_is_a_delegating_owner_gated_self_hosted_bridge() -> None:
     assert "state/reviews/<reviewId>/eha.ndjson" in script
     assert "stdout=transcript" in script
     assert "stderr=subprocess.STDOUT" in script
+    assert "FIRST_RESPONSE_TIMEOUT" in script
+    assert "CAMPAIGN_START_TIMEOUT" in script
+    assert "NO_PROGRESS_TIMEOUT" in script
     assert "PRIVATE EHA TRANSCRIPT AND BRIDGE STATUS RECORDED ON TRUSTED HOST" in script
 
 

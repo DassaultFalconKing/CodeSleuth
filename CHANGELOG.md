@@ -2,6 +2,26 @@
 
 Numbered CodeSleuth releases are recorded here. Published release identity is the promoted exact `main` commit plus the immutable `vX.Y.Z` tag; the source version authority is the root `VERSION` file.
 
+## [0.4.0-Rc5c] - 2026-09-01
+
+Exact-head replacement candidate for Rc5b after two canonical EHA transports remained alive without producing a durable campaign.
+
+### Repairs
+
+- requires one explicit host-qualified `provider/model` selection and verifies that the trusted OpenCode host exposes it before starting EHA;
+- adds bridge-owned root-process watchdogs for first response, durable campaign start, and transcript/ledger inactivity instead of relying on the three-hour workflow timeout;
+- terminates only the OpenCode process group created by the bridge, preserves any durable ledger, and records the transport reason without turning an adapter stall into an EHA verdict;
+- gives bridged Step 1 a bounded exact-candidate helper so the agent does not recursively enumerate the persistence root or rediscover already-frozen refs;
+- records schema-version-2 bridge status with explicit model, transport outcome, stall reason, campaign/response observations, and activity timestamps;
+- adds deterministic process-level regressions for pre-token, pre-campaign, and post-campaign stalls plus real disposable-Git coverage for the bounded candidate helper.
+
+### Rc5b EHA evidence boundary
+
+- exact Rc5b target `2802e65dfb618ba410179ab5ee5c37bca4119aa5` passed ordinary hosted acceptance;
+- its first EHA transport stalled before the first model response, and its retry produced preparatory activity but never created a durable EHA campaign before the outer job timeout;
+- Rc5b therefore has no transferable canonical SIB0/SIB1/SIB2 verdict; the observed state is bridge transport failure with EHA `NOT_RUN`, not EHA `FAIL`;
+- Rc5c is a new exact source identity and requires fresh hosted acceptance plus a new canonical EHA campaign. It does not move `SIB`, create a tag, or publish a GitHub Release.
+
 ## [0.4.0-Rc5b] - 2026-08-31
 
 Exact-head replacement candidate for Rc5a after the canonical EHA agent left a repository-local scratch file and the bridge correctly rejected the dirty postcondition.

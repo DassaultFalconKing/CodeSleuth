@@ -60,6 +60,13 @@ scripts/eha_github_bridge.py
         |       +--> TEMP / TMP / TMPDIR=<external scratch>
         |       +--> CODESLEUTH_EHA_SCRATCH_DIR=<external scratch>
         |
+        +--> root-session watchdog
+        |       |
+        |       +--> first response deadline
+        |       +--> durable campaign-start deadline
+        |       +--> transcript/ledger no-progress deadline
+        |       +--> scoped OpenCode process-tree termination
+        |
         +--> opencode-review run --command eha-test
                 |
                 v
@@ -113,7 +120,7 @@ The trusted EHA runner must provide:
 5. filesystem access to a persistent local directory outside the checkout;
 6. the `codesleuth-eha` self-hosted runner label.
 
-Provider credentials belong to the trusted OpenCode host. The repository workflow does not hard-code a provider and does not turn CodeSleuth into a model runtime. Set `CODESLEUTH_EHA_MODEL` on the runner when an explicit OpenCode model is required; otherwise OpenCode uses its normal configured model selection.
+Provider credentials belong to the trusted OpenCode host. The repository workflow does not turn CodeSleuth into a model runtime, but canonical EHA no longer accepts an ambient/default model selection. Set the repository variable `CODESLEUTH_EHA_MODEL` to one host-qualified explicit `provider/model` id. The workflow verifies that OpenCode exposes that exact id and the bridge records it. A missing or malformed model fails before OpenCode starts.
 
 The bridge records the OpenCode version in its derived bridge-run metadata. OpenCode automatic updates are disabled during the campaign so the executable is not replaced in the middle of acceptance.
 
@@ -183,6 +190,8 @@ Therefore the existing `review_state` and `eha_state` tools continue to use thei
 ```
 
 That record contains target identity, campaign/review IDs, SIB verdict labels, OpenCode version, adapter outcome, and a relative pointer to the private transcript record. It intentionally does not duplicate finding excerpts or EHA evidence payloads.
+
+Schema version 2 also records the explicit model, transport outcome/reason, whether a first response and campaign were observed, and the last-activity/stall timestamps. `outcome: NOT_RUN` means no durable campaign was created; it is never an EHA FAIL or PASS.
 
 ## Immutable config versus writable OpenCode bootstrap
 
@@ -294,6 +303,8 @@ Commands and tools that honor conventional temporary-directory variables receive
 
 The bridge exports that path through `CODESLEUTH_EHA_SCRATCH_DIR`, `TEMP`, `TMP`, and `TMPDIR`. Reuse is refused. The strict post-EHA worktree-cleanliness check remains unchanged and still fails closed if tracked or untracked repository state changes outside the explicitly bound evidence/report paths.
 
+For a bridge invocation, Step 1 uses only `python scripts/eha_candidate_status.py`. The bounded helper re-verifies detached HEAD, the already-fetched `refs/remotes/origin/dev/release-X.Y.Z`, and cleanliness, then emits one `candidate_identity` JSON value. The agent must not rediscover local convenience branches or recursively enumerate host persistence.
+
 Only `.codesleuth/reports/**` is granted through OpenCode's edit permission override. The persistent state itself is written by the existing bounded CodeSleuth tools.
 
 ## Rc5a negative witness
@@ -308,16 +319,39 @@ That created `?? temp.txt` in the exact candidate checkout. It was tester scratc
 
 Rc5b does not hide or clean that residue after the fact. It prevents the observed path through the fail-closed shell allowlist, supplies an explicit external scratch directory, and retains the cleanliness oracle. Rc5a remains an immutable failed bridge campaign; Rc5b requires a new exact SHA and new acceptance evidence.
 
+## Rc5b provider-stall witness and root watchdog
+
+Rc5b exact target `2802e65dfb618ba410179ab5ee5c37bca4119aa5` passed ordinary hosted acceptance, but its EHA transport never created a durable campaign. The first attempt stalled before the first model token. The retry made preparatory tool calls, then its root OpenCode provider stream stopped producing transcript or ledger activity and remained alive until the three-hour GitHub job timeout.
+
+OpenCode keepalive remains useful telemetry and may recover stalled child sessions. It is not the root EHA process authority: child recovery cannot reliably abort a stalled root provider stream, and a stale `tool.running` observation must not extend canonical EHA indefinitely.
+
+The bridge therefore owns independent root-session fuses with these defaults:
+
+```text
+first response: 120 seconds
+campaign start: 300 seconds
+no transcript/ledger progress: 480 seconds
+```
+
+On expiry the bridge terminates only the process group it created, preserves any ledger, re-checks checkout cleanliness, and writes a derived bridge record with `transportOutcome: ERROR`. A pre-campaign stall is `outcome: NOT_RUN`; a post-campaign stall is `INCOMPLETE` unless an authoritative FAIL verdict already exists. The outer 180-minute workflow timeout remains a final containment boundary, not the normal stall detector.
+
 ## Workflow result versus EHA result
 
-The bridge derives a compact status from the **new campaign recorded after invocation**:
+The bridge derives two separate compact statuses. `outcome` comes only from the
+**new campaign recorded after invocation**:
 
 ```text
 PASS       SIB0 PASS + SIB1 PASS + SIB2 PASS, OpenCode exited cleanly
 FAIL       at least one canonical EHA verdict is FAIL
 INCOMPLETE one or more levels remain PENDING
-ERROR      identity, persistence, OpenCode, ledger, or cleanliness invariant failed
+NOT_RUN    no durable EHA campaign was created
 ```
+
+`transportOutcome` is `PASS` or `ERROR`; an adapter, provider, postcondition,
+or watchdog failure is recorded in its separate `reason` field. Thus
+`outcome: NOT_RUN` with `transportOutcome: ERROR` means the transport failed
+before EHA authority existed, while durable `outcome: PASS` can coexist with a
+later postcondition transport error.
 
 A GitHub job marked successful therefore means the delegated canonical campaign reached all three PASS verdicts on the exact SHA and the adapter itself completed cleanly.
 
