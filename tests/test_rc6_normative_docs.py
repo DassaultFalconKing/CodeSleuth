@@ -64,3 +64,17 @@ def test_eha_bridge_doc_describes_trusted_pre_provider_campaign_authority() -> N
     ):
         assert required in text, required
     assert "provider creates the campaign" not in text.lower()
+
+
+def test_eha_operating_playbook_distinguishes_trusted_prestart_from_local_start() -> None:
+    text = (DOCS / "EHA-OPERATING-PLAYBOOK.md").read_text(encoding="utf-8")
+    for required in (
+        "trusted pre-provider",
+        "campaign_started",
+        "campaign_completed",
+        "trusted_prestarted",
+        "model_started",
+    ):
+        assert required in text, required
+    assert "provider does not own campaign existence" in text.lower()
+    assert "transport outcome" in text.lower()
