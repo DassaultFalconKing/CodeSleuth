@@ -319,3 +319,119 @@ These are deliberately not decided by this planning seed:
 - retention/garbage-collection policy for superseded recovered generations.
 
 These questions require an RC7 design review before implementation.
+
+## 13. RC7-D — Projection parity and portable evidence modules
+
+RC7 should stop treating Markdown, NDJSON, Graphify and Mermaid as unrelated one-off output formats. They are different projections over evidence-bearing state and should share explicit parity contracts.
+
+The intended topology is:
+
+```text
+canonical domain state / append-only events
+        |
+        +--> NDJSON durable/event representation
+        +--> Markdown human-readable representation
+        +--> Graphify graph/context projection
+        +--> Mermaid deterministic visual projection
+```
+
+Parity does **not** mean every format has equal authority. It means every supported projection must preserve the domain fields, identities, provenance, bounds and lifecycle semantics required by its declared contract, and divergence must be detectable.
+
+### 13.1 Markdown ↔ NDJSON adapter
+
+RC7 should provide a configurable adapter layer based on mature Markdown AST tooling rather than implementing Markdown grammar itself. The preferred research direction is MDAST/remark (`remark-parse`/`remark-stringify`, `remark-gfm`, `remark-frontmatter`) plus a small CodeSleuth NDJSON envelope/validation layer.
+
+The adapter MUST be reusable outside CodeSleuth and customizable for arbitrary repositories/projects. CodeSleuth-specific field names, headings, ledger schemas or path conventions must not be hard-coded into the generic codec.
+
+A project adapter/profile must be able to declare at least:
+
+- input Markdown dialect/extensions;
+- frontmatter schema and preserved metadata;
+- heading/section-to-record mapping rules;
+- stable logical IDs and identity extraction;
+- record type discrimination;
+- required/optional fields;
+- ordering and ordinal rules;
+- project-specific schema version;
+- provenance/digest fields;
+- unknown-field/unknown-section behavior;
+- validation severity and fail-closed boundaries;
+- render policy back to Markdown;
+- semantic round-trip expectations and explicitly unsupported byte-perfect guarantees.
+
+The generic adapter must expose extension hooks rather than require forks for each project.
+
+### 13.2 Documentation requirement
+
+The portable adapter is not acceptable as an undocumented internal utility. It requires a full operator/developer contract covering:
+
+1. conceptual model and authority boundaries;
+2. adapter/profile schema reference;
+3. Markdown AST and NDJSON envelope examples;
+4. a minimal custom-project adapter walkthrough;
+5. a complex example with frontmatter, tables, nested lists and GFM constructs;
+6. identity/provenance rules;
+7. semantic round-trip vs byte-round-trip limitations;
+8. error/corruption handling;
+9. migration/versioning rules;
+10. testing a project adapter;
+11. security considerations for untrusted Markdown/JSON;
+12. integration with Graphify/Mermaid projections;
+13. recipes for using the module independently of CodeSleuth.
+
+A third-party project should be able to implement and validate its own mapping from this documentation without reading CodeSleuth internals.
+
+### 13.3 Cross-projection parity contract
+
+For a domain that opts into all four surfaces, RC7 should be able to test a canonical fixture through:
+
+```text
+NDJSON -> domain model -> Markdown
+                  |
+                  +-> Graphify
+                  +-> Mermaid
+```
+
+and, where Markdown import is enabled:
+
+```text
+Markdown -> AST -> domain records -> NDJSON
+```
+
+Tests must compare semantic identity/provenance/status fields, not raw textual formatting. Markdown normalization is allowed; loss of declared domain meaning is not.
+
+At minimum parity tests should detect:
+
+- missing record IDs;
+- dropped provenance/SHA/blob identity;
+- reordered events where order is semantic;
+- lifecycle/status disagreement;
+- graph nodes/edges that refer to absent records;
+- Mermaid rendering whose bounded selection disagrees with Graphify/domain selection;
+- Markdown that presents a status not derivable from the same canonical state;
+- NDJSON import that silently discards an unknown required field.
+
+### 13.4 Portable module architecture
+
+RC7 should investigate extracting the evidence machinery as composable modules/tooling that other projects can reuse without adopting the whole CodeSleuth product.
+
+Candidate reusable units include:
+
+- exact Git/source identity primitives;
+- append-only NDJSON ledger primitives;
+- atomic snapshot primitives;
+- ledger validation and repair primitives;
+- Markdown/MDAST ↔ domain-record adapters;
+- projection parity validators;
+- bounded graph projection primitives;
+- Mermaid projection/render contracts;
+- provenance/digest utilities;
+- fixture/adversarial-test harnesses.
+
+Project-specific behavior should arrive through schemas/profiles/adapters, while the generic mechanics remain shared. The goal is that a new evidence-heavy project configures domain vocabulary and mappings rather than rewriting storage, Markdown conversion, graphing, provenance, repair and parity infrastructure from scratch.
+
+This is a transliterable/portable tooling direction, not permission to merge all domain authorities into one generic schema. Reuse mechanics; preserve domain semantics.
+
+### 13.5 Scope restraint
+
+This section is a required RC7 design topic, not an instruction to retrofit RC6. The RC7 design must decide which modules become stable reusable APIs and which remain CodeSleuth-internal. External packaging, registry publication or a separate SDK is not automatically in scope until explicitly accepted.
