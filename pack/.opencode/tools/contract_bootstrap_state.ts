@@ -12,6 +12,7 @@ const REGISTRY_PATH = "docs/protected-capabilities.json"
 
 type TriangulationStatus = (typeof TRIANGULATION)[number]
 type Decision = (typeof DECISIONS)[number]
+type EvidenceRef = { path: string; blobHash: string }
 
 type BootstrapState = {
   schemaVersion: 1
@@ -34,12 +35,12 @@ type Candidate = {
   capabilityClass: string
   capabilityClassId: string
   triangulationStatus: TriangulationStatus
-  codeEvidence: string[]
-  docEvidence: string[]
-  testEvidence: string[]
+  codeEvidence: EvidenceRef[]
+  docEvidence: EvidenceRef[]
+  testEvidence: EvidenceRef[]
   affectedPaths: string[]
   dependsOn: string[]
-  forbiddenRegressions: Array<{ id: string; mustNot: string; proof: string[] }>
+  forbiddenRegressions: Array<{ id: string; mustNot: string; proof: EvidenceRef[] }>
   recordedAt: string
 }
 
@@ -165,19 +166,61 @@ function normalizeRepoPath(root: string, input: string): string {
   return relative
 }
 
-async function validateEvidencePaths(root: string, values: string[], label: string): Promise<string[]> {
-  const result = uniqueStrings(values, label).map((value) => normalizeRepoPath(root, value))
-  for (const relative of result) {
-    const tracked = await git(root, ["ls-files", "--error-unmatch", "--", relative], true)
-    if (tracked.code !== 0) throw new Error(`${label} path is not tracked: ${relative}`)
+async function requireCleanTrackedWorktree(root: string): Promise<void> {
+  const status = await git(root, ["status", "--porcelain=v1", "--untracked-files=no"])
+  if (status.stdout) {
+    throw new Error(`CONTRACT BOOTSTRAP INVALIDATED — TRACKED WORKTREE DIRTY:\n${status.stdout}`)
+  }
+}
+
+async function trackedBlob(root: string, relative: string, label: string): Promise<string> {
+  const tracked = await git(root, ["ls-files", "--error-unmatch", "--", relative], true)
+  if (tracked.code !== 0) throw new Error(`${label} path is not tracked: ${relative}`)
+  const blob = (await git(root, ["rev-parse", `HEAD:${relative}`], true)).stdout.toLowerCase()
+  if (!SHA_RE.test(blob)) throw new Error(`${label} path is not a regular tracked blob at exact HEAD: ${relative}`)
+  return blob
+}
+
+async function validateEvidencePaths(root: string, values: string[], label: string): Promise<EvidenceRef[]> {
+  const result: EvidenceRef[] = []
+  for (const relative of uniqueStrings(values, label).map((value) => normalizeRepoPath(root, value))) {
+    result.push({ path: relative, blobHash: await trackedBlob(root, relative, label) })
   }
   return result
+}
+
+async function verifyEvidenceRef(root: string, evidence: EvidenceRef, label: string): Promise<void> {
+  if (!evidence || typeof evidence.path !== "string" || !SHA_RE.test(evidence.blobHash)) {
+    throw new Error(`${label} contains invalid blob-bound evidence`)
+  }
+  const relative = normalizeRepoPath(root, evidence.path)
+  const current = await trackedBlob(root, relative, label)
+  if (current !== evidence.blobHash) {
+    throw new Error(`${label} blob changed for ${relative}: expected ${evidence.blobHash}, got ${current}`)
+  }
+}
+
+async function verifyCandidateEvidence(root: string, candidate: Candidate): Promise<void> {
+  if (candidate.targetSha !== await currentHead(root)) {
+    throw new Error(`candidate ${candidate.contractId} no longer matches exact HEAD`)
+  }
+  for (const evidence of candidate.codeEvidence) await verifyEvidenceRef(root, evidence, "code evidence")
+  for (const evidence of candidate.docEvidence) await verifyEvidenceRef(root, evidence, "doc evidence")
+  for (const evidence of candidate.testEvidence) await verifyEvidenceRef(root, evidence, "test evidence")
+  for (const item of candidate.forbiddenRegressions) {
+    for (const evidence of item.proof) await verifyEvidenceRef(root, evidence, `proof for ${item.id}`)
+  }
 }
 
 async function requireExactHead(root: string, targetSha: string): Promise<void> {
   if (!SHA_RE.test(targetSha)) throw new Error("target SHA must be a full lowercase Git SHA")
   const head = await currentHead(root)
   if (head !== targetSha) throw new Error(`CONTRACT BOOTSTRAP INVALIDATED — HEAD CHANGED: expected ${targetSha}, got ${head}`)
+}
+
+async function requireExactCleanTarget(root: string, targetSha: string): Promise<void> {
+  await requireExactHead(root, targetSha)
+  await requireCleanTrackedWorktree(root)
 }
 
 function latestDecisionFor(candidateId: string, all: DecisionEvent[]): DecisionEvent | undefined {
@@ -187,9 +230,7 @@ function latestDecisionFor(candidateId: string, all: DecisionEvent[]): DecisionE
 function adoptedStatus(candidate: Candidate, decision: DecisionEvent): "implemented" | "experimental" {
   if (decision.decision === "adopt" && candidate.triangulationStatus === "AGREE") return "implemented"
   if (decision.decision === "adopt_unproven" && candidate.triangulationStatus === "UNPROVEN") return "experimental"
-  throw new Error(
-    `${candidate.contractId} cannot be materialized: ${decision.decision} is incompatible with ${candidate.triangulationStatus}`,
-  )
+  throw new Error(`${candidate.contractId} cannot be materialized: ${decision.decision} is incompatible with ${candidate.triangulationStatus}`)
 }
 
 async function readRegistry(root: string): Promise<any | null> {
@@ -205,6 +246,19 @@ async function readRegistry(root: string): Promise<any | null> {
   return parsed
 }
 
+function evidencePaths(items: EvidenceRef[]): string[] {
+  return items.map((item) => item.path)
+}
+
+function evidenceBlobMap(candidate: Candidate) {
+  return {
+    code: candidate.codeEvidence,
+    docs: candidate.docEvidence,
+    tests: candidate.testEvidence,
+    forbidden_regression_proof: candidate.forbiddenRegressions.flatMap((item) => item.proof.map((proof) => ({ regression_id: item.id, ...proof }))),
+  }
+}
+
 function contractFromCandidate(candidate: Candidate, decision: DecisionEvent, targetSha: string) {
   return {
     id: candidate.contractId,
@@ -214,22 +268,23 @@ function contractFromCandidate(candidate: Candidate, decision: DecisionEvent, ta
     introduced: `brownfield-bootstrap:${targetSha.slice(0, 12)}`,
     protected_at: null,
     public_contract: [candidate.statement],
-    code_evidence: candidate.codeEvidence,
-    doc_evidence: candidate.docEvidence,
-    test_evidence: candidate.testEvidence,
+    code_evidence: evidencePaths(candidate.codeEvidence),
+    doc_evidence: evidencePaths(candidate.docEvidence),
+    test_evidence: evidencePaths(candidate.testEvidence),
     affected_paths: candidate.affectedPaths,
     depends_on: candidate.dependsOn,
     forbidden_regressions: candidate.forbiddenRegressions.map((item) => ({
       id: item.id,
-      sib_origin: "SIB1",
+      sib_origin: null,
       must_not: item.mustNot,
-      proof: item.proof,
+      proof: evidencePaths(item.proof),
     })),
     bootstrap_provenance: {
       candidate_id: candidate.candidateId,
       triangulation_status: candidate.triangulationStatus,
       decision_event_id: decision.eventId,
       exact_sha: targetSha,
+      evidence_blobs: evidenceBlobMap(candidate),
       note: "Brownfield adoption records observed/user-approved contract meaning; it does not confer SIB acceptance or PROTECTED status.",
     },
   }
@@ -245,7 +300,7 @@ export const start = tool({
     const root = context.worktree
     const head = await currentHead(root)
     const targetSha = (args.targetSha ?? head).trim().toLowerCase()
-    await requireExactHead(root, targetSha)
+    await requireExactCleanTarget(root, targetSha)
     const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)
     const bootstrapId = `CB-${stamp}-${targetSha.slice(0, 12)}-${randomUUID().slice(0, 8)}`
     await mkdir(baseDir(root), { recursive: true })
@@ -269,7 +324,7 @@ export const start = tool({
 })
 
 export const record_candidate = tool({
-  description: "Record one evidence-bound possible brownfield contract. Candidate status is not contract authority and never changes the tracked registry.",
+  description: "Record one exact-blob-bound possible brownfield contract. Candidate status is not contract authority and never changes the tracked registry.",
   args: {
     bootstrapId: tool.schema.string().optional(),
     contractId: tool.schema.string().min(1),
@@ -293,7 +348,7 @@ export const record_candidate = tool({
     const bootstrapId = await resolveBootstrapId(root, args.bootstrapId)
     const state = await loadState(root, bootstrapId)
     if (state.status === "materialized") throw new Error("bootstrap session is already materialized")
-    await requireExactHead(root, state.targetSha)
+    await requireExactCleanTarget(root, state.targetSha)
     const contractId = args.contractId.trim()
     if (!CONTRACT_ID_RE.test(contractId)) throw new Error("contract id contains unsupported characters")
     const all = await candidates(root, bootstrapId)
@@ -301,9 +356,7 @@ export const record_candidate = tool({
     const codeEvidence = await validateEvidencePaths(root, args.codeEvidence ?? [], "code evidence")
     const docEvidence = await validateEvidencePaths(root, args.docEvidence ?? [], "doc evidence")
     const testEvidence = await validateEvidencePaths(root, args.testEvidence ?? [], "test evidence")
-    if (codeEvidence.length + docEvidence.length + testEvidence.length === 0) {
-      throw new Error("candidate requires at least one exact tracked evidence path")
-    }
+    if (codeEvidence.length + docEvidence.length + testEvidence.length === 0) throw new Error("candidate requires at least one exact tracked evidence path")
     const affectedPaths = uniqueStrings(args.affectedPaths, "affected paths")
     const forbiddenRegressions = []
     const frIds = new Set<string>()
@@ -357,18 +410,13 @@ export const record_decision = tool({
     const bootstrapId = await resolveBootstrapId(root, args.bootstrapId)
     const state = await loadState(root, bootstrapId)
     if (state.status === "materialized") throw new Error("bootstrap session is already materialized")
-    await requireExactHead(root, state.targetSha)
+    await requireExactCleanTarget(root, state.targetSha)
     const candidate = (await candidates(root, bootstrapId)).find((item) => item.candidateId === args.candidateId)
     if (!candidate) throw new Error(`candidate not found: ${args.candidateId}`)
-    if (args.decision === "adopt" && candidate.triangulationStatus !== "AGREE") {
-      throw new Error(`adopt requires AGREE triangulation; ${candidate.contractId} is ${candidate.triangulationStatus}`)
-    }
-    if (args.decision === "adopt_unproven" && candidate.triangulationStatus !== "UNPROVEN") {
-      throw new Error(`adopt_unproven requires UNPROVEN triangulation; ${candidate.contractId} is ${candidate.triangulationStatus}`)
-    }
-    if (["CODE_AHEAD", "DOC_AHEAD", "TEST_AHEAD", "CONTRADICTED"].includes(candidate.triangulationStatus) && ["adopt", "adopt_unproven"].includes(args.decision)) {
-      throw new Error(`contract drift ${candidate.triangulationStatus} must be resolved before adoption`)
-    }
+    await verifyCandidateEvidence(root, candidate)
+    if (args.decision === "adopt" && candidate.triangulationStatus !== "AGREE") throw new Error(`adopt requires AGREE triangulation; ${candidate.contractId} is ${candidate.triangulationStatus}`)
+    if (args.decision === "adopt_unproven" && candidate.triangulationStatus !== "UNPROVEN") throw new Error(`adopt_unproven requires UNPROVEN triangulation; ${candidate.contractId} is ${candidate.triangulationStatus}`)
+    if (["CODE_AHEAD", "DOC_AHEAD", "TEST_AHEAD", "CONTRADICTED"].includes(candidate.triangulationStatus) && ["adopt", "adopt_unproven"].includes(args.decision)) throw new Error(`contract drift ${candidate.triangulationStatus} must be resolved before adoption`)
     const event: DecisionEvent = {
       schemaVersion: 1,
       type: "bootstrap_decision",
@@ -387,38 +435,36 @@ export const record_decision = tool({
 })
 
 export const load = tool({
-  description: "Load one durable brownfield contract-bootstrap session with candidate and latest user-decision state.",
+  description: "Load and revalidate one durable brownfield contract-bootstrap session with candidate and latest user-decision state.",
   args: { bootstrapId: tool.schema.string().optional() },
   async execute(args, context) {
     const root = context.worktree
     const bootstrapId = await resolveBootstrapId(root, args.bootstrapId)
     const state = await loadState(root, bootstrapId)
-    await requireExactHead(root, state.targetSha)
+    await requireExactCleanTarget(root, state.targetSha)
     const allCandidates = await candidates(root, bootstrapId)
+    for (const candidate of allCandidates) await verifyCandidateEvidence(root, candidate)
     const allDecisions = await decisions(root, bootstrapId)
     return JSON.stringify({
       ...state,
-      candidates: allCandidates.map((candidate) => ({
-        ...candidate,
-        latestDecision: latestDecisionFor(candidate.candidateId, allDecisions) ?? null,
-      })),
+      candidates: allCandidates.map((candidate) => ({ ...candidate, latestDecision: latestDecisionFor(candidate.candidateId, allDecisions) ?? null })),
       decisionCount: allDecisions.length,
+      evidenceIntegrity: "PASS",
     }, null, 2)
   },
 })
 
 export const materialize = tool({
   description: "Materialize only explicitly user-adopted brownfield candidates into the tracked Protected Capability Registry. Never confers SIB acceptance or PROTECTED status.",
-  args: {
-    bootstrapId: tool.schema.string().optional(),
-  },
+  args: { bootstrapId: tool.schema.string().optional() },
   async execute(args, context) {
     const root = context.worktree
     const bootstrapId = await resolveBootstrapId(root, args.bootstrapId)
     const state = await loadState(root, bootstrapId)
     if (state.status === "materialized") throw new Error("bootstrap session is already materialized")
-    await requireExactHead(root, state.targetSha)
+    await requireExactCleanTarget(root, state.targetSha)
     const allCandidates = await candidates(root, bootstrapId)
+    for (const candidate of allCandidates) await verifyCandidateEvidence(root, candidate)
     const allDecisions = await decisions(root, bootstrapId)
     const adopted = allCandidates.flatMap((candidate) => {
       const decision = latestDecisionFor(candidate.candidateId, allDecisions)
@@ -444,7 +490,13 @@ export const materialize = tool({
     const registry = existing ?? {
       schema_version: 1,
       registry: "codesleuth-protected-capabilities",
-      authority: "user-approved brownfield contract bootstrap",
+      profile: "generic",
+      authority: "target-local user-approved brownfield contract bootstrap",
+      target_authority: {
+        kind: "brownfield-bootstrap",
+        bootstrap_id: bootstrapId,
+        exact_sha: state.targetSha,
+      },
       bootstrap_note: "Discovered behavior becomes a tracked contract only after explicit user adjudication. Brownfield bootstrap never grants SIB acceptance or PROTECTED status.",
       status_values: ["experimental", "implemented", "sib1_accepted", "sib2_integrated", "protected", "deprecated", "removed"],
       capability_classes: [],
@@ -469,7 +521,8 @@ export const materialize = tool({
       targetSha: state.targetSha,
       registryPath: REGISTRY_PATH,
       adoptedContracts: newContracts.map((item: any) => ({ id: item.id, status: item.status })),
-      reminder: "Materialization records user-approved brownfield contracts only; it does not confer SIB1/SIB2 acceptance or PROTECTED status.",
+      worktreeIdentity: "NEW_UNCOMMITTED_CANDIDATE",
+      reminder: "Materialization records user-approved brownfield contracts only; it does not confer SIB1/SIB2 acceptance or PROTECTED status. Commit the tracked registry change before treating it as a new exact target.",
     }, null, 2)
   },
 })
