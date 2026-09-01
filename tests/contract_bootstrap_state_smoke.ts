@@ -52,6 +52,18 @@ async function main() {
       proof: ["tests/test_update.py"],
     }],
   }, context))
+  assert(agreed.codeEvidence[0].path === "app.py", "candidate evidence must retain repository path")
+  assert(/^[0-9a-f]{40}$/.test(agreed.codeEvidence[0].blobHash), "candidate evidence must bind exact Git blob")
+
+  await writeFile(path.join(root, "app.py"), "def update():\n    return 'dirty-uncommitted'\n", "utf8")
+  let dirtyRejected = false
+  try {
+    await load.execute({ bootstrapId: session.bootstrapId }, context)
+  } catch (error) {
+    dirtyRejected = String(error).includes("TRACKED WORKTREE DIRTY")
+  }
+  assert(dirtyRejected, "tracked dirty bytes must invalidate brownfield evidence even when HEAD is unchanged")
+  await git(root, ["checkout", "--", "app.py"])
 
   const contradicted = JSON.parse(await record_candidate.execute({
     bootstrapId: session.bootstrapId,
@@ -97,18 +109,23 @@ async function main() {
 
   const before = JSON.parse(await load.execute({ bootstrapId: session.bootstrapId }, context))
   assert(before.candidates.length === 2, "candidate ledger must remain durable")
+  assert(before.evidenceIntegrity === "PASS", "all candidate blob identities must be revalidated on resume")
   assert(before.candidates.find((item: any) => item.contractId === agreed.contractId).latestDecision.decision === "adopt", "latest user decision must be visible")
 
   const result = JSON.parse(await materialize.execute({ bootstrapId: session.bootstrapId }, context))
   assert(result.adoptedContracts.length === 1, "only explicitly adopted candidates materialize")
   assert(result.adoptedContracts[0].status === "implemented", "AGREE adoption materializes only as implemented")
+  assert(result.worktreeIdentity === "NEW_UNCOMMITTED_CANDIDATE", "materialization must invalidate the old clean worktree identity")
 
   const registry = JSON.parse(await readFile(path.join(root, "docs", "protected-capabilities.json"), "utf8"))
   assert(registry.registry === "codesleuth-protected-capabilities", "bootstrap must create canonical registry identity")
+  assert(registry.profile === "generic", "foreign bootstrap must use the generic registry profile")
   assert(registry.contracts.length === 1, "deferred candidate must not enter registry")
   assert(registry.contracts[0].protected_at === null, "brownfield bootstrap must never synthesize acceptance")
   assert(registry.contracts[0].bootstrap_provenance.exact_sha === sha, "materialized contract must retain exact discovery SHA")
+  assert(registry.contracts[0].bootstrap_provenance.evidence_blobs.code[0].blobHash === agreed.codeEvidence[0].blobHash, "materialized provenance must retain source blob identity")
   assert(registry.contracts[0].forbidden_regressions.length === 1, "materialized contract requires negative obligation")
+  assert(registry.contracts[0].forbidden_regressions[0].sib_origin === null, "brownfield bootstrap must not invent SIB origin")
 
   let duplicateMaterializationRejected = false
   try {
