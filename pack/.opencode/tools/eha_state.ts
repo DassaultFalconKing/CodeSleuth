@@ -41,6 +41,16 @@ type VerdictEvent = {
   recordedHeadSha: string
 }
 
+type CampaignCompleted = {
+  type: "campaign_completed"
+  eventId: string
+  campaignId: string
+  targetSha: string
+  reportPath: string
+  recordedAt: string
+  recordedHeadSha: string
+}
+
 type RepairEvent = {
   type: "repair"
   eventId: string
@@ -61,7 +71,7 @@ type RepairEvent = {
   recordedHeadSha: string
 }
 
-type EhaEvent = CampaignStarted | VerdictEvent | RepairEvent
+type EhaEvent = CampaignStarted | VerdictEvent | CampaignCompleted | RepairEvent
 
 type CampaignSummary = {
   campaignId: string
@@ -72,6 +82,7 @@ type CampaignSummary = {
   verdicts: Record<SibLevel, VerdictEvent | null>
   claimable: Record<SibLevel, boolean>
   failedLevels: SibLevel[]
+  completion: CampaignCompleted | null
   repairs: RepairEvent[]
 }
 
@@ -167,11 +178,40 @@ function verdictForCampaignLevel(all: EhaEvent[], campaignId: string, level: Sib
   )
 }
 
+function completionForCampaign(all: EhaEvent[], campaignId: string): CampaignCompleted | undefined {
+  return all.find(
+    (event): event is CampaignCompleted => event.type === "campaign_completed" && event.campaignId === campaignId,
+  )
+}
+
 function targetShaHasRecordedFail(all: EhaEvent[], targetSha: string): boolean {
   return all.some(
     (event): event is VerdictEvent =>
       event.type === "verdict" && event.targetSha === targetSha && event.verdict === "FAIL",
   )
+}
+
+async function validateFinalReport(root: string, reportPath: string, targetSha: string): Promise<string> {
+  const normalized = reportPath.trim().replaceAll("\\", "/")
+  if (!normalized.startsWith(".codesleuth/reports/") || normalized.endsWith("/")) {
+    throw new Error("EHA completion report must be a file under .codesleuth/reports/")
+  }
+  const reportsRoot = path.resolve(root, ".codesleuth", "reports")
+  const absolute = path.resolve(root, normalized)
+  const relative = path.relative(reportsRoot, absolute)
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error("EHA completion report escapes the canonical .codesleuth/reports/ route")
+  }
+  const raw = await readFile(absolute, "utf8")
+  const normalizedRaw = raw.replace(/\r\n/g, "\n")
+  const frontMatter = normalizedRaw.match(/^---\n([\s\S]*?)\n---(?:\n|$)/)
+  if (!frontMatter) throw new Error("EHA completion report requires strict front matter")
+  const targetMatch = frontMatter[1].match(/^targetSha:\s*([0-9a-f]{40})\s*$/m)
+  if (!targetMatch) throw new Error("EHA completion report front matter requires targetSha")
+  if (targetMatch[1] !== targetSha) {
+    throw new Error(`EHA completion report targetSha ${targetMatch[1]} does not equal campaign target ${targetSha}`)
+  }
+  return normalized
 }
 
 function summarize(all: EhaEvent[]): CampaignSummary[] {
@@ -195,6 +235,7 @@ function summarize(all: EhaEvent[]): CampaignSummary[] {
       verdicts,
       claimable: { SIB0: sib0Pass, SIB1: sib1Pass, SIB2: sib2Pass },
       failedLevels: LEVELS.filter((level) => verdicts[level]?.verdict === "FAIL"),
+      completion: completionForCampaign(all, start.campaignId) ?? null,
       repairs: all.filter(
         (event): event is RepairEvent => event.type === "repair" && event.campaignId === start.campaignId,
       ),
@@ -299,8 +340,6 @@ function ehaMermaidSelection(
   }
 }
 
-// Retain the accepted internal contract name while exporting a descriptive
-// helper for direct deterministic smoke coverage.
 const renderMermaid = renderEhaMermaid
 
 export const start_campaign = tool({
@@ -388,6 +427,45 @@ export const record_verdict = tool({
   },
 })
 
+export const complete_campaign = tool({
+  description: "Append the durable successful EHA completion handshake after all SIB verdicts are PASS and the finalized report names the same exact target SHA.",
+  args: {
+    reviewId: tool.schema.string().optional(),
+    campaignId: tool.schema.string().optional(),
+    reportPath: tool.schema.string().min(1),
+  },
+  async execute(args, context) {
+    const root = context.worktree
+    const reviewId = await resolveReviewId(root, context.sessionID, args.reviewId)
+    const all = await events(root, reviewId)
+    const campaign = campaignById(all, args.campaignId)
+    const headSha = validateSha(await currentHead(root), "current HEAD")
+    if (headSha !== campaign.targetSha) {
+      throw new Error(`EHA INVALIDATED — HEAD CHANGED: campaign target ${campaign.targetSha}, current HEAD ${headSha}`)
+    }
+    const existing = completionForCampaign(all, campaign.campaignId)
+    if (existing) throw new Error(`EHA campaign already completed: ${campaign.campaignId}`)
+    for (const level of LEVELS) {
+      const verdict = verdictForCampaignLevel(all, campaign.campaignId, level)
+      if (verdict?.verdict !== "PASS") {
+        throw new Error(`cannot complete EHA campaign ${campaign.campaignId}: ${level} is not durably PASS`)
+      }
+    }
+    const reportPath = await validateFinalReport(root, args.reportPath, campaign.targetSha)
+    const event: CampaignCompleted = {
+      type: "campaign_completed",
+      eventId: `E-${randomUUID()}`,
+      campaignId: campaign.campaignId,
+      targetSha: campaign.targetSha,
+      reportPath,
+      recordedAt: new Date().toISOString(),
+      recordedHeadSha: headSha,
+    }
+    await appendEvent(root, reviewId, event)
+    return JSON.stringify(event, null, 2)
+  },
+})
+
 export const record_repair = tool({
   description: "Record the EHA repair-loop decision and lineage for a failed campaign. The defect classification must match the blocking SIB level.",
   args: {
@@ -451,7 +529,7 @@ export const record_repair = tool({
 })
 
 export const load = tool({
-  description: "Load EHA campaigns, SIB0/SIB1/SIB2 PASS/FAIL state, and repair-loop decisions from the durable review evidence ledger.",
+  description: "Load EHA campaigns, SIB0/SIB1/SIB2 PASS/FAIL state, durable completion, and repair-loop decisions from the durable review evidence ledger.",
   args: {
     reviewId: tool.schema.string().optional(),
   },
