@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "repository-development-continuation",
+  "description": "Resolve repository-native development authority and native gates into an exact-head continuation packet without modifying target source.",
+  "steps": [
+    {"id": "capture-target", "execution": "skill", "skill": "exact-target-identity", "depends_on": [], "output": "target_identity", "isolation": "fresh_subagent"},
+    {"id": "resolve-authority", "execution": "step", "prompt": "steps/02-resolve-authority.md", "skills": ["development-authority-discovery", "repository-deep-review"], "tools": ["repo_inventory_inventory", "development_authority_state_start", "development_authority_state_record_edge", "development_authority_state_load"], "depends_on": ["capture-target"], "output": "development_authority_map", "isolation": "fresh_subagent"},
+    {"id": "select-active-scope", "execution": "step", "prompt": "steps/03-select-active-scope.md", "skills": ["development-authority-discovery"], "tools": ["development_authority_state_load"], "depends_on": ["resolve-authority"], "output": "active_scope", "isolation": "fresh_subagent"},
+    {"id": "map-change-surface", "execution": "step", "prompt": "steps/04-map-change-surface.md", "skills": ["target-ownership-map", "dependency-impact-closure"], "tools": ["development_authority_state_load"], "depends_on": ["select-active-scope"], "output": "change_surface", "isolation": "fresh_subagent"},
+    {"id": "map-native-gates", "execution": "step", "prompt": "steps/05-map-native-gates.md", "skills": ["acceptance-matrix-design", "development-authority-discovery"], "tools": ["development_authority_state_load", "native_gate_state_start", "native_gate_state_record_gate", "native_gate_state_load"], "depends_on": ["map-change-surface"], "output": "native_gate_map", "isolation": "fresh_subagent"},
+    {"id": "emit-continuation-packet", "execution": "step", "prompt": "steps/06-emit-continuation-packet.md", "skills": ["development-authority-discovery"], "tools": ["development_authority_state_load", "native_gate_state_load", "development_continuation_state_save_packet", "development_continuation_state_load"], "depends_on": ["map-native-gates"], "output": "continuation_packet", "isolation": "fresh_subagent"}
+  ]
+}
