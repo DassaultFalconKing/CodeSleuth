@@ -58,6 +58,7 @@ If the synthesis is accepted, the next authority step is a final normative `RC7-
 - [`RC7-EBCA-GAP-PLAN.md`](RC7-EBCA-GAP-PLAN.md) — EBCA gap audit, mandatory RC7 hardening and explicitly deferred post-RC7 assurance work.
 - [`RC7-STRUCTURED-OBJECT-MULTIRENDERER.md`](RC7-STRUCTURED-OBJECT-MULTIRENDERER.md) — typed semantic objects and renderer/parity/loss concepts.
 - [`RC7-CONTEXT-EPISTEMICS-DISPOSITION.md`](RC7-CONTEXT-EPISTEMICS-DISPOSITION.md) — maps the existing Context Epistemics ROAD phases into the minimal RC7 epistemic core versus post-RC7 capability tracks; also defines the structured repair lessons-learned direction.
+- [`RC7-IMPLEMENTATION-TRIAGE-TODO.md`](RC7-IMPLEMENTATION-TRIAGE-TODO.md) — accepted owner decision for the stable `codesleuth` OpenCode capability namespace plus a tests-first triage contract for separating `READY_NOW`, `MICRO_FREEZE_REQUIRED`, `FINAL_RC7_FREEZE_BLOCKED`, and `POST_RC7_OR_RESEARCH` workstreams before development begins.
 
 These documents remain planning provenance and requirement inputs. Where the accepted synthesis deliberately narrows or resolves an ambiguity, the future final consolidated design must record that decision explicitly instead of silently editing history.
 
@@ -96,6 +97,9 @@ The final reviewed `RC7-CONSOLIDATED-DESIGN.md` must resolve and freeze at least
 17. Jinja presentation-only boundary after structured host/tool resolution;
 18. Obsidian/Doris/post-RC7 exclusions;
 19. install/smoke/catalog/public-doc exposure;
-20. deterministic adversarial and live-dogfood acceptance fixtures.
+20. deterministic adversarial and live-dogfood acceptance fixtures;
+21. stable CodeSleuth invocation/capability identity: `/codesleuth/<operation>` for canonical user-facing commands, `codesleuth-<id>` for maintained model-facing Skill and Playbook identities, one mapping authority in `pack/.opencode/codesleuth-naming.json`, bounded legacy aliases, and a contract test forbidding new unprefixed public CodeSleuth capability identities after cutover.
+
+Before final freeze, a tests-first implementation triage MAY identify independent `READY_NOW` slices whose semantics are already fixed by existing normative contracts. Such classification does not make the whole RC7 design accepted and must not pre-decide any unresolved authority item above.
 
 Do not implement directly from one seed/addendum or from the frozen thesis while ignoring the synthesis. That would recreate the context-fragmentation problem CodeSleuth is supposed to diagnose in other repositories, with an almost admirable lack of self-awareness.
