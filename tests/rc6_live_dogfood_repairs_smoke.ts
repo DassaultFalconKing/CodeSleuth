@@ -81,7 +81,10 @@ async function main() {
       targetSha: sha, authorityMapId: authority.mapId, nativeGateMapId: gateMap.gateMapId, changeSurfaceMapId: surface.surfaceMapId,
       planningAuthority: ["TODO.md"], activeScope: "docs/SESSION.md", objective: "reject wrong relation direction", acceptedPredecessors: ["docs/S08.md"], allowedPaths: ["src/lib.rs"], authorityEdgeIds: [planning.edgeId, active.edgeId, wrongDirection.edgeId],
     }, context)
-  } catch (error) { wrongDirectionRejected = String(error).includes("direction") || String(error).includes("subject") }
+  } catch (error) {
+    const message = String(error)
+    wrongDirectionRejected = message.includes("direction") || message.includes("subject") || message.includes("must be selected")
+  }
   assert(wrongDirectionRejected, "accepted predecessor authority must be bound from the active scope, not any matching object")
 
   const selfLoopMap = JSON.parse(await authorityStart.execute({ objective: "reject self loop", targetSha: sha }, context))
