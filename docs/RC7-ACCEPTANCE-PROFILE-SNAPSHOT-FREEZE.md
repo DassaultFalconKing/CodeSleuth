@@ -5,13 +5,13 @@
 **Scope:** design/contract only; no production implementation  
 **Freeze branch:** `docs/rc7-freeze-acceptance-profile`
 
-This document freezes the W7 policy/profile and immutable acceptance-snapshot contract tightly enough for tests-first implementation. It does not reopen RC6, SIB, EHA, protected-capability, or EBCA authority semantics.
+This document freezes W7 tightly enough for tests-first implementation. It does not reopen RC6, SIB, EHA, protected-capability or EBCA authority semantics.
 
 ---
 
-## 1. Exact inputs
+# 1. Exact inputs
 
-All refs were re-resolved before this freeze.
+All refs were re-resolved before the freeze.
 
 | Input | Resolved identity | Role |
 | --- | --- | --- |
@@ -22,11 +22,11 @@ All refs were re-resolved before this freeze.
 | pinned review / antithesis | `be5d158880f649ecb568d9a505c694e87bd76e0e` | adversarial design input |
 | frozen thesis | `1b52c7c72e5294b3a4c145d1bbbd71a1863cb218` | thesis input only, not implementation authority |
 
-The planning branch had **not** advanced at freeze time, so no later planning commit was substituted.
+The planning branch had not advanced, so no later planning commit was substituted.
 
-Material source identities used by this freeze:
+Material source identities:
 
-| Source | Exact blob / object identity |
+| Source | Exact blob/object identity |
 | --- | --- |
 | `docs/EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md` | `232795994607b09016481846520b9c82554be5eb` |
 | `docs/EXACT-HEAD-ACCEPTANCE.md` | `3d7ed676c7bea505c3fd75eb921c5fa3d59d6078` |
@@ -42,66 +42,60 @@ Material source identities used by this freeze:
 | runtime `pack/.opencode/tools/eha_state.ts` | `7a07f6c9ad2e34ef014a39cc9076d71a865ec2c7` |
 | runtime `pack/.opencode/tools/provenance_state.ts` | `9aabd37d452740373984da8c865a58325eb82d6f` |
 
-The frozen thesis remains historical thesis. The synthesis is a design input. Where either conflicts with already accepted runtime/EBCA/SIB/EHA contracts, the accepted contracts win.
+The thesis remains historical thesis. The synthesis remains a design input. Accepted runtime/EBCA/SIB/EHA contracts retain authority where wording differs.
 
 ---
 
-## 2. Preserved invariants
+# 2. Inherited invariants
 
-This freeze preserves, rather than redefines, the following accepted rules.
+The following are preserved unchanged.
 
-### 2.1 Acceptance identity
-
-The minimum acceptance identity remains:
+## 2.1 Acceptance identity
 
 ```text
-exact subject SHA
-+ profile identity
-+ required gates / environments
-+ concrete run / result identity
+acceptance identity =
+  exact subject SHA
+  + profile identity
+  + required gates / environments
+  + concrete run / result identity
 ```
 
-`AcceptanceProfileSnapshotV1.semanticDigest` is **not** allowed to erase those axes. In particular, a snapshot digest is not a run identity and a run ID is not a profile identity.
+A snapshot digest is not a run identity. A run ID is not a profile identity. These axes MUST remain separately inspectable.
 
-### 2.2 Exact-head acceptance
+## 2.2 Exact-head acceptance
 
-Acceptance belongs to the exact tested Git subject. It does not transfer through ancestry, branch names, rebases, cherry-picks, tree equality, or a later worktree.
+Acceptance belongs only to the exact tested Git subject. It does not transfer through branch names, ancestry, rebases, squashes, cherry-picks, tree equality or later worktrees.
 
-### 2.3 SIB semantics
+## 2.3 SIB semantics
 
-- SIB0 remains architectural completeness for the declared architecture generation.
+- SIB0 remains architectural completeness for one architecture generation.
 - SIB1 remains implementation completeness for that frozen architecture.
 - SIB2 remains integration completeness for the exact composed candidate.
-- SIB claimability remains cumulative on one exact subject.
+- Claimability remains cumulative on one exact subject.
 
-A project profile supplies project-specific obligations, gates and environments. It MUST NOT redefine the meaning of SIB0/SIB1/SIB2.
+A project profile supplies project-specific obligations, gates and environments; it MUST NOT redefine SIB0/SIB1/SIB2 into different maturity stages.
 
-### 2.4 EHA authority
+## 2.4 Existing authorities
 
-Existing `eha.ndjson` remains the EHA domain authority. `AcceptanceProfileSnapshotV1` is immutable campaign input, not a new acceptance ledger and not a verdict authority.
-
-### 2.5 Protected capability authority
-
-`docs/protected-capabilities.json` remains the protected-capability registry authority for CodeSleuth. A snapshot may bind protected contract IDs as required coverage, but it MUST NOT duplicate or supersede the registry's lifecycle or forbidden-regression authority.
-
-### 2.6 Provenance is not claimability
-
-Actor/session attribution, watermark, `recordedAt`, host session identity and similar provenance metadata remain useful metadata but MUST NOT participate in profile or snapshot semantic identity.
+- `eha.ndjson` remains EHA campaign/verdict authority.
+- `docs/protected-capabilities.json` remains CodeSleuth protected-capability registry authority.
+- `AcceptanceProfileSnapshotV1` is immutable campaign input, not an acceptance ledger or verdict authority.
+- provenance watermark/session attribution remains metadata and MUST NOT participate in SIB claimability.
 
 ---
 
-# 3. Normative decision: exactly one policy owner
+# 3. Exactly one acceptance-policy owner
 
-There MUST be exactly one upstream owner of project SIB/acceptance policy for one `ProjectSibProfileV1`.
+There MUST be exactly one upstream owner of SIB/acceptance policy for one profile.
 
 ```text
 NATIVE_BOUND
-    project-native policy authority owns meaning
+    project-native acceptance/architecture policy owns meaning
     ProjectSibProfileV1 binds/maps it
 
 ADOPTED_POLICY
     explicitly adopted ProjectSibProfileV1 owns project-local policy
-    adoption decision activates that authority
+    tracked adoption decision activates it
 
 Either mode
     -> validate / compile
@@ -109,141 +103,106 @@ Either mode
     -> EHA campaign
 ```
 
-There is no independently editable `AcceptanceProfileV1` policy authority in RC7.
+There is no independently editable RC7 `AcceptanceProfileV1` policy object.
 
 ## 3.1 `NATIVE_BOUND`
 
 `NATIVE_BOUND` means:
 
 1. project-native tracked architecture/acceptance authorities remain the policy owner;
-2. `ProjectSibProfileV1` is a typed binding/mapping of those authorities into SIB obligations, gates and environments;
-3. the profile MUST NOT silently add, remove, weaken or reinterpret a required native obligation;
-4. every policy-bearing `policyRequirement`, `obligation`, assumption or limitation in the profile MUST carry at least one `sourceAuthorityId` that resolves to a declared native authority;
-5. changing the exact native authority content changes the compiled profile identity even when the binding file itself is unchanged;
-6. contradiction or missing native authority is a compile failure, never permission to let the binding file become substitute canon.
+2. `ProjectSibProfileV1` is a typed binding into SIB obligations/gates/environments and does not replace native canon;
+3. policy-bearing profile items MUST be sourced to declared native authority;
+4. contradictory, absent or ambiguous native authority blocks compilation;
+5. changing exact native authority content changes compiled profile identity even when the binding document is unchanged.
 
-`NATIVE_BOUND` therefore means **bind, do not replace**.
+A native-bound binding MUST NOT invent a requirement merely because a model considers it reasonable.
 
 ## 3.2 `ADOPTED_POLICY`
 
 `ADOPTED_POLICY` means:
 
-1. an explicit project/maintainer adjudication adopts this exact `ProjectSibProfileV1` semantic body as project-local policy for the declared `repositoryId` and `architectureGenerationId`;
-2. before adoption, the same body is only a proposal and MUST NOT compile into a campaign snapshot;
-3. after adoption, the profile body is the policy owner; supporting code/docs/tests remain evidence and may still expose drift, but they do not form a second independently editable acceptance policy;
-4. adoption MUST be bound to the profile's exact normalized body digest through a tracked adoption decision;
-5. modifying any policy-bearing profile field after adoption produces a new body digest and requires a new adoption decision before it can be campaign input.
+1. explicit project/maintainer adjudication adopts the exact normalized profile body as project-local policy for one repository and architecture generation;
+2. before adoption the body is only a proposal and MUST NOT compile to campaign input;
+3. after adoption the profile body is the acceptance-policy owner;
+4. changing a policy-bearing profile field changes its body digest and requires a new matching adoption before campaign use;
+5. adoption creates current policy authority; it does not retroactively prove that discovery was exhaustive.
 
-`ADOPTED_POLICY` therefore means **explicit policy creation by project authority, not retroactive proof that discovery was exhaustive**.
+## 3.3 Adoption assertion
 
-## 3.3 Adopted-policy source binding
-
-An adopted profile MUST name one `adoptionDecisionAuthorityId`. That authority locator MUST resolve to one tracked file whose complete parsed semantic content is exactly `ProjectSibProfileAdoptionV1`:
+The profile names one `adoptionDecisionAuthorityId`. That locator MUST be kind `ADOPTION_DECISION` and MUST resolve at the exact target SHA to a tracked JSON file whose complete parsed content is:
 
 ```text
 ProjectSibProfileAdoptionV1 {
-  schemaVersion
-  decisionId
-  repositoryId
-  projectSibProfileId
-  profileVersion
-  profileBodyDigest
-  architectureGenerationId
-  decision
+  schemaVersion: "ProjectSibProfileAdoptionV1"
+  decisionId: IdV1
+  repositoryId: IdV1
+  projectSibProfileId: IdV1
+  profileVersion: ProfileVersionV1
+  profileBodyDigest: DigestV1
+  architectureGenerationId: IdV1
+  decision: "ADOPTED"
 }
 ```
 
-Exact values and constraints:
+The assertion MUST match the profile on repository ID, profile ID, profile version, body digest and architecture-generation ID. Mismatch is `ADOPTION_BINDING_MISMATCH`.
 
-```json
-{
-  "schemaVersion": "ProjectSibProfileAdoptionV1",
-  "decisionId": "<id>",
-  "repositoryId": "<repository id>",
-  "projectSibProfileId": "<profile id>",
-  "profileVersion": "<profile version>",
-  "profileBodyDigest": "sha256:<64 lowercase hex>",
-  "architectureGenerationId": "<architecture generation id>",
-  "decision": "ADOPTED"
-}
-```
-
-The adoption assertion MUST match the profile body on all five identity fields: repository, profile ID, profile version, profile body digest and architecture generation. Any mismatch is `ADOPTION_BINDING_MISMATCH`.
-
-The adoption decision is authority evidence. It does not duplicate the policy body.
+This assertion records adoption authority; it does not duplicate the policy body.
 
 ---
 
-# 4. Canonical primitive types
+# 4. Canonical primitive contracts
 
-The following lexical contracts are normative for V1.
-
-## 4.1 `IdV1`
+## 4.1 IDs
 
 ```text
-^[a-z0-9][a-z0-9._:/-]{0,127}$
+IdV1 = ^[a-z0-9][a-z0-9._:/-]{0,127}$
+ProfileVersionV1 = ^[a-z0-9][a-z0-9._+-]{0,63}$
+GitShaV1 = ^[0-9a-f]{40}$
+DigestV1 = ^sha256:[0-9a-f]{64}$
+ConstraintKeyV1 = ^[a-z0-9][a-z0-9._-]{0,127}$
 ```
 
-IDs are ASCII lowercase. Case changes are identity changes; implementations MUST NOT case-fold a nonconforming input into validity.
+IDs are ASCII lowercase. Uppercase/abbreviated values are invalid, not silently case-folded into validity.
 
-## 4.2 `ProfileVersionV1`
+A profile-version change is an identity change even if the editor claims no semantic change.
 
-```text
-^[a-z0-9][a-z0-9._+-]{0,63}$
-```
+## 4.2 Repository identity
 
-A profile-version change is an explicit profile identity change even when all other fields happen to remain equal.
+`repositoryId` is an explicit project-authority-assigned stable `IdV1`. It is not derived ad hoc from a mutable branch or current remote URL.
 
-## 4.3 Git SHA V1
+A clone preserves project identity. A fork under independent project authority must establish its own repository/profile policy instead of inheriting acceptance through ancestry.
 
-```text
-^[0-9a-f]{40}$
-```
+## 4.3 Repository path
 
-V1 supports the existing 40-character Git object identity used by current CodeSleuth. Uppercase or abbreviated SHA is invalid.
+`RepositoryPathV1`:
 
-## 4.4 Digest V1
+- repository-root relative;
+- `/` separators only;
+- no leading/trailing `/`;
+- no empty, `.` or `..` segment;
+- no U+0000..U+001F or U+007F;
+- Unicode NFC.
 
-```text
-^sha256:[0-9a-f]{64}$
-```
+Path normalization MUST NOT resolve host filesystem symlinks. Authority resolution is against the exact Git tree.
 
-## 4.5 Repository path V1
+## 4.4 Human statements
 
-A repository path:
-
-- is relative to repository root;
-- uses `/` only;
-- has no leading or trailing `/`;
-- has no empty segment;
-- has no `.` or `..` segment;
-- contains no NUL;
-- is Unicode NFC.
-
-Path normalization MUST NOT resolve symlinks or consult the host filesystem while computing semantic identity. Source resolution happens against the exact Git tree.
-
-## 4.6 Human statement normalization
-
-Fields explicitly typed as a human statement are normalized by:
+`HumanStatementV1` normalization:
 
 1. Unicode NFC;
-2. convert every Unicode whitespace run to one ASCII space;
-3. trim leading/trailing ASCII space;
-4. reject an empty result.
+2. replace every Unicode whitespace run with one ASCII space;
+3. trim surrounding ASCII space;
+4. reject empty result and C0/C1 control characters.
 
-This normalization is for policy statements, not arbitrary command strings or file paths.
+## 4.5 Constraint values
 
-## 4.7 Constraint values
-
-Constraint values are Unicode NFC, case-sensitive strings with no NUL and no leading/trailing Unicode whitespace. Internal whitespace is preserved.
+Constraint values are Unicode NFC, case-sensitive, have no leading/trailing Unicode whitespace, and contain no U+0000..U+001F or U+007F. Internal whitespace is preserved.
 
 ---
 
 # 5. `ProjectSibProfileV1` exact schema
 
-`ProjectSibProfileV1` is the editable/adjudicable upstream profile/binding source. It intentionally contains **no user-editable digest field**. Digest fields are computed from canonical content so a document cannot claim an identity inconsistent with its bytes/semantics.
-
-All fields below are required. Empty arrays are permitted only where explicitly stated.
+The upstream profile contains **no editable digest field**. Identity is calculated from canonical content.
 
 ```text
 ProjectSibProfileV1 {
@@ -273,9 +232,33 @@ ProjectSibProfileV1 {
 }
 ```
 
-## 5.1 Source-policy union
+Every member is required. Unknown members and JSON `null` are invalid.
 
-When `authorityMode == "NATIVE_BOUND"`:
+## 5.1 Required collection cardinality
+
+| Field | V1 cardinality |
+| --- | --- |
+| `authorityLocators` | non-empty |
+| `policyRequirements` | non-empty |
+| `obligations` | non-empty; each SIB level has >= 1 `REQUIRED` obligation |
+| `gates` | non-empty |
+| `environments` | non-empty |
+| `materialTools` | may be empty |
+| `materialRuntimes` | may be empty |
+| `coverageRequirements.capabilityClassIds` | non-empty |
+| `coverageRequirements.protectedContractIds` | may be empty |
+| `coverageRequirements.policyRequirementIds` | non-empty |
+| `candidateSelectionAuthorityIds` | non-empty |
+| `promotionAuthorityIds` | non-empty |
+| `architectureReopenAuthorityIds` | non-empty |
+| `repairPolicyAuthorityIds` | non-empty |
+| `assumptions` | may be empty |
+| `limitations` | may be empty |
+| `unresolvedPolicyItems` | may be non-empty in proposal form; MUST be empty to compile a snapshot |
+
+## 5.2 Source-policy union
+
+For `NATIVE_BOUND`:
 
 ```text
 NativeSourcePolicyV1 {
@@ -283,7 +266,7 @@ NativeSourcePolicyV1 {
 }
 ```
 
-When `authorityMode == "ADOPTED_POLICY"`:
+For `ADOPTED_POLICY`:
 
 ```text
 AdoptedSourcePolicyV1 {
@@ -291,9 +274,9 @@ AdoptedSourcePolicyV1 {
 }
 ```
 
-The wrong union arm is invalid. There is no fallback or implicit mode detection.
+The top-level `authorityMode` determines the legal union arm. There is no mode inference or fallback.
 
-## 5.2 Authority locator
+## 5.3 Authority locators and resolved refs
 
 ```text
 AuthorityLocatorV1 {
@@ -311,25 +294,27 @@ AuthorityLocatorV1 {
     | "ADOPTION_DECISION"
   path: RepositoryPathV1
 }
-```
 
-`authorityId` is unique within the profile.
-
-At snapshot compilation each locator is resolved against the exact target Git tree into:
-
-```text
 ResolvedAuthorityRefV1 {
   authorityId: IdV1
   kind: <same enum>
   repositoryId: IdV1
   path: RepositoryPathV1
-  blobSha: <40 lowercase hex>
+  blobSha: GitShaV1
 }
 ```
 
-A missing path, non-blob path, or path that cannot be resolved at the exact target is a hard compile failure.
+`authorityId` is unique. At compilation every locator MUST resolve at `target.subjectSha` to a Git blob in the same `repositoryId`.
 
-## 5.3 Policy requirement
+Reference-kind constraints:
+
+- `adoptionDecisionAuthorityId` -> `ADOPTION_DECISION`;
+- `candidateSelectionAuthorityIds` -> `CANDIDATE_SELECTION_POLICY`;
+- `promotionAuthorityIds` -> `PROMOTION_POLICY`;
+- `architectureReopenAuthorityIds` -> `ARCHITECTURE_REOPEN_POLICY`;
+- `repairPolicyAuthorityIds` -> `REPAIR_POLICY`.
+
+## 5.4 Policy requirements
 
 ```text
 PolicyRequirementV1 {
@@ -339,11 +324,11 @@ PolicyRequirementV1 {
 }
 ```
 
-In `NATIVE_BOUND`, `sourceAuthorityIds` MUST be non-empty and MUST intersect `sourcePolicy.nativeAuthorityIds`.
+In `NATIVE_BOUND`, `sourceAuthorityIds` is non-empty and intersects `sourcePolicy.nativeAuthorityIds`.
 
-In `ADOPTED_POLICY`, the adopted profile body itself owns the statement, so `sourceAuthorityIds` MAY be empty; any listed IDs are supporting authority/evidence references and MUST resolve.
+In `ADOPTED_POLICY`, it may be empty because the adopted profile body itself owns the statement; any listed IDs must resolve.
 
-## 5.4 Acceptance obligation
+## 5.5 Acceptance obligations
 
 ```text
 AcceptanceObligationV1 {
@@ -363,15 +348,16 @@ AcceptanceObligationV1 {
 
 Rules:
 
-- each SIB level MUST contain at least one `REQUIRED` obligation;
-- a `REQUIRED` obligation MUST have at least one `gateId` and one `environmentId`;
-- a `REQUIRED` obligation MUST have an empty `notApplicableRationaleAuthorityIds`;
-- a `NOT_APPLICABLE` obligation MUST have empty `gateIds` and `environmentIds` and non-empty `notApplicableRationaleAuthorityIds`;
-- `NOT_APPLICABLE` is valid only when its rationale is authority-backed; unavailable evidence or an unavailable runner is never N/A;
-- in `NATIVE_BOUND`, every obligation MUST have non-empty `sourceAuthorityIds` intersecting the native owner set;
-- all referenced IDs MUST exist.
+- `policyRequirementIds` is non-empty;
+- `capabilityClassIds` may be empty for an obligation, but profile-level capability coverage remains non-empty;
+- `protectedContractIds` may be empty;
+- a `REQUIRED` obligation has >=1 gate and >=1 environment and has empty N/A rationale refs;
+- a `NOT_APPLICABLE` obligation has empty gate/environment lists and >=1 N/A rationale authority ref;
+- unavailable evidence/environment is never N/A;
+- in `NATIVE_BOUND`, `sourceAuthorityIds` is non-empty and intersects the native owner set;
+- all references exist.
 
-## 5.5 Gate requirement
+## 5.6 Gates
 
 ```text
 GateRequirementV1 {
@@ -388,10 +374,13 @@ Rules:
 
 - `sourceAuthorityIds` is non-empty;
 - `environmentIds` is non-empty;
-- all listed gate/environment combinations are required; an array is not an `ANY OF` shortcut;
-- gate command construction/execution is outside W7; the gate's authority and stable ID are frozen here, while W6/host adapters later execute it and record exact run/result identity.
+- all referenced gate/environment pairs are required, not alternatives;
+- `toolRequirementIds` / `runtimeRequirementIds` may be empty;
+- every gate MUST be referenced by at least one `REQUIRED` obligation; unused gates are invalid profile noise.
 
-## 5.6 Environment requirement
+W7 freezes stable gate identity/requirements. Host-specific command construction/execution belongs downstream; concrete run/result identity remains EHA evidence.
+
+## 5.7 Environments
 
 ```text
 EnvironmentRequirementV1 {
@@ -401,9 +390,12 @@ EnvironmentRequirementV1 {
 }
 ```
 
-`constraints` MAY be empty when the environment ID itself is the complete project-defined environment requirement (for example a repository-only/static authority check).
+- `constraints` may be empty;
+- in `NATIVE_BOUND`, `sourceAuthorityIds` is non-empty and intersects native authority;
+- in `ADOPTED_POLICY`, `sourceAuthorityIds` may be empty;
+- every environment MUST be referenced by a gate or `REQUIRED` obligation.
 
-## 5.7 Tool and runtime requirements
+## 5.8 Material tools/runtimes
 
 ```text
 ToolRequirementV1 {
@@ -421,27 +413,28 @@ RuntimeRequirementV1 {
 }
 ```
 
-These describe **required constraints**. The exact tool/runtime identity actually observed during a run belongs to W6 EHA evidence and MUST be recorded there; it is not guessed into the snapshot after execution.
+An entry has >=1 constraint. In `NATIVE_BOUND`, `sourceAuthorityIds` is non-empty and intersects native authority; in `ADOPTED_POLICY` it may be empty.
 
-## 5.8 Dimension constraints
+These are policy constraints. The exact identity observed during execution is separate W6 evidence.
+
+## 5.9 Dimension constraints
 
 ```text
 DimensionConstraintV1 {
-  key: IdV1
+  key: ConstraintKeyV1
   operator: "EQUALS" | "ONE_OF"
   values: string[]
 }
 ```
 
-Rules:
+- values non-empty;
+- `EQUALS` has exactly one value;
+- `ONE_OF` has >=1 value;
+- V1 has no ranges, regexes or arbitrary expressions.
 
-- `values` is non-empty;
-- `EQUALS` requires exactly one value;
-- `ONE_OF` requires at least one value;
-- V1 deliberately has no range, regex or arbitrary expression language;
-- if a project needs semantics not expressible by `EQUALS` / `ONE_OF`, it needs a future schema revision instead of implementation-local interpretation.
+Needing richer constraint semantics requires a future schema version, not local interpretation.
 
-## 5.9 Coverage requirements
+## 5.10 Coverage requirements
 
 ```text
 CoverageRequirementsV1 {
@@ -451,36 +444,41 @@ CoverageRequirementsV1 {
 }
 ```
 
-This object is a **required coverage set**, not a completeness result.
-
-The compiler MUST verify:
+Compiler invariant:
 
 ```text
-union(obligations.capabilityClassIds)  contains coverageRequirements.capabilityClassIds
-union(obligations.protectedContractIds) contains coverageRequirements.protectedContractIds
-union(obligations.policyRequirementIds) contains coverageRequirements.policyRequirementIds
+union(obligations.capabilityClassIds)
+  ⊇ coverageRequirements.capabilityClassIds
+
+union(obligations.protectedContractIds)
+  ⊇ coverageRequirements.protectedContractIds
+
+union(obligations.policyRequirementIds)
+  ⊇ coverageRequirements.policyRequirementIds
 ```
 
-A missing required coverage item is `PROFILE_COVERAGE_GAP`.
+Failure is `PROFILE_COVERAGE_GAP`.
 
-## 5.10 Aggregation policy
+This is required **policy coverage**, not an evidence-derived completeness verdict.
 
-V1 does not permit a project to weaken SIB semantics through a custom majority-vote or best-effort aggregator. The field MUST equal exactly:
+## 5.11 Aggregation policy
 
-```json
-{
-  "requiredObligationRule": "ALL_REQUIRED",
-  "environmentMatrixRule": "ALL_REFERENCED_GATE_ENVIRONMENT_PAIRS",
-  "notApplicableRule": "AUTHORITY_RATIONALE_REQUIRED",
-  "missingEvidenceRule": "NON_PASS",
-  "cumulativeSibRule": "SIB0_SIB1_SIB2_SAME_SUBJECT",
-  "durableCompletionRule": "CAMPAIGN_COMPLETED_REQUIRED"
+The V1 value is fixed and MUST equal exactly:
+
+```text
+AggregationPolicyV1 {
+  requiredObligationRule: "ALL_REQUIRED"
+  environmentMatrixRule: "ALL_REFERENCED_GATE_ENVIRONMENT_PAIRS"
+  notApplicableRule: "AUTHORITY_RATIONALE_REQUIRED"
+  missingEvidenceRule: "NON_PASS"
+  cumulativeSibRule: "SIB0_SIB1_SIB2_SAME_SUBJECT"
+  durableCompletionRule: "CAMPAIGN_COMPLETED_REQUIRED"
 }
 ```
 
-A different value requires a future schema version, not a local extension.
+A different aggregation algorithm needs a future schema version. RC7 V1 does not permit majority-vote, best-effort or model-discretion acceptance.
 
-## 5.11 Policy statement
+## 5.12 Policy statements
 
 ```text
 PolicyStatementV1 {
@@ -490,46 +488,37 @@ PolicyStatementV1 {
 }
 ```
 
-`assumptions` and `limitations` are semantic and participate in identity.
+Assumptions and limitations are semantic and participate in identity.
 
-`unresolvedPolicyItems` is permitted in a proposal/adjudication-stage `ProjectSibProfileV1`, but snapshot compilation requires it to be empty. A profile with an unresolved policy choice is not campaign-ready.
+In `NATIVE_BOUND`, non-empty `assumptions`/`limitations` entries require native source authority. In `ADOPTED_POLICY`, they may be owned directly by the adopted profile and therefore may have an empty source list.
+
+Any non-empty `unresolvedPolicyItems` blocks snapshot compilation with `PROFILE_POLICY_UNRESOLVED`.
 
 ---
 
 # 6. Profile identity algorithm
 
-The acceptance-profile identity is content-derived. No implementation may substitute a filename, branch, free-form `profile` label or timestamp for it.
+Profile identity is content-derived. A filename, branch name or legacy free-form `profile` string is not identity.
 
-## 6.1 Step A — normalize and validate profile body
+## 6.1 `profileBodyDigest`
 
-Normalize `ProjectSibProfileV1` according to sections 4, 5 and 8.
-
-Reject before hashing if schema validation, references, ownership mode, adoption preconditions or coverage checks fail.
-
-## 6.2 Step B — `profileBodyDigest`
-
-Canonicalize the normalized `ProjectSibProfileV1` body and compute:
+After exact-schema validation, normalization and canonical ordering:
 
 ```text
 profileBodyDigest =
   "sha256:" + lowercase_hex(
     SHA256(
       UTF8("codesleuth:project-sib-profile-body:v1\n")
-      || canonicalProfileJsonBytes
+      || canonicalProjectSibProfileJson
     )
   )
 ```
 
 `schemaVersion` participates.
 
-## 6.3 Step C — resolve the policy owner
+## 6.2 Resolve source-policy identity
 
-For `NATIVE_BOUND`:
-
-1. resolve every `nativeAuthorityId` against the exact target tree;
-2. require all refs to belong to the same `repositoryId` as the profile;
-3. sort the resolved refs by `authorityId`;
-4. build:
+For `NATIVE_BOUND` resolve all `nativeAuthorityIds` against the exact target tree and build:
 
 ```text
 ResolvedSourcePolicyIdentityV1 {
@@ -538,14 +527,7 @@ ResolvedSourcePolicyIdentityV1 {
 }
 ```
 
-For `ADOPTED_POLICY`:
-
-1. resolve `adoptionDecisionAuthorityId` against the exact target tree;
-2. require locator kind `ADOPTION_DECISION`;
-3. parse the complete file as `ProjectSibProfileAdoptionV1`;
-4. require `decision == "ADOPTED"`;
-5. require exact match to repository ID, profile ID, version, `profileBodyDigest` and architecture generation;
-6. build:
+For `ADOPTED_POLICY`, resolve and validate the adoption assertion and build:
 
 ```text
 ResolvedSourcePolicyIdentityV1 {
@@ -555,17 +537,15 @@ ResolvedSourcePolicyIdentityV1 {
 }
 ```
 
-No model inference is allowed in this step.
+## 6.3 `profileDigest`
 
-## 6.4 Step D — `profileDigest`
-
-Canonicalize exactly:
+Canonicalize:
 
 ```text
 AcceptanceProfileIdentityV1 {
   schemaVersion: "AcceptanceProfileIdentityV1"
-  profileBodyDigest: <profileBodyDigest>
-  sourcePolicyIdentity: <resolved source policy identity>
+  profileBodyDigest: DigestV1
+  sourcePolicyIdentity: ResolvedSourcePolicyIdentityV1
 }
 ```
 
@@ -576,31 +556,29 @@ profileDigest =
   "sha256:" + lowercase_hex(
     SHA256(
       UTF8("codesleuth:acceptance-profile-identity:v1\n")
-      || canonicalIdentityJsonBytes
+      || canonicalAcceptanceProfileIdentityJson
     )
   )
 ```
 
 Consequences:
 
-- changing a native policy blob changes `profileDigest`;
-- changing the adopted profile body changes `profileBodyDigest`, invalidates the old adoption assertion and therefore cannot silently retain `profileDigest`;
-- moving only the candidate SHA while policy sources remain byte-identical leaves `profileDigest` unchanged;
-- changing `profileVersion`, architecture generation, obligation semantics, gates, required environments, assumptions or limitations changes `profileBodyDigest` and therefore `profileDigest`.
+- unchanged policy on a different candidate can retain the same `profileDigest`;
+- changed native owner blob changes `profileDigest`;
+- changed adopted profile body invalidates old adoption and cannot retain profile identity;
+- changed profile version, obligations, gates, required environments, assumptions or limitations changes body/profile identity.
 
-This digest is the normative **profile identity** used by the acceptance-identity invariant.
+`profileDigest` is the normative profile-identity component of acceptance identity.
 
 ---
 
 # 7. `AcceptanceProfileSnapshotV1` exact schema
 
-The snapshot is a compiled immutable campaign input.
-
 ```text
 AcceptanceProfileSnapshotV1 {
   schemaVersion: "AcceptanceProfileSnapshotV1"
   profileIdentity: ProfileIdentityV1
-  sourcePolicyIdentity: SnapshotSourcePolicyIdentityV1
+  sourcePolicyIdentity: ResolvedSourcePolicyIdentityV1
   target: SnapshotTargetV1
   authorityRefs: ResolvedAuthorityRefV1[]
   policyRequirements: PolicyRequirementV1[]
@@ -617,8 +595,6 @@ AcceptanceProfileSnapshotV1 {
 }
 ```
 
-## 7.1 Profile identity
-
 ```text
 ProfileIdentityV1 {
   projectSibProfileId: IdV1
@@ -628,46 +604,22 @@ ProfileIdentityV1 {
   profileBodyDigest: DigestV1
   profileDigest: DigestV1
 }
-```
 
-`profileDigest` is the acceptance profile identity. `profileBodyDigest` is retained for audit/adoption verification.
-
-## 7.2 Target binding
-
-```text
 SnapshotTargetV1 {
   repositoryId: IdV1
-  subjectSha: <40 lowercase hex>
+  subjectSha: GitShaV1
 }
 ```
 
-`repositoryId` is an explicit project-authority-assigned stable identifier. It is **not inferred from a mutable branch name or normalized ad hoc from the current remote URL**.
+The snapshot copies normalized policy requirements, obligations, gates, environments, material tool/runtime constraints, coverage requirements, aggregation policy, assumptions and limitations from the accepted profile.
 
-Cloning a repository preserves its declared project identity. A fork under independent project authority must establish a different repository/profile policy rather than silently inheriting acceptance because it shares Git ancestry.
+`authorityRefs` contains one resolved ref for **every** `authorityLocator`, sorted by `authorityId`. Every locator therefore has exact target-tree blob evidence.
 
-`subjectSha` is semantic snapshot content and participates in `semanticDigest`.
+Branch/ref names MUST NOT appear in the snapshot.
 
-Branch/ref names MUST NOT appear in the snapshot. They remain candidate-selection provenance/navigation and may move.
+## 7.1 Completeness fields deliberately excluded
 
-## 7.3 Snapshot source-policy identity
-
-`sourcePolicyIdentity` is the already-resolved source-policy object used to calculate `profileDigest`.
-
-For native binding it contains the exact native authority refs. For adopted policy it contains the exact adoption-decision ref and matching adoption assertion.
-
-It is copied into the snapshot so the profile owner can be audited without recovering hidden chat/session state.
-
-## 7.4 Authority refs
-
-`authorityRefs` contains the exact `ResolvedAuthorityRefV1` for **every** `authorityLocator` in the accepted profile, sorted by `authorityId`.
-
-The compiler MUST resolve them against the snapshot target SHA. A profile with a declared authority path not present at the target cannot compile.
-
-This makes authority drift visible rather than letting the implementation quietly use whatever file exists in the current worktree.
-
-## 7.5 Completeness fields deliberately excluded
-
-`AcceptanceProfileSnapshotV1` MUST NOT contain evaluated fields such as:
+V1 MUST NOT contain evaluated fields such as:
 
 ```text
 discoveryCompleteness
@@ -675,38 +627,38 @@ policyCompleteness
 completenessSupportable
 ```
 
-V1 contains `coverageRequirements`, which says **what policy requires coverage of**. It does not contain the evidence-derived answer to whether archaeology/discovery was complete.
+`coverageRequirements` says what policy requires coverage of. W8 owns evidence-derived `DiscoveryCompleteness` / `PolicyCompleteness` claims.
 
-Reason: `DiscoveryCompleteness` and `PolicyCompleteness` are W8 evidence/claim semantics. Embedding their changing evaluation into immutable policy input would merge policy with evidence and recreate the authority problem this freeze is removing.
-
-W8 may reference `profileDigest` / `semanticDigest` when it records completeness claims. It MUST NOT mutate a started campaign's snapshot to store a later completeness conclusion.
+A later W8 conclusion may reference the profile/snapshot identity. It MUST NOT mutate a started campaign's snapshot.
 
 ---
 
-# 8. Canonicalization and collection ordering
+# 8. Canonical serialization
 
-The digest algorithm is self-contained and does not depend on host-language object iteration order.
+Digest equality MUST NOT depend on host-language map order or JSON library defaults.
 
-## 8.1 Exact-schema projection first
+## 8.1 Validate before hash
 
-Before serialization:
+Before hashing:
 
-1. reject every unknown object member;
-2. require every declared member;
-3. reject every JSON `null`;
-4. validate every lexical type and cross-reference;
-5. normalize strings by their declared type;
-6. de-duplicate and sort collections according to this section.
+1. exact-schema project the object;
+2. reject unknown fields;
+3. reject absent required fields;
+4. reject every JSON `null`;
+5. normalize strings by declared type;
+6. reject duplicate IDs/scalar values;
+7. validate all references and cardinalities;
+8. sort collections as below.
 
-Hashing malformed input and then validating it is forbidden.
+Malformed data is never hashed into apparent validity.
 
-## 8.2 Object field order
+## 8.2 Object field ordering
 
-Canonical JSON emits object fields in **the declaration order shown by this document's type definitions**.
+Canonical JSON emits object members in the **exact declaration order of each type definition in this document**.
 
-Input object-key order has no semantic effect.
+Input member order has no effect.
 
-For the top-level snapshot the exact order is:
+Top-level snapshot order is:
 
 ```text
 schemaVersion
@@ -726,224 +678,207 @@ assumptions
 limitations
 ```
 
-`semanticDigest` is omitted from its own digest preimage and is emitted last in the stored/rendered snapshot.
+`semanticDigest` is omitted from its own preimage and emitted last in a stored/rendered snapshot.
 
-For the top-level profile the exact order is the order in section 5.
+Top-level profile order is the section-5 declaration order.
 
 ## 8.3 Collection ordering
 
-Canonical sort rules:
-
-| Collection | Sort key |
+| Collection | Canonical order |
 | --- | --- |
-| `authorityLocators` / `authorityRefs` | `authorityId` |
+| `authorityLocators`, `authorityRefs` | `authorityId` |
 | `policyRequirements` | `policyRequirementId` |
 | `obligations` | `obligationId` |
 | `gates` | `gateId` |
 | `environments` | `environmentId` |
 | `materialTools` | `toolRequirementId` |
 | `materialRuntimes` | `runtimeRequirementId` |
-| `assumptions`, `limitations`, `unresolvedPolicyItems` | `statementId` |
+| policy-statement arrays | `statementId` |
 | `DimensionConstraintV1[]` | `key`, then `operator`, then canonical joined `values` |
-| arrays of IDs | normalized ASCII byte lexicographic order |
-| `DimensionConstraintV1.values` | normalized UTF-8 byte lexicographic order |
+| arrays of `IdV1` | ASCII byte lexicographic |
+| constraint `values` | normalized UTF-8 byte lexicographic |
+| native authority refs | `authorityId` |
 
-Duplicate IDs or duplicate scalar values are validation errors; they are not silently discarded.
+Duplicate IDs or duplicate scalar entries are errors, never silently deduplicated.
 
-## 8.4 JSON encoding
+## 8.4 Exact JSON string escaping
 
-Canonical JSON uses:
+Canonical JSON uses UTF-8, no BOM, no insignificant whitespace and no final newline.
 
-- UTF-8;
-- no BOM;
-- no insignificant whitespace;
-- `:` and `,` with no surrounding spaces;
-- JSON escaping required by the JSON grammar only;
-- no trailing newline in digest bytes;
-- no JSON numbers in any V1 semantic type;
-- no JSON `null`.
+String emission is exact:
 
-This deliberately avoids cross-language number-format ambiguity.
+- `"` is emitted as `\"`;
+- `\` is emitted as `\\`;
+- U+0008 -> `\b`;
+- U+0009 -> `\t`;
+- U+000A -> `\n`;
+- U+000C -> `\f`;
+- U+000D -> `\r`;
+- other U+0000..U+001F -> `\u00xx` with lowercase hex;
+- all other Unicode scalar values are emitted directly as UTF-8;
+- `/` is never escaped as `\/`;
+- non-ASCII characters are not replaced with `\uXXXX` escapes.
+
+V1 semantic schemas forbid control characters in paths/constraint values and normalize human statements, so control escapes normally occur only if a future allowed string subtype explicitly permits them. The serializer behavior is nevertheless frozen to avoid cross-language ambiguity.
+
+Surrogate code points are invalid Unicode input and MUST be rejected.
+
+## 8.5 JSON tokens
+
+- object punctuation: `{`, `}`, `:`, `,` with no spaces;
+- arrays: `[`, `]`, `,` with no spaces;
+- booleans are not used by V1 semantic types;
+- JSON numbers are not used by V1 semantic types;
+- JSON `null` is forbidden.
+
+This removes number-format and truthy/null ambiguities across Python/TypeScript implementations.
 
 ---
 
 # 9. Snapshot semantic digest
 
-After successful compilation, construct the normalized snapshot with `semanticDigest` omitted.
-
-Then:
+Construct the normalized snapshot with `semanticDigest` absent and calculate:
 
 ```text
 semanticDigest =
   "sha256:" + lowercase_hex(
     SHA256(
       UTF8("codesleuth:acceptance-profile-snapshot:v1\n")
-      || canonicalSnapshotJsonBytesWithoutSemanticDigest
+      || canonicalSnapshotJsonWithoutSemanticDigest
     )
   )
 ```
 
-## 9.1 Included fields
+## 9.1 Included
 
-Every semantic field in section 7 participates, including:
+Every legal snapshot field except `semanticDigest` itself participates, including:
 
 - `schemaVersion`;
-- profile ID/version/body digest/profile digest;
-- authority mode/source-policy identity;
+- profile/body/source-policy identity;
 - repository ID and exact subject SHA;
 - exact authority blob refs;
-- policy requirements;
-- obligations and applicability;
-- required gates;
-- environment requirements;
+- obligations/gates/environments;
 - material tool/runtime requirements;
-- coverage requirements;
+- required capability/contract/policy coverage;
 - aggregation policy;
-- assumptions;
-- limitations.
+- assumptions and limitations.
 
-A change to any of those normalized values MUST change `semanticDigest`.
+Any normalized change to these fields MUST change the snapshot digest.
 
-## 9.2 Excluded fields
+## 9.2 Excluded volatile data
 
-The only member of `AcceptanceProfileSnapshotV1` excluded from its digest preimage is `semanticDigest` itself.
+The only snapshot member excluded from its own preimage is `semanticDigest`.
 
-Volatile metadata is excluded by a stronger rule: it is **not legal snapshot schema**.
-
-The following MUST NOT appear in V1 snapshot content:
+Volatile data is excluded by being **illegal snapshot schema**, including:
 
 ```text
 generatedAt / compiledAt / recordedAt
-actor / user / model / provenance watermark
-host session id
-process id / hostname / cwd
-branch name / movable ref
-GitHub workflow run id / job id
-observed PASS/FAIL result
-transport outcome
+actor / user / model / watermark
+host session ID / PID / hostname / cwd
+branch or movable ref
+workflow run/job ID
+observed gate result / transport outcome
 report path
 renderer/template metadata
-current working-tree dirty state
+working-tree dirty state
 ```
 
-Those values belong to campaign/run/provenance evidence where appropriate.
+Those belong to campaign/run/provenance evidence where applicable.
 
-## 9.3 Absent, null and unknown
+## 9.3 Absent/null/unknown
 
-- A required field absent from the exact schema is invalid.
-- `null` is invalid everywhere in V1 semantic objects.
-- Unknown policy semantics MUST NOT be represented by omission or `null`.
-- An unresolved policy decision belongs in `ProjectSibProfileV1.unresolvedPolicyItems`; any non-empty value blocks snapshot compilation.
-- Empty arrays mean explicitly “none” only where the schema permits them.
-- Execution-time epistemic outcomes such as `INCONCLUSIVE` / `UNAVAILABLE` are EHA result data, not snapshot placeholders.
+- absent required field -> invalid;
+- `null` -> invalid;
+- unresolved policy -> `ProjectSibProfileV1.unresolvedPolicyItems`, which blocks compilation;
+- no generic `"UNKNOWN"` token exists in snapshot V1;
+- execution outcomes such as `INCONCLUSIVE` / `UNAVAILABLE` are EHA result evidence, not snapshot placeholders.
 
-There is no generic string `"UNKNOWN"` in `AcceptanceProfileSnapshotV1` V1.
+## 9.4 Semantic equality
 
-## 9.4 Semantic identity consequence
+Two snapshots are semantically identical for V1 **iff their normalized digest preimages are byte-identical**.
 
-Within this contract, two snapshots are semantically identical **iff their normalized digest preimages are byte-identical**.
+Therefore object/collection input order and permitted Unicode/whitespace normalization do not change the digest; target, policy authority, gate, environment, assumption or limitation changes do.
 
-Therefore:
-
-- JSON key order differences do not matter;
-- source collection order differences do not matter;
-- allowed whitespace/Unicode normalization differences in statement input do not matter;
-- changing a target SHA matters;
-- changing policy authority identity matters;
-- changing a gate, environment, obligation, assumption or limitation matters.
-
-This definition is intentionally machine-testable rather than model-judged.
+This is the only V1 equality rule. Model judgment is not part of digest equality.
 
 ---
 
-# 10. Compilation algorithm
-
-The W7 compiler MUST implement this deterministic sequence and MUST NOT choose an alternative ordering or fallback policy.
+# 10. Deterministic compilation algorithm
 
 ```text
 INPUT:
-  exact target repository context
-  exact 40-char targetSha
+  exact repository context
+  exact Git targetSha
   ProjectSibProfileV1
 
-1. Parse exact ProjectSibProfileV1 schema.
-2. Normalize V1 lexical fields.
-3. Reject unknown fields / null / duplicate IDs / dangling references.
-4. Require unresolvedPolicyItems == [].
-5. Validate aggregationPolicy equals the V1 constant.
-6. Validate SIB0/SIB1/SIB2 each has >= 1 REQUIRED obligation.
-7. Validate obligation/gate/environment/tool/runtime graph.
-8. Validate coverageRequirements are covered by obligations.
-9. Compute profileBodyDigest.
-10. Resolve every authorityLocator against targetSha.
-11. Resolve and validate exactly one policy owner:
+1. Parse exact schema.
+2. Normalize lexical fields.
+3. Reject unknown/missing/null/duplicate/dangling data.
+4. Enforce collection cardinalities and reference-kind constraints.
+5. Require unresolvedPolicyItems == [].
+6. Require exact V1 aggregation policy.
+7. Validate every SIB level has >=1 REQUIRED obligation.
+8. Validate obligation -> gate -> environment/tool/runtime graph.
+9. Validate coverageRequirements.
+10. Compute profileBodyDigest.
+11. Resolve every authorityLocator at targetSha.
+12. Resolve exactly one policy owner:
       NATIVE_BOUND -> exact native authority refs;
-      ADOPTED_POLICY -> exact adoption assertion matching profileBodyDigest.
-12. Compute profileDigest.
-13. Build AcceptanceProfileSnapshotV1 from normalized profile content,
-    resolved authority refs, resolved source-policy identity and exact target.
-14. Canonically sort every collection.
-15. Compute snapshot semanticDigest.
-16. Re-canonicalize the produced object and verify the digest a second time.
-17. Return snapshot.
+      ADOPTED_POLICY -> exact matching adoption assertion.
+13. Compute profileDigest.
+14. Build normalized AcceptanceProfileSnapshotV1.
+15. Sort all collections canonically.
+16. Compute snapshot semanticDigest.
+17. Canonicalize again and verify stored digest from the produced object.
+18. Return snapshot.
 
-ANY FAILED STEP:
-  return a deterministic error;
-  produce no campaign-ready snapshot;
-  do not fall back to legacy profile labels;
-  do not infer missing policy with a model.
+ANY FAILURE:
+  return deterministic error;
+  return no campaign-ready snapshot;
+  do not infer missing policy;
+  do not fall back to legacy profile strings;
+  mutate no source/EHA/registry state.
 ```
 
-Compilation is a pure semantic operation with exact Git reads. It MUST NOT mutate source, policy, EHA state or protected-capability state.
-
 ---
 
-# 11. Deterministic errors and ambiguity behavior
+# 11. Deterministic errors / ambiguity behavior
 
-The implementation MAY expose richer diagnostic detail, but the following machine-level error categories are frozen.
-
-| Error | Required condition |
+| Error | Condition |
 | --- | --- |
-| `PROFILE_SCHEMA_UNSUPPORTED` | unknown `schemaVersion` or union shape |
-| `PROFILE_SCHEMA_INVALID` | missing field, unknown field, `null`, invalid lexical value |
-| `PROFILE_DUPLICATE_ID` | duplicate entity/scalar ID in a uniqueness domain |
-| `PROFILE_DANGLING_REF` | referenced authority/policy/gate/environment/tool/runtime/coverage ID missing |
-| `PROFILE_POLICY_UNRESOLVED` | `unresolvedPolicyItems` non-empty |
-| `PROFILE_POLICY_OWNER_INVALID` | zero, multiple or mode-incompatible policy owners |
-| `NATIVE_AUTHORITY_MISSING` | required native authority cannot resolve at target |
-| `NATIVE_BINDING_UNSOURCED` | native-bound policy-bearing item has no native authority support |
-| `ADOPTION_DECISION_MISSING` | adopted mode cannot resolve decision authority |
-| `ADOPTION_BINDING_MISMATCH` | adoption assertion does not bind exact profile body identity |
-| `AUTHORITY_BLOB_MISSING` | declared authority path does not resolve to a blob at target |
-| `PROFILE_COVERAGE_GAP` | required capability/contract/policy coverage is not mapped to obligations |
-| `PROFILE_SIB_LEVEL_EMPTY` | a SIB level has no `REQUIRED` obligation |
-| `PROFILE_NOT_APPLICABLE_INVALID` | N/A lacks authority rationale or carries executable gate/env refs |
-| `PROFILE_AGGREGATION_INVALID` | V1 aggregation constants changed/weakened |
-| `PROFILE_TARGET_INVALID` | repository binding or target SHA invalid |
-| `SNAPSHOT_DIGEST_MISMATCH` | loaded snapshot does not recompute to stored digest |
-| `SNAPSHOT_IMMUTABLE` | attempted mutation after campaign binding |
-| `LEGACY_CAMPAIGN_NO_SNAPSHOT` | caller requests V1 snapshot identity from an RC6 legacy campaign |
-| `LEGACY_CAMPAIGN_V2_APPEND_FORBIDDEN` | caller attempts to upgrade/mix V2 snapshot semantics into an old campaign |
+| `PROFILE_SCHEMA_UNSUPPORTED` | unknown schema version/union arm |
+| `PROFILE_SCHEMA_INVALID` | missing/unknown/null/lexically invalid field |
+| `PROFILE_DUPLICATE_ID` | duplicate ID or duplicate scalar in uniqueness domain |
+| `PROFILE_DANGLING_REF` | referenced entity missing |
+| `PROFILE_POLICY_UNRESOLVED` | unresolved policy items remain |
+| `PROFILE_POLICY_OWNER_INVALID` | zero/multiple/mode-incompatible owner |
+| `PROFILE_REFERENCE_KIND_INVALID` | authority ID used under wrong authority kind |
+| `NATIVE_AUTHORITY_MISSING` | native owner authority cannot resolve at target |
+| `NATIVE_BINDING_UNSOURCED` | native-bound policy-bearing item lacks native source |
+| `ADOPTION_DECISION_MISSING` | adopted decision cannot resolve |
+| `ADOPTION_BINDING_MISMATCH` | adoption assertion does not bind exact profile body |
+| `AUTHORITY_BLOB_MISSING` | locator does not resolve to blob at target |
+| `PROFILE_COVERAGE_GAP` | required coverage not mapped into obligations |
+| `PROFILE_SIB_LEVEL_EMPTY` | SIB0/1/2 lacks a required obligation |
+| `PROFILE_NOT_APPLICABLE_INVALID` | invalid N/A/rationale/gate combination |
+| `PROFILE_AGGREGATION_INVALID` | V1 aggregation weakened/changed |
+| `PROFILE_TARGET_INVALID` | invalid repository binding / target SHA |
+| `SNAPSHOT_DIGEST_MISMATCH` | recomputed digest differs |
+| `SNAPSHOT_IMMUTABLE` | mutation attempted after campaign binding |
+| `LEGACY_CAMPAIGN_NO_SNAPSHOT` | V1 snapshot requested from legacy RC6 campaign |
+| `LEGACY_CAMPAIGN_V2_APPEND_FORBIDDEN` | V2 snapshot semantics appended to legacy campaign |
 
-Ambiguity is fail-closed:
-
-- multiple plausible native policy owners -> no snapshot;
-- conflicting source policy -> no snapshot;
-- adoption assertion that cannot be established exactly -> no snapshot;
-- missing environment requirement -> no snapshot;
-- inability to determine whether an obligation is required vs N/A -> no snapshot.
-
-Implementation-local “best guess” semantics are forbidden.
+Ambiguity is fail-closed. Multiple plausible owners, conflicting policy, uncertain N/A or missing environment semantics produce no snapshot. Implementation-local “best guess” behavior is forbidden.
 
 ---
 
-# 12. Immutability contract
+# 12. Immutability
 
 ## 12.1 Freeze point
 
-`AcceptanceProfileSnapshotV1` MUST be fully compiled and digest-verified **before** `campaign_started` establishes the campaign.
+The snapshot MUST be fully compiled and digest-verified **before** `campaign_started` establishes a campaign.
 
-At campaign start the campaign binds:
+At campaign start the semantic binding tuple is:
 
 ```text
 exact target subjectSha
@@ -951,352 +886,238 @@ exact target subjectSha
 + snapshot semanticDigest
 ```
 
-W6 will freeze the physical EHA V2 event/storage representation of that binding. W7 freezes the semantic tuple now.
+W6 owns the physical EHA V2 event/storage representation of this tuple; W7 freezes its semantics here.
 
 ## 12.2 After campaign start
 
-After `campaign_started`:
+After start, snapshot bytes, semantic digest, target SHA, profile identity, source-policy identity, gates and environments are immutable.
 
-- snapshot bytes are immutable;
-- `semanticDigest` is immutable;
-- target SHA is immutable;
-- profile identity is immutable;
-- gate/environment requirement set is immutable;
-- policy source identity is immutable.
+There is no “refresh campaign to current profile” operation.
 
-No API may “refresh” a running campaign to a newer profile.
-
-## 12.3 Upstream profile changes
-
-If `ProjectSibProfileV1` or any material source authority changes after campaign start:
+## 12.3 Later profile/policy changes
 
 ```text
-old campaign -> keeps old snapshot forever
-new profile/source -> compiles to new profile/snapshot identity
-new acceptance claim -> requires a new campaign
+old campaign -> remains bound to old snapshot/profile
+changed profile/source -> compiles new identity
+current acceptance claim under changed policy -> new campaign
 ```
 
-The historical campaign does not become invalid merely because later policy exists. It remains evidence for the exact subject/profile/snapshot under which it ran.
+A historical campaign remains evidence for the exact subject/profile under which it ran; it does not become evidence for the newer profile.
 
-It also does not become evidence for the new profile.
+## 12.4 Snapshot unavailable/corrupt
 
-## 12.4 Snapshot loss/corruption
-
-If a V1 campaign claims a snapshot digest but the corresponding snapshot cannot be loaded and verified, V1 profile-aware claimability is not supportable from that record set. The reader MUST report the missing/corrupt evidence; it MUST NOT reconstruct the snapshot from today's profile and pretend it was original campaign input.
+If a V1 campaign claims a snapshot digest but the corresponding snapshot cannot be loaded and verified, profile-aware claimability is not supportable from that evidence set. Reader MUST report missing/corrupt evidence and MUST NOT reconstruct the supposed historical snapshot from today's profile.
 
 ---
 
-# 13. RC6 compatibility contract
+# 13. RC6 compatibility
 
-Current RC6 EHA events have no `AcceptanceProfileSnapshotV1`; verdict events contain a free-form/string `profile` field and campaign identity is established by current `campaign_started` fields.
+Current RC6 campaign events have no snapshot V1 binding; verdicts carry only a free-form/string `profile` field.
 
-RC7 MUST read those records without rewriting them.
+RC7 reads them without rewriting.
 
-## 13.1 Legacy classification
+## 13.1 Legacy reader classification
 
-A campaign whose original `campaign_started` is an RC6 event with no V1 snapshot binding is classified:
+A campaign started under the RC6 event shape is derived/read as:
 
 ```text
 campaignSchema = "RC6_LEGACY"
 profileBinding = "LEGACY_UNBOUND"
-acceptanceProfileSnapshot = absent at the reader/view layer
+acceptanceProfileSnapshot = unavailable
 ```
 
-This classification is derived reader state. It is not appended retroactively to the ledger.
+This is reader state only; it is not appended to the old ledger.
 
-## 13.2 Historical semantics preserved
+## 13.2 Preserve historical semantics
 
-For RC6 legacy campaigns:
+For legacy campaigns:
 
-- preserve original target SHA, scope, verdicts, repairs and completion exactly;
-- preserve the original verdict `profile` string as `legacyProfileLabel` when rendered;
-- preserve historical RC6 claimability according to the accepted RC6 rules that created that evidence;
-- do not weaken, strengthen or recompute old verdicts using current policy.
+- preserve target SHA, scope, verdicts, repair history and completion exactly;
+- render old verdict `profile` only as `legacyProfileLabel`;
+- preserve historical RC6 claimability under the RC6 contract that produced it;
+- do not recompute old verdicts using current profile policy.
 
-An RC6 SIB PASS remains historical RC6 acceptance evidence for its exact subject under its original contract. It does **not** acquire `AcceptanceProfileSnapshotV1` identity.
+RC6 PASS remains historical RC6 evidence for its exact subject. It does **not** acquire snapshot-V1 identity.
 
 ## 13.3 No retroactive upgrade
 
 RC7 MUST NOT:
 
-- synthesize `profileDigest` from the old `profile` string;
-- compile today's project profile and attach it to the old campaign;
-- infer old gate/environment identity that was not durably recorded;
-- rewrite old `campaign_started` or verdict events;
+- synthesize `profileDigest` from an RC6 `profile` string;
+- compile today's profile and attach it to an old campaign;
+- infer unrecorded old gate/environment identity;
+- rewrite old campaign/verdict events;
 - append a V2 snapshot binding into an already-started RC6 campaign;
-- describe an RC6 campaign as V1-snapshot-bound.
+- label an RC6 campaign “snapshot bound”.
 
-If a current profile-aware acceptance claim is needed for the same exact source SHA, start a **new campaign** with a fresh V1 snapshot. Same SHA does not make old and new profile identities interchangeable.
+If a current V1/profile-aware acceptance claim is needed for the same source SHA, start a **new campaign** with a fresh snapshot.
 
-## 13.4 Legacy access behavior
-
-A reader request for V1-specific fields on a legacy campaign returns an explicit legacy/unavailable state, not a fabricated object.
-
-A writer request to append V2 snapshot-aware events to a legacy campaign fails `LEGACY_CAMPAIGN_V2_APPEND_FORBIDDEN`.
-
-This prevents mixed-semantic campaigns.
+Reader request for V1-only fields on RC6 yields explicit unavailable/legacy state. Writer request to mix V2 semantics into it fails `LEGACY_CAMPAIGN_V2_APPEND_FORBIDDEN`.
 
 ---
 
 # 14. Adversarial examples
 
-These are normative acceptance examples for W7 tests.
-
-## A1 — object key order
-
-Two inputs contain identical fields in different JSON object key orders.
-
-**Required:** same normalized snapshot and same digest.
-
-## A2 — collection order
-
-The same obligations, gates and environments arrive in reverse order.
-
-**Required:** canonical sort; same digest.
-
-## A3 — duplicate ID
-
-Two obligations use `sib2.integration`.
-
-**Required:** `PROFILE_DUPLICATE_ID`; no silent de-duplication.
-
-## A4 — target changes only
-
-Profile and authority blobs are identical, but target changes from SHA A to SHA B.
-
-**Required:** same `profileDigest`, different snapshot `semanticDigest`.
-
-This proves target identity and profile identity remain separate axes.
-
-## A5 — native policy changes only
-
-The binding profile file is unchanged, but one native policy path resolves to a different blob at the target.
-
-**Required:** different `profileDigest` and different snapshot digest.
-
-## A6 — provenance changes only
-
-Actor/session/watermark/recording time changes while the snapshot semantic object is unchanged.
-
-**Required:** no snapshot/profile digest change because those values are not legal snapshot fields.
-
-## A7 — profile version changes only
-
-`profileVersion` changes while every other profile field is byte/semantically equal.
-
-**Required:** new body/profile/snapshot digests. Version is an identity-bearing semantic declaration, not decorative metadata.
-
-## A8 — adopted profile edited after adoption
-
-Adoption assertion binds profile body digest X. Profile is edited and now normalizes to digest Y.
-
-**Required:** `ADOPTION_BINDING_MISMATCH`; no snapshot.
-
-## A9 — adoption missing
-
-`authorityMode=ADOPTED_POLICY`, but the adoption decision path is unavailable at the target.
-
-**Required:** `ADOPTION_DECISION_MISSING`; profile remains proposal/non-campaign-ready.
-
-## A10 — native mapping invents policy
-
-A `NATIVE_BOUND` obligation has no `sourceAuthorityIds` intersecting `nativeAuthorityIds`.
-
-**Required:** `NATIVE_BINDING_UNSOURCED`; no shadow-policy fallback.
-
-## A11 — unavailable runner represented as N/A
-
-An obligation is marked `NOT_APPLICABLE` merely because its runner/credential is unavailable.
-
-**Required:** invalid N/A unless a project authority explicitly supplies N/A rationale. Runtime unavailability is an EHA evidence outcome, not profile applicability.
-
-## A12 — protected coverage silently dropped
-
-`coverageRequirements.protectedContractIds` contains contract C but no obligation covers C.
-
-**Required:** `PROFILE_COVERAGE_GAP`.
-
-## A13 — environment matrix weakened
-
-A gate references environments linux and windows, but an implementation executes only linux and tries to treat the gate as complete.
-
-**Required:** the snapshot still requires both. W6 result aggregation must not produce profile PASS from the partial matrix.
-
-## A14 — profile changed during campaign
-
-Campaign starts on snapshot D1. Project profile later compiles to D2.
-
-**Required:** running/historical campaign remains bound to D1. No refresh. New profile-aware claim needs a new campaign.
-
-## A15 — legacy RC6 profile string resembles current ID
-
-An RC6 verdict has `profile="sib2-full"`, and current V1 profile happens to use ID `sib2-full`.
-
-**Required:** no identity transfer. The old string remains `legacyProfileLabel`; V1 profile binding remains unavailable.
-
-## A16 — legacy campaign on same SHA
-
-An RC6 campaign PASS exists for SHA A; RC7 compiles a V1 snapshot for SHA A.
-
-**Required:** old PASS is not retroactively V1-bound. A new V1 campaign is required for a V1 profile-aware acceptance claim.
-
-## A17 — branch moves
-
-Snapshot target SHA is A; the release branch later points to B.
-
-**Required:** snapshot remains A. Existing EHA exact-head invalidation/selection rules decide whether execution may continue; branch name never changes the snapshot digest.
-
-## A18 — semantic statement whitespace
-
-A policy statement differs only by Unicode whitespace runs and NFC-equivalent Unicode spelling.
-
-**Required:** statement normalization makes the digest equal.
-
-## A19 — constraint value changes
-
-`python.version EQUALS "3.12.7"` becomes `"3.12.8"`.
-
-**Required:** profile and snapshot digest change.
-
-## A20 — unknown field injected
-
-Snapshot contains `"generatedAt": "..."` or an implementation-private `"notes"` member.
-
-**Required:** `PROFILE_SCHEMA_INVALID`; unknown members are not tolerated as pseudo-extensions.
+1. **Object keys reordered:** same digest.
+2. **Obligation/gate/environment arrays reversed:** canonical sort; same digest.
+3. **Duplicate obligation ID:** `PROFILE_DUPLICATE_ID`, no silent dedup.
+4. **Only target SHA changes:** same `profileDigest`, different snapshot digest.
+5. **Native policy blob changes:** different `profileDigest` and snapshot digest.
+6. **Only actor/session/watermark/time changes:** no profile/snapshot digest effect because fields are outside schema.
+7. **Only `profileVersion` changes:** new body/profile/snapshot identity.
+8. **Adopted profile edited after adoption:** old assertion mismatches; no snapshot.
+9. **Adoption assertion missing:** no campaign-ready adopted profile.
+10. **NATIVE obligation has no native source:** `NATIVE_BINDING_UNSOURCED`.
+11. **Runner unavailable and obligation marked N/A:** invalid unless policy authority explicitly supplies N/A rationale.
+12. **Required protected-contract coverage has no obligation:** `PROFILE_COVERAGE_GAP`.
+13. **Gate requires linux+windows but only linux executed:** profile remains incomplete; W6 cannot aggregate partial matrix to PASS.
+14. **Profile changes during campaign:** old campaign remains on old digest; no refresh.
+15. **RC6 profile string equals current profile ID:** still `LEGACY_UNBOUND`; no identity transfer.
+16. **RC6 PASS and V1 snapshot exist for same SHA:** old PASS is not retroactively V1-bound; new V1 campaign required.
+17. **Release branch moves A->B:** snapshot stays on exact A; branch is navigation only.
+18. **NFC/whitespace-equivalent human statement:** same normalized digest.
+19. **Constraint `3.12.7` -> `3.12.8`:** digest changes.
+20. **Unknown `generatedAt` member injected:** exact-schema rejection.
+21. **JSON serializer emits `\/` or `\u00e9` instead of required literal `/`/UTF-8:** non-canonical bytes; digest implementation test fails.
+22. **Future schema passed to V1 reader:** `PROFILE_SCHEMA_UNSUPPORTED`, never “drop unknown fields and continue”.
 
 ---
 
 # 15. Compatibility obligations
 
-W7 implementation MUST preserve all of the following.
+W7 implementation MUST preserve:
 
-1. **Exact-head identity:** exact target SHA remains an independent acceptance axis.
-2. **One policy owner:** no second editable acceptance-policy object is introduced.
-3. **Existing SIB meanings:** profile customization cannot redefine SIB0/SIB1/SIB2.
-4. **Existing EHA authority:** snapshot does not replace `eha.ndjson`.
-5. **Current campaign start modes:** `trusted_prestarted` vs `model_started` ownership remains an EHA/W6 concern; either mode must bind the same immutable snapshot semantics before campaign start.
-6. **Protected registry:** protected contract IDs are references to existing registry authority, not copied lifecycle truth.
-7. **Provenance separation:** watermark/session attribution stays outside claimability and digest.
-8. **Host ownership:** W7 performs schema/identity/compilation, not source editing or controller execution.
-9. **Non-binary evidence compatibility:** snapshot defines policy/applicability, but W6 retains distinct execution outcomes such as PASS, FAIL, INCONCLUSIVE and UNAVAILABLE; missing/non-PASS evidence cannot be upgraded by snapshot logic.
-10. **Fresh campaign after changed profile:** historical evidence remains historical; a changed profile requires fresh acceptance evidence for a current claim.
-11. **Reader compatibility:** RC6 records remain readable without mutation.
-12. **Fail closed on unsupported future schemas:** a V1 reader MUST NOT treat V2 as V1 by dropping fields.
+1. exact subject SHA as independent acceptance axis;
+2. one acceptance-policy owner;
+3. existing SIB0/SIB1/SIB2 meanings;
+4. `eha.ndjson` as EHA authority;
+5. existing protected-capability registry authority;
+6. provenance/session attribution outside claimability/digest;
+7. host execution ownership;
+8. non-binary EHA evidence semantics: missing/INCONCLUSIVE/UNAVAILABLE cannot become PASS;
+9. fresh campaign requirement after profile identity changes;
+10. RC6 legacy readability without mutation;
+11. fail-closed handling of unsupported future schema versions;
+12. separate concrete run/result identity in EHA evidence.
+
+`trusted_prestarted` versus `model_started` remains an EHA start-ownership concern; either path MUST bind the same immutable snapshot semantics before campaign start.
 
 ---
 
-# 16. MUST / MUST NOT summary
+# 16. MUST / MUST NOT
 
 ## MUST
 
-- have exactly one policy owner;
-- compute `profileBodyDigest`, `profileDigest` and snapshot `semanticDigest` exactly as frozen here;
-- include `schemaVersion` in all digest preimages;
-- bind the snapshot to exact `repositoryId + subjectSha`;
-- resolve exact authority blobs from the target Git tree;
-- freeze gates, environments, material tool/runtime requirements and coverage requirements before campaign start;
-- canonicalize field and collection ordering;
-- reject unresolved policy choices;
-- require explicit authority-backed N/A rationale;
-- keep old campaigns immutable when policy changes;
-- read RC6 campaigns as legacy without upgrading them;
-- preserve actual gate/environment/run/result evidence as separate acceptance dimensions.
+- resolve exactly one policy owner;
+- compute body/profile/snapshot digests exactly as frozen;
+- include every `schemaVersion` in its digest preimage;
+- bind snapshot to `repositoryId + exact subjectSha`;
+- resolve exact authority blobs at the target tree;
+- freeze obligations/gates/environments/tool/runtime requirements before campaign start;
+- use exact canonical ordering and string emission;
+- reject unresolved policy;
+- require authority-backed N/A;
+- keep started campaigns immutable;
+- read RC6 as legacy without upgrading it;
+- keep actual gate/environment/run/result evidence separately inspectable.
 
 ## MUST NOT
 
-- create a second independently editable acceptance-policy authority;
-- infer profile identity from a filename or free-form profile string;
-- include actor/session/timestamp/branch/run result in snapshot digest;
-- infer missing native policy from model reasoning;
-- treat discovery completeness as policy completeness;
-- store evaluated completeness statuses in V1 snapshot;
-- use `null`/missing fields as unknown policy semantics;
-- silently sort-and-deduplicate duplicates into validity;
-- mutate a snapshot after `campaign_started`;
-- refresh an existing campaign to a changed profile;
-- retroactively attach V1 snapshots to RC6 campaigns;
-- let a partial environment matrix satisfy an all-required profile;
-- treat N/A as a synonym for unavailable.
+- introduce a second editable acceptance-policy authority;
+- infer profile identity from filename/free-form label;
+- include provenance/timestamp/branch/run result in snapshot digest;
+- infer missing native policy with model reasoning;
+- equate discovery completeness with policy completeness;
+- store evaluated completeness status in snapshot V1;
+- use null/omission/`UNKNOWN` as policy semantics;
+- silently deduplicate invalid input;
+- mutate/refresh a started snapshot;
+- retroactively attach V1 snapshot to RC6 campaign;
+- treat partial environment matrix as full profile PASS;
+- treat unavailable as N/A;
+- depend on language-specific JSON serializer defaults.
 
 ---
 
 # 17. Explicit non-goals
 
-This freeze deliberately does **not** decide or implement:
+This freeze does not decide or implement:
 
-- production TypeScript/Python W7 code;
-- physical file path for persisted snapshot instances;
-- exact EHA V2 event field/storage layout carrying the snapshot binding — W6 owns that physical schema while preserving the semantic tuple frozen here;
-- EHA V2 non-binary event serialization beyond the inherited rule that non-PASS/missing evidence cannot become PASS;
-- W8 `DiscoveryCompleteness` / `PolicyCompleteness` value model or evidence algorithm;
-- W9 repair-attempt identity/termination digest;
+- production W7 TypeScript/Python;
+- physical persistence path for snapshot instances;
+- exact EHA V2 event/storage field layout carrying the frozen binding tuple — W6 owns the physical schema;
+- EHA V2 non-binary event serialization beyond inherited non-PASS rules;
+- W8 `DiscoveryCompleteness` / `PolicyCompleteness` value model/evidence algorithm;
+- W9 repair-attempt/termination digest;
 - W10 repair-vs-ledger-recovery permissions;
-- host command rendering or Jinja execution semantics;
-- a generic policy language, regex/range constraint engine or arbitrary expression evaluator;
+- host/Jinja command rendering;
+- generic policy expression/range/regex language;
 - cross-repository policy authority in V1;
 - Git SHA-256 object-format support in V1;
 - generic attestation/signature infrastructure;
-- retroactive migration of RC6 durable EHA history.
+- retroactive RC6 ledger migration.
 
-These are exclusions, not unresolved W7 semantics.
+These are downstream ownership boundaries, not unresolved W7 semantics.
 
 ---
 
-# 18. Tests-first implementation contract for W7
+# 18. Tests-first contract for W7
 
-A W7 implementation can begin with RED tests for at least:
+Initial RED coverage can be written deterministically for:
 
-1. exact schema acceptance/rejection;
+1. exact schema and cardinalities;
 2. NATIVE vs ADOPTED single-owner validation;
-3. adoption assertion exact-body binding;
+3. exact adoption-body binding;
 4. authority path -> exact target blob resolution;
-5. profile-body digest canonicalization;
+5. `profileBodyDigest` canonicalization;
 6. source-policy-sensitive `profileDigest`;
 7. snapshot digest canonicalization;
-8. object-key and collection-order invariance;
-9. target-SHA change changes only snapshot identity when policy is unchanged;
-10. native policy blob change changes profile identity;
-11. duplicate/dangling ref failure;
-12. coverage-gap failure;
-13. invalid N/A failure;
-14. unresolved-policy compile block;
-15. immutable post-start snapshot binding;
-16. RC6 legacy read with `LEGACY_UNBOUND` profile state;
-17. refusal to synthesize/append a V1 binding into a legacy campaign;
-18. exclusion of provenance/run/timestamp data from profile/snapshot identity.
+8. exact JSON escaping/UTF-8 golden vectors;
+9. key/collection order invariance;
+10. target-SHA-only change leaves profile digest and changes snapshot digest;
+11. native policy blob change changes profile identity;
+12. duplicate/dangling/kind-invalid refs;
+13. coverage gaps;
+14. invalid N/A;
+15. unresolved policy compile block;
+16. post-start immutability;
+17. RC6 `LEGACY_UNBOUND` reading;
+18. refusal to append/synthesize V1 into RC6 campaign;
+19. exclusion of provenance/run/timestamp data from snapshot identity.
 
-W7 tests MUST treat the digest vectors produced by this contract as compatibility vectors. Once W7 ships, changing canonicalization or digest preimages requires a schema-version change rather than modifying V1 in place.
+W7 tests MUST create and retain golden digest fixtures from the exact algorithms in this document. Once W7 ships, changing canonicalization, domain prefixes or digest preimages requires a new schema version; V1 MUST NOT be silently redefined.
 
 ---
 
 # 19. Downstream workstreams unlocked
 
-This freeze resolves the semantic choices W7 would otherwise have to invent during implementation:
+This freeze resolves the W7 decisions implementation would otherwise have to invent:
 
 - one policy owner;
-- exact NATIVE/ADOPTED semantics;
-- adopted-policy source/adjudication binding;
-- exact ProjectSibProfile V1 policy shape;
-- exact immutable snapshot V1 shape;
-- exact profile and snapshot digest algorithms;
-- exact normalization/ordering/null/unknown behavior;
-- exact campaign immutability rule;
-- exact RC6 reader compatibility/no-upgrade rule.
+- exact `NATIVE_BOUND` / `ADOPTED_POLICY` semantics;
+- exact adoption source assertion;
+- exact ProjectSibProfile V1 schema/cardinalities;
+- exact immutable snapshot V1 schema;
+- profile-body/profile/snapshot digest algorithms;
+- exact normalization, ordering, escaping, null/unknown behavior;
+- target/policy/gate/environment identity separation;
+- campaign immutability;
+- RC6 reader compatibility/no-upgrade behavior.
 
 Therefore it unlocks:
 
 - **W7 ProjectSibProfile / AcceptanceProfileSnapshot** tests-first implementation;
 - prerequisite profile/snapshot identity for **W6 EHA V2**;
 - stable policy/coverage identity prerequisite for **W8 completeness**;
-- stable profile snapshot identity prerequisite for **W9 repair termination**.
+- stable profile-snapshot identity prerequisite for **W9 repair termination**.
 
 ---
 
 # 20. Unresolved items
 
-There are **no unresolved W7 semantic decisions** in the scope of this micro-freeze.
+There are **no unresolved W7 semantic decisions** inside this micro-freeze.
 
-The remaining questions listed as non-goals are owned by downstream freezes/workstreams. An implementation of W7 does not need to choose their semantics in order to implement the schemas, compiler, canonicalization, digests, immutability guard and RC6 compatibility behavior frozen here.
+Physical EHA V2 carriage, W8 completeness results, W9 termination and the other explicit non-goals remain downstream contracts. W7 can implement schema validation, authority resolution, compilation, canonicalization, digests, immutability binding and RC6 compatibility without choosing their semantics.
 
 ---
 
