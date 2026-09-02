@@ -25,3 +25,5 @@ def test_repo_continue_requires_durable_isolation_marker_before_parent_fallback(
     assert "development_continuation_state_record_isolation_unproven" in command
     assert "before executing that Step in the current session" in command
     assert "durable" in command.lower()
+    assert "pathScopeAuthority = NOT_DECLARED" in command
+    assert "SUPERSEDE_CONTRADICTION" in command

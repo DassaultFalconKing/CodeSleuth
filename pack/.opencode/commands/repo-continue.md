@@ -29,6 +29,10 @@ The final result must include:
 
 If planning or active-scope authority remains unproven, stop with `SCOPE_AUTHORITY_UNPROVEN`. Do not choose the most plausible file by filename, recency, prose quality, or model confidence.
 
+If `development_authority_state_load` fails closed on `AUTHORITY RELATION CONTRADICTION`, stop. Do not call `development_authority_state_start` to mint a replacement map. The contradiction is latched until an operator records `operatorAdjudication.decision = SUPERSEDE_CONTRADICTION`.
+
+Do not copy derived change-surface seeds or entries into `allowedPaths`. If repository authority does not declare a positive path allowlist, persist `pathScopeAuthority = NOT_DECLARED` and let the scope guard return `SCOPE_AUTHORITY_UNPROVEN`. Explicit `pathScopeAuthority=DECLARED` is required before any positive mutation allowlist.
+
 If any required `REPO_PROVABLE` or `HOSTED_CI_PROVABLE` gate remains red or unexecuted, report `CLOUD_TESTABILITY_REMAINING`. Only after those gates are PASS may the result report `LIVE_HANDOFF_READY` for remaining live/runtime work.
 
 Use `development_continuation_state_scope_guard` before suggesting or reviewing a proposed changed-path set. `UNDECLARED`, `ADJACENT_TRACK`, and `FORBIDDEN_BY_ACTIVE_SCOPE` never authorize automatic scope expansion. A declared path ending in `/` is a directory boundary and includes descendants; conceptual scope labels are not repository path patterns.

@@ -45,6 +45,19 @@ async function main() {
   let contradictoryRejected = false
   try { await authorityLoad.execute({ mapId: contradictory.mapId }, context) } catch (error) { contradictoryRejected = String(error).includes("AUTHORITY RELATION CONTRADICTION") }
   assert(contradictoryRejected, "the same confirmed entity cannot be both adjacent track and accepted predecessor")
+  let contradictionResetRejected = false
+  try {
+    await authorityStart.execute({ objective: "retry clean map after contradiction", targetSha: sha }, context)
+  } catch (error) {
+    contradictionResetRejected = String(error).includes("AUTHORITY CONTRADICTION LATCHED")
+  }
+  assert(contradictionResetRejected, "start() must not overwrite latest after AUTHORITY RELATION CONTRADICTION without operator adjudication")
+  const adjudicated = JSON.parse(await authorityStart.execute({
+    objective: "operator supersedes a latched contradiction",
+    targetSha: sha,
+    operatorAdjudication: { decision: "SUPERSEDE_CONTRADICTION", rationale: "fixture operator inspected both confirmed roles and retired the contradictory map" },
+  }, context))
+  assert(typeof adjudicated.mapId === "string" && adjudicated.mapId !== contradictory.mapId, "operator adjudication must be able to start a successor map")
 
   const gateMap = JSON.parse(await gateStart.execute({ objective: "map native gates", targetSha: sha }, context))
   const localGate = JSON.parse(await record_gate.execute({ gateMapId: gateMap.gateMapId, name: "fast verify", gateClass: "REPO_PROVABLE", required: true, command: "./verify.sh fast", evidence: [{ path: "docs/SESSION.md", locator: "line 2: Required gate" }, { path: "verify.sh", locator: "script entry" }] }, context))
@@ -63,7 +76,7 @@ async function main() {
     await save_packet.execute({
       targetSha: sha, authorityMapId: authority.mapId, nativeGateMapId: gateMap.gateMapId, changeSurfaceMapId: surface.surfaceMapId,
       planningAuthority: ["TODO.md"], activeScope: "docs/SESSION.md", objective: "reject stale history as predecessor", prerequisites: [], acceptedPredecessors: ["OLD_ROADMAP.md"], requiredReading: ["TODO.md", "docs/SESSION.md"],
-      allowedPaths: ["src/core/**"], forbiddenOrAdjacentPaths: [{ pattern: "src/graph/**", classification: "ADJACENT_TRACK", rationale: "separate graph track" }],
+      pathScopeAuthority: "DECLARED", allowedPaths: ["src/core/**"], forbiddenOrAdjacentPaths: [{ pattern: "src/graph/**", classification: "ADJACENT_TRACK", rationale: "separate graph track" }],
       repoProvableChecks: ["./verify.sh fast"], hostedCiProvableChecks: ["GitHub Actions ci"], liveRuntimeRequiredChecks: ["live service smoke"], operatorDecisionRequired: [], blockers: [], uncertainties: [], authorityEdgeIds: [planning.edgeId, active.edgeId],
     }, context)
   } catch (error) { historicalPredecessorRejected = String(error).includes("ACCEPTED_PREDECESSOR") }
@@ -72,7 +85,7 @@ async function main() {
   const packet = JSON.parse(await save_packet.execute({
     targetSha: sha, authorityMapId: authority.mapId, nativeGateMapId: gateMap.gateMapId, changeSurfaceMapId: surface.surfaceMapId,
     planningAuthority: ["TODO.md"], activeScope: "docs/SESSION.md", objective: "continue current session", prerequisites: [], acceptedPredecessors: [], requiredReading: ["TODO.md", "docs/SESSION.md"],
-    allowedPaths: ["src/core/**"], forbiddenOrAdjacentPaths: [{ pattern: "src/graph/**", classification: "ADJACENT_TRACK", rationale: "separate graph track" }],
+    pathScopeAuthority: "DECLARED", allowedPaths: ["src/core/**"], forbiddenOrAdjacentPaths: [{ pattern: "src/graph/**", classification: "ADJACENT_TRACK", rationale: "separate graph track" }],
     repoProvableChecks: ["./verify.sh fast"], hostedCiProvableChecks: ["GitHub Actions ci"], liveRuntimeRequiredChecks: ["live service smoke"], operatorDecisionRequired: [], blockers: [], uncertainties: [], authorityEdgeIds: [planning.edgeId, active.edgeId],
   }, context))
   const loadedPacket = JSON.parse(await packetLoad.execute({ packetId: packet.packetId }, context))
@@ -103,6 +116,28 @@ async function main() {
   assert(unresolvedPath.overall === "SCOPE_AUTHORITY_UNPROVEN", "a path cannot become IN_SCOPE or merely UNDECLARED when path-level authority was never declared")
   const stillAdjacent = JSON.parse(await scope_guard.execute({ packetId: noPathAuthorityPacket.packetId, proposedPaths: ["src/graph/lib.rs"] }, context))
   assert(stillAdjacent.overall === "ADJACENT_TRACK", "explicit restrictions must still take precedence when positive path authority is absent")
+
+  let inferredDeclaredRejected = false
+  try {
+    await save_packet.execute({
+      targetSha: sha, authorityMapId: authority.mapId, nativeGateMapId: gateMap.gateMapId, changeSurfaceMapId: surface.surfaceMapId,
+      planningAuthority: ["TODO.md"], activeScope: "docs/SESSION.md", objective: "copy derived seeds into allowedPaths without declaring path authority",
+      allowedPaths: surface.seedPaths, forbiddenOrAdjacentPaths: [{ pattern: "src/graph/**", classification: "ADJACENT_TRACK", rationale: "separate graph track" }],
+      repoProvableChecks: ["./verify.sh fast"], hostedCiProvableChecks: ["GitHub Actions ci"], liveRuntimeRequiredChecks: ["live service smoke"], authorityEdgeIds: [planning.edgeId, active.edgeId],
+    }, context)
+  } catch (error) { inferredDeclaredRejected = String(error).includes("PATH SCOPE NOT DECLARED") }
+  assert(inferredDeclaredRejected, "non-empty allowedPaths must not infer DECLARED when pathScopeAuthority is omitted")
+
+  let fabricatedFromSurfaceRejected = false
+  try {
+    await save_packet.execute({
+      targetSha: sha, authorityMapId: authority.mapId, nativeGateMapId: gateMap.gateMapId, changeSurfaceMapId: surface.surfaceMapId,
+      planningAuthority: ["TODO.md"], activeScope: "docs/SESSION.md", objective: "declare path scope by copying derived change-surface seeds",
+      pathScopeAuthority: "DECLARED", allowedPaths: surface.seedPaths, forbiddenOrAdjacentPaths: [{ pattern: "src/graph/**", classification: "ADJACENT_TRACK", rationale: "separate graph track" }],
+      repoProvableChecks: ["./verify.sh fast"], hostedCiProvableChecks: ["GitHub Actions ci"], liveRuntimeRequiredChecks: ["live service smoke"], authorityEdgeIds: [planning.edgeId, active.edgeId],
+    }, context)
+  } catch (error) { fabricatedFromSurfaceRejected = String(error).includes("DERIVED CHANGE SURFACE") }
+  assert(fabricatedFromSurfaceRejected, "exact change-surface seeds must not become a declared mutation allowlist")
 
   await record_result.execute({ gateMapId: gateMap.gateMapId, gateId: hostedGate.gateId, outcome: "PASS", nativeEvidence: "hosted workflow exact-head success" }, context)
   gates = JSON.parse(await gateLoad.execute({ gateMapId: gateMap.gateMapId }, context))

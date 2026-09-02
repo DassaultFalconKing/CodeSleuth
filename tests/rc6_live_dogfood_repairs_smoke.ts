@@ -45,14 +45,14 @@ async function main() {
   const first = JSON.parse(await save_packet.execute({
     targetSha: sha, authorityMapId: authority.mapId, nativeGateMapId: gateMap.gateMapId, changeSurfaceMapId: surface.surfaceMapId,
     planningAuthority: ["TODO.md"], activeScope: "docs/SESSION.md", objective: "continue", prerequisites: ["bootstrap control plane"], acceptedPredecessors: ["docs/S08.md"], requiredReading: ["TODO.md", "docs/SESSION.md", "docs/S08.md"],
-    allowedPaths: ["docs/baseline/", "src/lib.rs"], forbiddenOrAdjacentPaths: [{ pattern: "docs/archive/", classification: "ADJACENT_TRACK", rationale: "archive is adjacent" }],
+    pathScopeAuthority: "DECLARED", allowedPaths: ["docs/baseline/"], forbiddenOrAdjacentPaths: [{ pattern: "docs/archive/", classification: "ADJACENT_TRACK", rationale: "archive is adjacent" }],
     repoProvableChecks: ["./verify.sh fast"], hostedCiProvableChecks: ["hosted ci"], liveRuntimeRequiredChecks: ["live smoke"], operatorDecisionRequired: ["confirm production handoff"], blockers: ["known blocker"], uncertainties: ["known uncertainty"], authorityEdgeIds: [planning.edgeId, active.edgeId, predecessor.edgeId],
   }, context))
 
   const stripped = JSON.parse(await save_packet.execute({
     targetSha: sha, authorityMapId: authority.mapId, nativeGateMapId: gateMap.gateMapId, changeSurfaceMapId: surface.surfaceMapId,
     planningAuthority: ["TODO.md"], activeScope: "docs/SESSION.md", objective: "retry after validation conflict", prerequisites: [], acceptedPredecessors: [], requiredReading: [],
-    allowedPaths: ["src/lib.rs"], forbiddenOrAdjacentPaths: [], repoProvableChecks: [], hostedCiProvableChecks: [], liveRuntimeRequiredChecks: [], operatorDecisionRequired: [], blockers: [], uncertainties: [], authorityEdgeIds: [planning.edgeId, active.edgeId],
+    pathScopeAuthority: "DECLARED", allowedPaths: ["docs/baseline/"], forbiddenOrAdjacentPaths: [], repoProvableChecks: [], hostedCiProvableChecks: [], liveRuntimeRequiredChecks: [], operatorDecisionRequired: [], blockers: [], uncertainties: [], authorityEdgeIds: [planning.edgeId, active.edgeId],
   }, context))
   const loaded = JSON.parse(await packetLoad.execute({ packetId: stripped.packetId }, context))
   for (const [field, expected] of Object.entries({
@@ -69,7 +69,7 @@ async function main() {
   try {
     await save_packet.execute({
       targetSha: sha, authorityMapId: authority.mapId, nativeGateMapId: gateMap.gateMapId, changeSurfaceMapId: surface.surfaceMapId,
-      planningAuthority: ["TODO.md"], activeScope: "docs/SESSION.md", objective: "reject conceptual path", allowedPaths: ["W5 production toolcaller"], authorityEdgeIds: [planning.edgeId, active.edgeId],
+      planningAuthority: ["TODO.md"], activeScope: "docs/SESSION.md", objective: "reject conceptual path", pathScopeAuthority: "DECLARED", allowedPaths: ["W5 production toolcaller"], authorityEdgeIds: [planning.edgeId, active.edgeId],
     }, context)
   } catch (error) { conceptualRejected = String(error).includes("invalid repository path pattern") }
   assert(conceptualRejected, "conceptual scope labels must not be accepted as repository path patterns")
@@ -84,7 +84,7 @@ async function main() {
   try {
     await save_packet.execute({
       targetSha: sha, authorityMapId: wrongMap.mapId, nativeGateMapId: gateMap.gateMapId, changeSurfaceMapId: surface.surfaceMapId,
-      planningAuthority: ["TODO.md"], activeScope: "docs/SESSION-ALT.md", objective: "reject wrong relation direction", acceptedPredecessors: ["docs/S08.md"], allowedPaths: ["src/lib.rs"], authorityEdgeIds: [wrongPlanning.edgeId, wrongActive.edgeId, wrongDirection.edgeId],
+      planningAuthority: ["TODO.md"], activeScope: "docs/SESSION-ALT.md", objective: "reject wrong relation direction", acceptedPredecessors: ["docs/S08.md"], pathScopeAuthority: "DECLARED", allowedPaths: ["docs/baseline/"], authorityEdgeIds: [wrongPlanning.edgeId, wrongActive.edgeId, wrongDirection.edgeId],
     }, context)
   } catch (error) { wrongDirectionRejected = String(error).includes("direction invalid") }
   assert(wrongDirectionRejected, "accepted predecessor authority must be bound from the active scope, not any matching object")

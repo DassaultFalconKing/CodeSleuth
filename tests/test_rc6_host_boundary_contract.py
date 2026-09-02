@@ -19,6 +19,15 @@ def test_repo_continue_fails_closed_on_missing_step_isolation_and_read_only_boun
     assert "Do not repair the target in place" in command
 
 
+def test_repo_continue_fails_closed_on_path_authority_fabrication_and_contradiction_reset() -> None:
+    command = text("pack/.opencode/commands/repo-continue.md")
+    assert "pathScopeAuthority = NOT_DECLARED" in command
+    assert "Do not copy derived change-surface seeds" in command
+    assert "AUTHORITY RELATION CONTRADICTION" in command
+    assert "SUPERSEDE_CONTRADICTION" in command
+    assert "Do not call `development_authority_state_start` to mint a replacement map" in command
+
+
 def test_playbook_fallback_must_report_isolation_before_same_session_execution() -> None:
     command = text("pack/.opencode/commands/playbook.md")
     assert "before executing the Step in the current session" in command

@@ -53,6 +53,15 @@ type AuthorityState = {
   startedAt: string
   updatedAt: string
 }
+type ContradictionLatch = {
+  schemaVersion: 1
+  targetSha: string
+  mapId: string
+  reason: string
+  status: "LATCHED" | "SUPERSEDED"
+  recordedAt: string
+  adjudication?: { decision: "SUPERSEDE_CONTRADICTION"; rationale: string; recordedAt: string }
+}
 
 async function git(root: string, args: string[], allowFailure = false): Promise<{ code: number; stdout: string; stderr: string }> {
   const proc = Bun.spawn(["git", "-C", root, ...args], { stdout: "pipe", stderr: "pipe" })
@@ -133,9 +142,18 @@ async function appendEdge(root: string, mapId: string, edge: AuthorityEdge) {
 function semanticEntity(value: string): string {
   return value.trim().replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "")
 }
-function validateConfirmedRelationConsistency(confirmed: AuthorityEdge[]): void {
+function latchPath(root: string) { return path.join(baseDir(root), "contradiction-latch.json") }
+async function readLatch(root: string): Promise<ContradictionLatch | undefined> {
+  const raw = await readOptional(latchPath(root))
+  if (!raw?.trim()) return undefined
+  return JSON.parse(raw) as ContradictionLatch
+}
+async function writeLatch(root: string, latch: ContradictionLatch) {
+  await atomicWrite(latchPath(root), `${JSON.stringify(latch, null, 2)}\n`)
+}
+export function validateConfirmedRelationConsistency(confirmed: Array<{ relation: string; subject: string; object: string }>): void {
   for (const edge of confirmed) {
-    if (IRREFLEXIVE_RELATIONS.has(edge.relation) && semanticEntity(edge.subject) === semanticEntity(edge.object)) {
+    if (IRREFLEXIVE_RELATIONS.has(edge.relation as Relation) && semanticEntity(edge.subject) === semanticEntity(edge.object)) {
       throw new Error(`AUTHORITY RELATION SELF-LOOP: ${edge.relation} cannot relate ${edge.subject} to itself`)
     }
   }
@@ -143,7 +161,7 @@ function validateConfirmedRelationConsistency(confirmed: AuthorityEdge[]): void 
   for (const edge of confirmed) {
     const key = semanticEntity(edge.object)
     const relations = byObject.get(key) ?? new Set<Relation>()
-    relations.add(edge.relation)
+    relations.add(edge.relation as Relation)
     byObject.set(key, relations)
   }
   const conflicts: Array<[Relation, Relation]> = [
@@ -166,12 +184,31 @@ function validateConfirmedRelationConsistency(confirmed: AuthorityEdge[]): void 
 }
 
 export const start = tool({
-  description: "Start one exact-head Development Authority Map. It is derived navigation, never a replacement for repository-native authority.",
-  args: { objective: tool.schema.string().min(1), targetSha: tool.schema.string().optional() },
+  description: "Start one exact-head Development Authority Map. It is derived navigation, never a replacement for repository-native authority. After AUTHORITY RELATION CONTRADICTION, a replacement map requires operatorAdjudication SUPERSEDE_CONTRADICTION.",
+  args: {
+    objective: tool.schema.string().min(1),
+    targetSha: tool.schema.string().optional(),
+    operatorAdjudication: tool.schema.object({
+      decision: tool.schema.literal("SUPERSEDE_CONTRADICTION"),
+      rationale: tool.schema.string().min(1).max(1200),
+    }).optional(),
+  },
   async execute(args, context) {
     const root = context.worktree
     const targetSha = (args.targetSha ?? await currentHead(root)).trim().toLowerCase()
     await requireExactClean(root, targetSha)
+    const latch = await readLatch(root)
+    if (latch && latch.targetSha === targetSha && latch.status === "LATCHED") {
+      const adjudication = args.operatorAdjudication
+      if (adjudication?.decision !== "SUPERSEDE_CONTRADICTION") {
+        throw new Error(`AUTHORITY CONTRADICTION LATCHED: ${latch.reason}; operator adjudication required to start a replacement map`)
+      }
+      await writeLatch(root, {
+        ...latch,
+        status: "SUPERSEDED",
+        adjudication: { decision: adjudication.decision, rationale: adjudication.rationale.trim(), recordedAt: new Date().toISOString() },
+      })
+    }
     const mapId = `DAM-${new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}-${targetSha.slice(0, 12)}-${randomUUID().slice(0, 8)}`
     await mkdir(baseDir(root), { recursive: true })
     await mkdir(mapDir(root, mapId), { recursive: false })
@@ -233,7 +270,15 @@ export const load = tool({
     const all = await edges(root, mapId)
     for (const edge of all) for (const evidence of edge.evidence) await verifyEvidence(root, evidence)
     const confirmed = all.filter((edge) => edge.confidence === "CONFIRMED")
-    validateConfirmedRelationConsistency(confirmed)
+    try {
+      validateConfirmedRelationConsistency(confirmed)
+    } catch (error) {
+      const reason = String(error).replace(/^Error:\s*/, "")
+      if (reason.includes("AUTHORITY RELATION CONTRADICTION") || reason.includes("AUTHORITY RELATION SELF-LOOP")) {
+        await writeLatch(root, { schemaVersion: 1, targetSha: state.targetSha, mapId, reason, status: "LATCHED", recordedAt: new Date().toISOString() })
+      }
+      throw error
+    }
     return JSON.stringify({
       ...state,
       edgeCount: all.length,

@@ -2,6 +2,7 @@ import { tool } from "@opencode-ai/plugin"
 import { randomUUID } from "node:crypto"
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
+import { validateConfirmedRelationConsistency } from "./development_authority_state"
 
 const SHA_RE = /^[0-9a-f]{40}$/
 const SAFE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/
@@ -166,6 +167,7 @@ async function loadAuthority(root: string, mapId: string, targetSha: string): Pr
   if (edges.length > MAX_PROJECTION_ITEMS) throw new Error("Development Authority Map exceeds continuation projection bound")
   for (const edge of edges) for (const evidence of edge.evidence ?? []) await verifyBlob(root, evidence, "authority evidence")
   const confirmed = edges.filter((edge) => edge.targetSha === targetSha && edge.confidence === "CONFIRMED")
+  validateConfirmedRelationConsistency(confirmed.map((edge) => ({ relation: edge.relation, subject: edge.subject ?? "", object: edge.object ?? "" })))
   if (!confirmed.some((edge) => edge.relation === "CANONICAL_PLANNING_AUTHORITY")) throw new Error("SCOPE AUTHORITY UNPROVEN: no confirmed canonical planning authority")
   if (!confirmed.some((edge) => edge.relation === "ACTIVE_IMPLEMENTATION_SCOPE")) throw new Error("SCOPE AUTHORITY UNPROVEN: no confirmed active implementation scope")
   return { state, edges }
@@ -208,6 +210,26 @@ async function loadChangeSurface(root: string, surfaceMapId: string, targetSha: 
   for (const entry of projection.entries) await verifyBlob(root, entry, "change-surface evidence")
   return projection
 }
+function isExactFilePattern(pattern: string): boolean {
+  return !pattern.includes("*") && !pattern.includes("?") && !pattern.endsWith("/")
+}
+function fabricatedFromDerivedSurface(allowed: string[], surface: ChangeSurfaceProjection): boolean {
+  if (allowed.length === 0) return false
+  const derived = new Set([...surface.seedPaths, ...surface.entries.map((entry) => entry.path)].map((item) => item.replace(/\\/g, "/")))
+  return allowed.every((pattern) => isExactFilePattern(pattern) && derived.has(pattern))
+}
+function resolvePathScopeAuthority(requested: PathScopeAuthority | undefined, allowedPaths: string[], surface: ChangeSurfaceProjection): PathScopeAuthority {
+  const authority = requested ?? "NOT_DECLARED"
+  if (authority === "NOT_DECLARED") {
+    if (allowedPaths.length > 0) throw new Error("PATH SCOPE NOT DECLARED: allowedPaths require explicit pathScopeAuthority=DECLARED; derived change-surface seeds are not mutation authority")
+    return "NOT_DECLARED"
+  }
+  if (allowedPaths.length === 0) throw new Error("pathScopeAuthority=DECLARED requires at least one repository-declared path pattern")
+  if (fabricatedFromDerivedSurface(allowedPaths, surface)) {
+    throw new Error("PATH SCOPE FABRICATED FROM DERIVED CHANGE SURFACE: exact change-surface seeds or entries cannot be copied into allowedPaths")
+  }
+  return "DECLARED"
+}
 async function resolvePacketId(root: string, explicit?: string) {
   if (explicit) { if (!SAFE_ID_RE.test(explicit)) throw new Error("invalid continuation packet id"); return explicit }
   const latest = await readOptional(path.join(baseDir(root), "latest.txt")); if (!latest?.trim()) throw new Error("no Development Continuation Packet found; create one first"); return latest.trim()
@@ -215,7 +237,7 @@ async function resolvePacketId(root: string, explicit?: string) {
 async function loadPacket(root: string, id: string): Promise<Packet> {
   const stored = JSON.parse(await readFile(path.join(packetDir(root, id), "packet.json"), "utf8")) as StoredPacket
   const allowedPaths = Array.isArray(stored.allowedPaths) ? stored.allowedPaths : []
-  const pathScopeAuthority = stored.pathScopeAuthority ?? (allowedPaths.length > 0 ? "DECLARED" : "NOT_DECLARED")
+  const pathScopeAuthority = stored.pathScopeAuthority ?? "NOT_DECLARED"
   if (!PATH_SCOPE_AUTHORITIES.includes(pathScopeAuthority)) throw new Error("invalid continuation path scope authority")
   const isolationEventIds = Array.isArray(stored.isolationEventIds) ? stored.isolationEventIds : []
   return { ...stored, allowedPaths, pathScopeAuthority, isolationEventIds } as Packet
@@ -273,19 +295,20 @@ export const record_isolation_unproven = tool({
 })
 
 export const save_packet = tool({
-  description: "Persist one exact-head continuation packet only after repository-native planning, active-scope, predecessor, gate and derived change-surface evidence are confirmed. Same-target/scope retries preserve already-bound obligations monotonically.",
+  description: "Persist one exact-head continuation packet only after repository-native planning, active-scope, predecessor, gate and derived change-surface evidence are confirmed. Same-target/scope retries preserve already-bound obligations monotonically. Positive path allowlists require explicit pathScopeAuthority=DECLARED and must not be copied from the derived change surface.",
   args: {
     targetSha: tool.schema.string().optional(), authorityMapId: tool.schema.string().min(1), nativeGateMapId: tool.schema.string().min(1), changeSurfaceMapId: tool.schema.string().min(1),
     planningAuthority: tool.schema.array(tool.schema.string()).min(1), activeScope: tool.schema.string().min(1), objective: tool.schema.string().min(1),
     prerequisites: tool.schema.array(tool.schema.string()).optional(), acceptedPredecessors: tool.schema.array(tool.schema.string()).optional(), requiredReading: tool.schema.array(tool.schema.string()).optional(),
     allowedPaths: tool.schema.array(tool.schema.string()).optional(),
+    pathScopeAuthority: tool.schema.enum(PATH_SCOPE_AUTHORITIES).optional(),
     forbiddenOrAdjacentPaths: tool.schema.array(tool.schema.object({ pattern: tool.schema.string().min(1), classification: tool.schema.enum(RESTRICTIONS), rationale: tool.schema.string().min(1) })).optional(),
     repoProvableChecks: tool.schema.array(tool.schema.string()).optional(), hostedCiProvableChecks: tool.schema.array(tool.schema.string()).optional(),
     liveRuntimeRequiredChecks: tool.schema.array(tool.schema.string()).optional(), operatorDecisionRequired: tool.schema.array(tool.schema.string()).optional(), blockers: tool.schema.array(tool.schema.string()).optional(), uncertainties: tool.schema.array(tool.schema.string()).optional(), authorityEdgeIds: tool.schema.array(tool.schema.string()).min(1),
   },
   async execute(args, context) {
     const root = context.worktree; const targetSha = (args.targetSha ?? await currentHead(root)).trim().toLowerCase(); await requireExactClean(root, targetSha)
-    const authority = await loadAuthority(root, args.authorityMapId, targetSha); await loadGateMap(root, args.nativeGateMapId, targetSha); await loadChangeSurface(root, args.changeSurfaceMapId, targetSha)
+    const authority = await loadAuthority(root, args.authorityMapId, targetSha); await loadGateMap(root, args.nativeGateMapId, targetSha); const changeSurface = await loadChangeSurface(root, args.changeSurfaceMapId, targetSha)
     const activeScope = args.activeScope.trim()
     const prior = await priorPacketForScope(root, targetSha, activeScope)
     const edgeIds = merged(prior?.authorityEdgeIds, unique(args.authorityEdgeIds)); const known = new Set(authority.edges.map((edge) => edge.edgeId)); for (const id of edgeIds) if (!known.has(id)) throw new Error(`authority edge not found: ${id}`)
@@ -293,7 +316,7 @@ export const save_packet = tool({
     const acceptedPredecessors = merged(prior?.acceptedPredecessors, unique(args.acceptedPredecessors))
     validatePacketAuthorityClaims(authority.edges, new Set(edgeIds), planningAuthority, activeScope, acceptedPredecessors)
     const allowedPaths = unique(args.allowedPaths).map(validatePattern)
-    const pathScopeAuthority: PathScopeAuthority = allowedPaths.length > 0 ? "DECLARED" : "NOT_DECLARED"
+    const pathScopeAuthority = resolvePathScopeAuthority(args.pathScopeAuthority, allowedPaths, changeSurface)
     const currentRestricted: RestrictedPath[] = (args.forbiddenOrAdjacentPaths ?? []).map((item) => ({ pattern: validatePattern(item.pattern), classification: item.classification, rationale: item.rationale.trim() }))
     const restricted = mergeRestricted(prior?.forbiddenOrAdjacentPaths, currentRestricted)
     const isolationEvents = await loadIsolationEvents(root, targetSha)

@@ -39,6 +39,9 @@ def test_development_continuation_contract_is_normative_and_complete() -> None:
         "UNPROVEN",
         "experimental",
         "PROTECTED",
+        "AUTHORITY CONTRADICTION LATCHED",
+        "SUPERSEDE_CONTRADICTION",
+        "pathScopeAuthority = DECLARED",
     ):
         assert required in text, required
 

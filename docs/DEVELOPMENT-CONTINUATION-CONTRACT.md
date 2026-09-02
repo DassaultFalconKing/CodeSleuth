@@ -54,6 +54,8 @@ A matching relation name and object are insufficient when the subject is wrong. 
 
 Confirmed semantic relations that are inherently irreflexive must not be self-loops. In particular, `ACTIVE_IMPLEMENTATION_SCOPE`, `ACCEPTED_PREDECESSOR`, `SUPERSEDES`, `SUPERSEDED_BY`, `HISTORICAL_ARCHIVE`, `ADJACENT_PARALLEL_TRACK`, and `FORBIDDEN_COMPETING_AUTHORITY` reject `subject == object` after repository-entity normalization. A self-referential edge is evidence of invalid authority construction, not a harmless graph curiosity.
 
+`development_authority_state_load` fails closed on contradictory confirmed roles and records `AUTHORITY CONTRADICTION LATCHED` for the exact target SHA. `development_authority_state_start` must not mint a replacement map while that latch is active. A successor map requires recorded `operatorAdjudication.decision = SUPERSEDE_CONTRADICTION`. Failed maps remain evidence; they do not become an implicit license to start a cleaner map.
+
 ## 3. Pre-registry change surface
 
 A repository may not yet have `docs/protected-capabilities.json`. CodeSleuth must still be able to navigate likely impact without pretending that an inferred dependency map is a protected registry.
@@ -72,6 +74,8 @@ The **pre-registry change surface** is a deterministic, bounded, non-authoritati
 Every derived surface item binds the tracked evidence used to derive it. The map may guide review, contract archaeology, and scope checking. It must not invent lifecycle maturity, protected status, compatibility obligations, or positive mutation authority.
 
 A derived change surface can explain why another path deserves investigation. It never expands `allowedPaths` and never converts an undeclared path into an authorized mutation surface.
+
+`save_packet` must not infer `pathScopeAuthority = DECLARED` from a non-empty `allowedPaths` array. Positive mutation allowlists require an explicit `pathScopeAuthority = DECLARED` argument. Copying exact change-surface seeds or entries into `allowedPaths` fails closed as path-scope fabrication.
 
 ## 4. Development Continuation Packet
 
@@ -116,7 +120,7 @@ The following previously bound obligations are monotonic across such retries:
 
 Omitting one of these fields in a later save request does not remove the prior obligation. Replacing or retiring an obligation requires a different accepted authority/scope decision rather than omission from a retry payload.
 
-Positive `allowedPaths` are deliberately different. CodeSleuth must never union old and new allowlists automatically, because automatic accumulation would expand mutation authority. A retry may narrow the declared positive path set; an empty set becomes `pathScopeAuthority = NOT_DECLARED` and therefore fails closed for positive scope claims.
+Positive `allowedPaths` are deliberately different. CodeSleuth must never union old and new allowlists automatically, because automatic accumulation would expand mutation authority. A retry may narrow the declared positive path set; an empty set becomes `pathScopeAuthority = NOT_DECLARED` and therefore fails closed for positive scope claims. A non-empty `allowedPaths` array without explicit `pathScopeAuthority = DECLARED` is not a declared allowlist.
 
 ## 5. Scope guard
 
