@@ -39,6 +39,13 @@ async function main() {
   assert(authorityLoaded.planningAuthorities.length === 1, "one canonical planning authority expected")
   assert(authorityLoaded.activeScopes.length === 1, "one active scope expected")
 
+  const contradictory = JSON.parse(await authorityStart.execute({ objective: "prove contradictory authority fails closed", targetSha: sha }, context))
+  await record_edge.execute({ mapId: contradictory.mapId, relation: "ADJACENT_PARALLEL_TRACK", subject: "docs/SESSION.md", object: "src/graph/**", confidence: "CONFIRMED", rationale: "graph path is explicitly adjacent", evidence: [{ path: "docs/SESSION.md", locator: "line 2: Adjacent graph track" }] }, context)
+  await record_edge.execute({ mapId: contradictory.mapId, relation: "ACCEPTED_PREDECESSOR", subject: "docs/SESSION.md", object: "src/graph/**", confidence: "CONFIRMED", rationale: "deliberately contradictory regression witness", evidence: [{ path: "docs/SESSION.md", locator: "line 2: Adjacent graph track" }] }, context)
+  let contradictoryRejected = false
+  try { await authorityLoad.execute({ mapId: contradictory.mapId }, context) } catch (error) { contradictoryRejected = String(error).includes("AUTHORITY RELATION CONTRADICTION") }
+  assert(contradictoryRejected, "the same confirmed entity cannot be both adjacent track and accepted predecessor")
+
   const gateMap = JSON.parse(await gateStart.execute({ objective: "map native gates", targetSha: sha }, context))
   const localGate = JSON.parse(await record_gate.execute({ gateMapId: gateMap.gateMapId, name: "fast verify", gateClass: "REPO_PROVABLE", required: true, command: "./verify.sh fast", evidence: [{ path: "docs/SESSION.md", locator: "line 2: Required gate" }, { path: "verify.sh", locator: "script entry" }] }, context))
   const hostedGate = JSON.parse(await record_gate.execute({ gateMapId: gateMap.gateMapId, name: "hosted CI", gateClass: "HOSTED_CI_PROVABLE", required: true, command: "GitHub Actions ci", evidence: [{ path: ".github/workflows/ci.yml", locator: "workflow definition" }, { path: "docs/SESSION.md", locator: "line 2: Hosted CI is also required" }] }, context))
@@ -50,6 +57,17 @@ async function main() {
   const surface = JSON.parse(await deriveSurface.execute({ targetSha: sha, seedPaths: ["src/core/lib.rs"] }, context))
   assert(surface.entries.some((entry: any) => entry.path === "src/core/lib.rs"), "derived change surface must contain active seed")
   assert(surface.entries.some((entry: any) => entry.path === "Cargo.toml"), "derived change surface must include owning workspace manifest")
+
+  let historicalPredecessorRejected = false
+  try {
+    await save_packet.execute({
+      targetSha: sha, authorityMapId: authority.mapId, nativeGateMapId: gateMap.gateMapId, changeSurfaceMapId: surface.surfaceMapId,
+      planningAuthority: ["TODO.md"], activeScope: "docs/SESSION.md", objective: "reject stale history as predecessor", prerequisites: [], acceptedPredecessors: ["OLD_ROADMAP.md"], requiredReading: ["TODO.md", "docs/SESSION.md"],
+      allowedPaths: ["src/core/**"], forbiddenOrAdjacentPaths: [{ pattern: "src/graph/**", classification: "ADJACENT_TRACK", rationale: "separate graph track" }],
+      repoProvableChecks: ["./verify.sh fast"], hostedCiProvableChecks: ["GitHub Actions ci"], liveRuntimeRequiredChecks: ["live service smoke"], operatorDecisionRequired: [], blockers: [], uncertainties: [], authorityEdgeIds: [planning.edgeId, active.edgeId],
+    }, context)
+  } catch (error) { historicalPredecessorRejected = String(error).includes("ACCEPTED_PREDECESSOR") }
+  assert(historicalPredecessorRejected, "packet must reject predecessor values not backed by confirmed ACCEPTED_PREDECESSOR authority")
 
   const packet = JSON.parse(await save_packet.execute({
     targetSha: sha, authorityMapId: authority.mapId, nativeGateMapId: gateMap.gateMapId, changeSurfaceMapId: surface.surfaceMapId,
