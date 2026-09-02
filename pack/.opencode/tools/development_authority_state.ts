@@ -105,7 +105,7 @@ function parseLines<T>(raw: string | undefined, label: string): T[] {
   })
 }
 async function loadState(root: string, mapId: string): Promise<AuthorityState> {
-  return JSON.parse(await readFile(path.join(mapDir(root, mapId), "state.json"), "utf8")) as AuthorityState
+  return JSON.parse(await readFile(path.join(mapDir(root, mapId), "state.json"), "utf8") as string) as AuthorityState
 }
 async function resolveMapId(root: string, explicit?: string) {
   if (explicit) { if (!SAFE_ID_RE.test(explicit)) throw new Error("invalid authority map id"); return explicit }
@@ -120,6 +120,35 @@ async function appendEdge(root: string, mapId: string, edge: AuthorityEdge) {
   const file = path.join(mapDir(root, mapId), "edges.ndjson")
   const existing = await readOptional(file)
   await atomicWrite(file, `${existing ?? ""}${JSON.stringify(edge)}\n`)
+}
+function semanticEntity(value: string): string {
+  return value.trim().replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "")
+}
+function validateConfirmedRelationConsistency(confirmed: AuthorityEdge[]): void {
+  const byObject = new Map<string, Set<Relation>>()
+  for (const edge of confirmed) {
+    const key = semanticEntity(edge.object)
+    const relations = byObject.get(key) ?? new Set<Relation>()
+    relations.add(edge.relation)
+    byObject.set(key, relations)
+  }
+  const conflicts: Array<[Relation, Relation]> = [
+    ["ACCEPTED_PREDECESSOR", "ADJACENT_PARALLEL_TRACK"],
+    ["ACCEPTED_PREDECESSOR", "HISTORICAL_ARCHIVE"],
+    ["ACCEPTED_PREDECESSOR", "FORBIDDEN_COMPETING_AUTHORITY"],
+    ["ACTIVE_IMPLEMENTATION_SCOPE", "ADJACENT_PARALLEL_TRACK"],
+    ["ACTIVE_IMPLEMENTATION_SCOPE", "HISTORICAL_ARCHIVE"],
+    ["ACTIVE_IMPLEMENTATION_SCOPE", "FORBIDDEN_COMPETING_AUTHORITY"],
+    ["CANONICAL_PLANNING_AUTHORITY", "HISTORICAL_ARCHIVE"],
+    ["CANONICAL_PLANNING_AUTHORITY", "FORBIDDEN_COMPETING_AUTHORITY"],
+  ]
+  for (const [entity, relations] of byObject) {
+    for (const [left, right] of conflicts) {
+      if (relations.has(left) && relations.has(right)) {
+        throw new Error(`AUTHORITY RELATION CONTRADICTION: ${entity} is confirmed as both ${left} and ${right}`)
+      }
+    }
+  }
 }
 
 export const start = tool({
@@ -177,7 +206,7 @@ export const record_edge = tool({
 })
 
 export const load = tool({
-  description: "Load and revalidate a Development Authority Map against the same clean exact HEAD.",
+  description: "Load and revalidate a Development Authority Map against the same clean exact HEAD; fail closed on contradictory confirmed semantic roles.",
   args: { mapId: tool.schema.string().optional() },
   async execute(args, context) {
     const root = context.worktree
@@ -187,6 +216,7 @@ export const load = tool({
     const all = await edges(root, mapId)
     for (const edge of all) for (const evidence of edge.evidence) await verifyEvidence(root, evidence)
     const confirmed = all.filter((edge) => edge.confidence === "CONFIRMED")
+    validateConfirmedRelationConsistency(confirmed)
     return JSON.stringify({
       ...state,
       edgeCount: all.length,
