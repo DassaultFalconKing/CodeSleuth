@@ -18,9 +18,9 @@ if [ -f "$TUI_CONFIG" ]; then
   export OPENCODE_TUI_CONFIG="$TUI_CONFIG"
 fi
 
-# EHA may supply an external writable custom-config directory. Keep the exact
-# tracked OPENCODE_CONFIG selected by the bridge and redirect only the custom
-# discovery/bootstrap directory where OpenCode may generate package metadata.
+# EHA/read-only dogfood may supply an external writable CodeSleuth runtime.
+# OPENCODE_CONFIG_DIR is additive, so it is not an isolation boundary by itself:
+# explicitly suppress target-project .opencode discovery before starting OpenCode.
 if [ -n "${CODESLEUTH_EHA_RUNTIME_CONFIG:-}" ]; then
   HELPER="$REPO_ROOT/scripts/eha_opencode_runtime.py"
   if [ ! -f "$HELPER" ]; then
@@ -31,6 +31,7 @@ if [ -n "${CODESLEUTH_EHA_RUNTIME_CONFIG:-}" ]; then
     --source "$ROOT/.opencode" \
     --target "$CODESLEUTH_EHA_RUNTIME_CONFIG"
   export OPENCODE_CONFIG_DIR="$CODESLEUTH_EHA_RUNTIME_CONFIG"
+  export OPENCODE_DISABLE_PROJECT_CONFIG="1"
 fi
 
 exec opencode "$@"

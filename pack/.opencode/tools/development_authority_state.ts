@@ -19,6 +19,15 @@ const RELATIONS = [
   "FORBIDDEN_COMPETING_AUTHORITY",
 ] as const
 const CONFIDENCE = ["CONFIRMED", "PROBABLE", "UNPROVEN"] as const
+const IRREFLEXIVE_RELATIONS = new Set<Relation>([
+  "ACTIVE_IMPLEMENTATION_SCOPE",
+  "ACCEPTED_PREDECESSOR",
+  "SUPERSEDES",
+  "SUPERSEDED_BY",
+  "HISTORICAL_ARCHIVE",
+  "ADJACENT_PARALLEL_TRACK",
+  "FORBIDDEN_COMPETING_AUTHORITY",
+])
 
 type Relation = (typeof RELATIONS)[number]
 type Confidence = (typeof CONFIDENCE)[number]
@@ -125,6 +134,11 @@ function semanticEntity(value: string): string {
   return value.trim().replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "")
 }
 function validateConfirmedRelationConsistency(confirmed: AuthorityEdge[]): void {
+  for (const edge of confirmed) {
+    if (IRREFLEXIVE_RELATIONS.has(edge.relation) && semanticEntity(edge.subject) === semanticEntity(edge.object)) {
+      throw new Error(`AUTHORITY RELATION SELF-LOOP: ${edge.relation} cannot relate ${edge.subject} to itself`)
+    }
+  }
   const byObject = new Map<string, Set<Relation>>()
   for (const edge of confirmed) {
     const key = semanticEntity(edge.object)
@@ -200,13 +214,16 @@ export const record_edge = tool({
       evidence: bound,
       recordedAt: new Date().toISOString(),
     }
+    if (edge.confidence === "CONFIRMED" && IRREFLEXIVE_RELATIONS.has(edge.relation) && semanticEntity(edge.subject) === semanticEntity(edge.object)) {
+      throw new Error(`AUTHORITY RELATION SELF-LOOP: ${edge.relation} cannot relate ${edge.subject} to itself`)
+    }
     await appendEdge(root, mapId, edge)
     return JSON.stringify(edge, null, 2)
   },
 })
 
 export const load = tool({
-  description: "Load and revalidate a Development Authority Map against the same clean exact HEAD; fail closed on contradictory confirmed semantic roles.",
+  description: "Load and revalidate a Development Authority Map against the same clean exact HEAD; fail closed on contradictory, directionless or self-referential confirmed semantic roles.",
   args: { mapId: tool.schema.string().optional() },
   async execute(args, context) {
     const root = context.worktree
