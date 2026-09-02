@@ -10,7 +10,18 @@ const MAX_READ_BYTES = 512 * 1024
 const MAX_ENTRIES = 200
 const MANIFESTS = new Set(["Cargo.toml", "package.json", "pyproject.toml", "go.mod", "pom.xml", "build.gradle", "build.gradle.kts", "Makefile"])
 
-type SurfaceKind = "SEED" | "WORKSPACE_MANIFEST" | "IMPORT_REFERENCE" | "TEST_REFERENCE" | "SCHEMA_MIGRATION" | "API_DEFINITION" | "CI_VERIFY" | "OWNERSHIP_DOC"
+type SurfaceKind =
+  | "SEED"
+  | "WORKSPACE_MANIFEST"
+  | "IMPORT_REFERENCE"
+  | "TEST_REFERENCE"
+  | "SCHEMA_MIGRATION"
+  | "API_DEFINITION"
+  | "CI_VERIFY"
+  | "OWNERSHIP_DOC"
+  | "REVERSE_DEPENDENCY"
+  | "INCLUDE_REFERENCE"
+  | "AUTHORITY_SURFACE"
 type SurfaceEntry = { path: string; blobHash: string; kinds: SurfaceKind[]; reasons: string[] }
 type Projection = {
   schemaVersion: 1
@@ -21,6 +32,13 @@ type Projection = {
   entries: SurfaceEntry[]
   truncated: boolean
   recordedAt: string
+}
+type CargoPackage = {
+  name: string
+  root: string
+  manifest: string
+  dependencyNames: Set<string>
+  dependencyRoots: Set<string>
 }
 
 async function git(root: string, args: string[], allowFailure = false): Promise<{ code: number; stdout: string; stderr: string }> {
@@ -53,10 +71,26 @@ function normalizeRepoPath(root: string, input: string) {
   const resolvedRoot = path.resolve(root); const absolute = path.resolve(root, input)
   if (absolute !== resolvedRoot && !absolute.startsWith(resolvedRoot + path.sep)) throw new Error(`path escapes worktree: ${input}`)
   const relative = path.relative(resolvedRoot, absolute).replace(/\\/g, "/")
-  if (!relative || relative === ".") throw new Error("change-surface seed must name a tracked repository path")
+  if (!relative || relative === ".") throw new Error("change-surface input must name a tracked repository path")
   return relative
 }
 function unique(values: string[]) { return [...new Set(values)] }
+function expandTrackedInputs(root: string, inputs: string[], tracked: string[], label: string): string[] {
+  const trackedSet = new Set(tracked)
+  const expanded: string[] = []
+  for (const input of inputs) {
+    const requested = normalizeRepoPath(root, input)
+    if (trackedSet.has(requested)) {
+      expanded.push(requested)
+      continue
+    }
+    const prefix = `${requested}/`
+    const members = tracked.filter((file) => file.startsWith(prefix))
+    if (members.length === 0) throw new Error(`${label} is not tracked at exact target: ${requested}`)
+    expanded.push(...members)
+  }
+  return unique(expanded).sort()
+}
 function stem(file: string) {
   const base = path.posix.basename(file).replace(/\.(test|spec)\.[^.]+$/, "").replace(/^test_/, "")
   return base.replace(/\.[^.]+$/, "").replace(/[^A-Za-z0-9_]+/g, "_").toLowerCase()
@@ -95,6 +129,96 @@ async function boundedText(root: string, file: string): Promise<string> {
 function addReason(index: Map<string, { kinds: Set<SurfaceKind>; reasons: Set<string> }>, file: string, kind: SurfaceKind, reason: string) {
   const item = index.get(file) ?? { kinds: new Set<SurfaceKind>(), reasons: new Set<string>() }; item.kinds.add(kind); item.reasons.add(reason); index.set(file, item)
 }
+function cargoSection(line: string): string | null {
+  const match = /^\s*\[([^\]]+)\]\s*$/.exec(line)
+  return match ? match[1].trim() : null
+}
+function normalizeDependencyRoot(manifest: string, raw: string): string | null {
+  const base = path.posix.dirname(manifest) === "." ? "" : path.posix.dirname(manifest)
+  const resolved = path.posix.normalize(path.posix.join(base, raw.replace(/\\/g, "/")))
+  if (!resolved || resolved === "." || resolved === ".." || resolved.startsWith("../") || path.posix.isAbsolute(resolved)) return null
+  return resolved.replace(/\/$/, "")
+}
+async function cargoPackages(root: string, tracked: string[]): Promise<CargoPackage[]> {
+  const result: CargoPackage[] = []
+  for (const manifest of tracked.filter((file) => path.posix.basename(file) === "Cargo.toml")) {
+    const text = await boundedText(root, manifest)
+    if (!text) continue
+    const lines = text.split(/\r?\n/)
+    let section = ""
+    let packageName: string | null = null
+    const dependencyNames = new Set<string>()
+    const dependencyRoots = new Set<string>()
+    for (const line of lines) {
+      const nextSection = cargoSection(line)
+      if (nextSection !== null) { section = nextSection; continue }
+      if (section === "package" && packageName === null) {
+        const name = /^\s*name\s*=\s*["']([^"']+)["']/.exec(line)
+        if (name) packageName = name[1]
+      }
+      if (/^(?:target\.[^.]+\.)?(?:dev-|build-)?dependencies$/.test(section) || section === "dependencies") {
+        const dependency = /^\s*([A-Za-z0-9_.-]+)\s*=/.exec(line)
+        if (!dependency) continue
+        dependencyNames.add(dependency[1])
+        const packageAlias = /\bpackage\s*=\s*["']([^"']+)["']/.exec(line)
+        if (packageAlias) dependencyNames.add(packageAlias[1])
+        const pathRef = /\bpath\s*=\s*["']([^"']+)["']/.exec(line)
+        if (pathRef) {
+          const resolved = normalizeDependencyRoot(manifest, pathRef[1])
+          if (resolved) dependencyRoots.add(resolved)
+        }
+      }
+    }
+    if (!packageName) continue
+    const pkgRoot = path.posix.dirname(manifest) === "." ? "" : path.posix.dirname(manifest)
+    result.push({ name: packageName, root: pkgRoot, manifest, dependencyNames, dependencyRoots })
+  }
+  return result
+}
+function ownsPath(pkg: CargoPackage, file: string): boolean {
+  if (file === pkg.manifest) return true
+  return pkg.root === "" || file.startsWith(`${pkg.root}/`)
+}
+function owningCargoPackages(packages: CargoPackage[], seeds: string[]): Set<string> {
+  const roots = new Set<string>()
+  for (const seed of seeds) {
+    const owners = packages.filter((pkg) => ownsPath(pkg, seed)).sort((a, b) => b.root.length - a.root.length)
+    if (owners[0]) roots.add(owners[0].root)
+  }
+  return roots
+}
+function reverseCargoClosure(packages: CargoPackage[], directRoots: Set<string>): Set<string> {
+  const affected = new Set(directRoots)
+  let changed = true
+  while (changed) {
+    changed = false
+    const affectedPackages = packages.filter((pkg) => affected.has(pkg.root))
+    const affectedNames = new Set(affectedPackages.map((pkg) => pkg.name))
+    const affectedRoots = new Set(affectedPackages.map((pkg) => pkg.root).filter(Boolean))
+    for (const pkg of packages) {
+      if (affected.has(pkg.root)) continue
+      const namedDependency = [...pkg.dependencyNames].some((name) => affectedNames.has(name))
+      const pathDependency = [...pkg.dependencyRoots].some((root) => affectedRoots.has(root))
+      if (namedDependency || pathDependency) { affected.add(pkg.root); changed = true }
+    }
+  }
+  return affected
+}
+function cargoPackageFiles(pkg: CargoPackage, tracked: string[]): string[] {
+  const prefixes = pkg.root === "" ? ["src/", "tests/", "benches/", "examples/"] : ["src/", "tests/", "benches/", "examples/"].map((part) => `${pkg.root}/${part}`)
+  const build = pkg.root === "" ? "build.rs" : `${pkg.root}/build.rs`
+  return tracked.filter((file) => file === pkg.manifest || file === build || prefixes.some((prefix) => file.startsWith(prefix)))
+}
+function includeTargets(source: string, text: string): string[] {
+  const targets: string[] = []
+  const regex = /\binclude_(?:str|bytes)!\s*\(\s*["']([^"']+)["']\s*\)/g
+  for (const match of text.matchAll(regex)) {
+    const base = path.posix.dirname(source) === "." ? "" : path.posix.dirname(source)
+    const resolved = path.posix.normalize(path.posix.join(base, match[1].replace(/\\/g, "/")))
+    if (resolved && resolved !== "." && resolved !== ".." && !resolved.startsWith("../") && !path.posix.isAbsolute(resolved)) targets.push(resolved)
+  }
+  return unique(targets)
+}
 async function resolveId(root: string, explicit?: string) {
   if (explicit) { if (!SAFE_ID_RE.test(explicit)) throw new Error("invalid change surface id"); return explicit }
   const latest = await readOptional(path.join(baseDir(root), "latest.txt")); if (!latest?.trim()) throw new Error("no pre-registry change surface found; derive one first"); return latest.trim()
@@ -108,33 +232,73 @@ async function verifyProjection(root: string, projection: Projection) {
 }
 
 export const derive = tool({
-  description: "Derive one bounded, non-authoritative pre-registry change surface from exact tracked repository evidence.",
-  args: { targetSha: tool.schema.string().optional(), seedPaths: tool.schema.array(tool.schema.string().min(1)).min(1).max(50) },
+  description: "Derive one bounded, non-authoritative pre-registry change surface from exact tracked repository evidence and bounded structural dependency metadata.",
+  args: {
+    targetSha: tool.schema.string().optional(),
+    seedPaths: tool.schema.array(tool.schema.string().min(1)).min(1).max(50),
+    authorityPaths: tool.schema.array(tool.schema.string().min(1)).max(100).optional().describe("Exact repository-authority named gate/read-only surface paths; never treated as positive mutation authority"),
+  },
   async execute(args, context) {
     const root = context.worktree; const targetSha = (args.targetSha ?? await currentHead(root)).trim().toLowerCase(); await requireExactClean(root, targetSha)
     const tracked = await trackedPaths(root)
     if (tracked.length > MAX_TRACKED_FILES) throw new Error(`pre-registry change-surface inventory exceeds ${MAX_TRACKED_FILES} tracked files; narrow the active scope first`)
-    const trackedSet = new Set(tracked); const seeds = unique(args.seedPaths.map((item) => normalizeRepoPath(root, item))).sort()
-    for (const seed of seeds) if (!trackedSet.has(seed)) throw new Error(`change-surface seed is not tracked at exact target: ${seed}`)
-    const allTokens = unique(seeds.flatMap(tokensFor)); const index = new Map<string, { kinds: Set<SurfaceKind>; reasons: Set<string> }>()
+    const trackedSet = new Set(tracked)
+    const seeds = expandTrackedInputs(root, args.seedPaths, tracked, "change-surface seed")
+    if (seeds.length > MAX_ENTRIES) throw new Error(`change-surface seed expansion exceeds ${MAX_ENTRIES} tracked files; narrow the active scope first`)
+    const authorityPaths = expandTrackedInputs(root, args.authorityPaths ?? [], tracked, "change-surface authority path")
+    if (authorityPaths.length > MAX_ENTRIES) throw new Error(`change-surface authority expansion exceeds ${MAX_ENTRIES} tracked files; narrow the authority surface first`)
+    const index = new Map<string, { kinds: Set<SurfaceKind>; reasons: Set<string> }>()
 
-    for (const seed of seeds) addReason(index, seed, "SEED", "declared active-scope seed path")
+    for (const seed of seeds) addReason(index, seed, "SEED", "declared active-scope seed path or tracked member of a declared seed directory")
+    for (const file of authorityPaths) addReason(index, file, "AUTHORITY_SURFACE", "repository authority explicitly names this verification/read-only surface")
+
+    const packages = await cargoPackages(root, tracked)
+    const directPackageRoots = owningCargoPackages(packages, seeds)
+    const affectedPackageRoots = reverseCargoClosure(packages, directPackageRoots)
+    for (const pkg of packages) {
+      if (!affectedPackageRoots.has(pkg.root)) continue
+      const reverse = !directPackageRoots.has(pkg.root)
+      for (const file of cargoPackageFiles(pkg, tracked)) {
+        addReason(index, file, reverse ? "REVERSE_DEPENDENCY" : "IMPORT_REFERENCE", reverse ? `Cargo package ${pkg.name} is a reverse consumer of the active package closure` : `Cargo package ${pkg.name} owns or implements the active seed surface`)
+      }
+      addReason(index, pkg.manifest, reverse ? "REVERSE_DEPENDENCY" : "WORKSPACE_MANIFEST", reverse ? `Cargo manifest declares a reverse dependency on the active package closure` : `Cargo manifest owns an active-scope seed`)
+    }
+
     const ancestorDirs = new Set(seeds.flatMap(ancestorDirectories))
     for (const file of tracked) {
       const base = path.posix.basename(file)
       const directory = path.posix.dirname(file) === "." ? "" : path.posix.dirname(file)
-      if (MANIFESTS.has(base) && ancestorDirs.has(directory)) addReason(index, file, "WORKSPACE_MANIFEST", `workspace/build manifest owns an ancestor of an active-scope seed`)
+      if (MANIFESTS.has(base) && ancestorDirs.has(directory)) addReason(index, file, "WORKSPACE_MANIFEST", "workspace/build manifest owns an ancestor of an active-scope seed")
     }
 
+    const structuralTokens = unique([
+      ...seeds.flatMap(tokensFor),
+      ...packages.filter((pkg) => affectedPackageRoots.has(pkg.root)).flatMap((pkg) => [pkg.name.toLowerCase(), pkg.name.replace(/-/g, "_").toLowerCase()]),
+    ]).filter((value) => value.length >= 3)
     for (const file of tracked) {
       if (index.has(file) && seeds.includes(file)) continue
-      const text = await boundedText(root, file); if (!text || !containsAny(text, allTokens)) continue
-      if (isTestPath(file)) addReason(index, file, "TEST_REFERENCE", "tracked test references an active-scope seed token")
-      if (isSchemaMigration(file)) addReason(index, file, "SCHEMA_MIGRATION", "tracked schema/migration surface references an active-scope seed token")
-      if (isApiPath(file)) addReason(index, file, "API_DEFINITION", "tracked API surface references an active-scope seed token")
-      if (isVerifyPath(file)) addReason(index, file, "CI_VERIFY", "tracked native verify/CI surface references an active-scope seed token")
-      if (isOwnershipDoc(file)) addReason(index, file, "OWNERSHIP_DOC", "tracked planning/ownership document references an active-scope seed")
-      if (!isTestPath(file) && importMentions(text, allTokens)) addReason(index, file, "IMPORT_REFERENCE", "tracked import/use statement references an active-scope seed token")
+      const text = await boundedText(root, file); if (!text || !containsAny(text, structuralTokens)) continue
+      if (isTestPath(file)) addReason(index, file, "TEST_REFERENCE", "tracked test references an active-scope seed or affected package")
+      if (isSchemaMigration(file)) addReason(index, file, "SCHEMA_MIGRATION", "tracked schema/migration surface references an active-scope seed or affected package")
+      if (isApiPath(file)) addReason(index, file, "API_DEFINITION", "tracked API surface references an active-scope seed or affected package")
+      if (isVerifyPath(file)) addReason(index, file, "CI_VERIFY", "tracked native verify/CI surface references an active-scope seed or affected package")
+      if (isOwnershipDoc(file)) addReason(index, file, "OWNERSHIP_DOC", "tracked planning/ownership document references an active-scope seed or affected package")
+      if (!isTestPath(file) && importMentions(text, structuralTokens)) addReason(index, file, "IMPORT_REFERENCE", "tracked import/use statement references an active-scope seed or affected package")
+    }
+
+    let includeChanged = true
+    while (includeChanged) {
+      includeChanged = false
+      for (const source of [...index.keys()]) {
+        const text = await boundedText(root, source)
+        if (!text) continue
+        for (const target of includeTargets(source, text)) {
+          if (!trackedSet.has(target)) continue
+          const wasPresent = index.has(target)
+          addReason(index, target, "INCLUDE_REFERENCE", `tracked ${source} embeds this file with include_str!/include_bytes!`)
+          if (!wasPresent) includeChanged = true
+        }
+      }
     }
 
     const paths = [...index.keys()].sort(); const truncated = paths.length > MAX_ENTRIES; const selected = paths.slice(0, MAX_ENTRIES)
