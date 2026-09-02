@@ -98,6 +98,7 @@ function authorityDir(root: string, id: string) { if (!SAFE_ID_RE.test(id)) thro
 function gateDir(root: string, id: string) { if (!SAFE_ID_RE.test(id)) throw new Error("invalid native gate map id"); return path.join(root, ".opencode", "state", "native-gates", id) }
 function surfaceDir(root: string, id: string) { if (!SAFE_ID_RE.test(id)) throw new Error("invalid change surface id"); return path.join(root, ".opencode", "state", "change-surfaces", id) }
 function unique(values: string[] | undefined) { return [...new Set((values ?? []).map((item) => item.trim()).filter(Boolean))] }
+function semanticEntity(value: string): string { return value.trim().replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "") }
 function validatePattern(input: string): string {
   const value = input.trim().replace(/\\/g, "/")
   if (!value || value.startsWith("/") || value.includes("\0") || value.split("/").includes("..")) throw new Error(`invalid repository path pattern: ${input}`)
@@ -137,6 +138,17 @@ async function loadAuthority(root: string, mapId: string, targetSha: string): Pr
   if (!confirmed.some((edge) => edge.relation === "ACTIVE_IMPLEMENTATION_SCOPE")) throw new Error("SCOPE AUTHORITY UNPROVEN: no confirmed active implementation scope")
   return { state, edges }
 }
+function requireAuthorityClaim(edges: AuthorityEdge[], selectedIds: Set<string>, relation: string, value: string, label: string): void {
+  const expected = semanticEntity(value)
+  const match = edges.find((edge) => edge.confidence === "CONFIRMED" && edge.relation === relation && semanticEntity(edge.object ?? "") === expected)
+  if (!match) throw new Error(`${relation} authority missing for ${label}: ${value}`)
+  if (!selectedIds.has(match.edgeId)) throw new Error(`${relation} authority edge must be selected for ${label}: ${value}`)
+}
+function validatePacketAuthorityClaims(edges: AuthorityEdge[], selectedIds: Set<string>, planningAuthority: string[], activeScope: string, acceptedPredecessors: string[]): void {
+  for (const value of planningAuthority) requireAuthorityClaim(edges, selectedIds, "CANONICAL_PLANNING_AUTHORITY", value, "planning authority")
+  requireAuthorityClaim(edges, selectedIds, "ACTIVE_IMPLEMENTATION_SCOPE", activeScope, "active scope")
+  for (const value of acceptedPredecessors) requireAuthorityClaim(edges, selectedIds, "ACCEPTED_PREDECESSOR", value, "accepted predecessor")
+}
 async function loadGateMap(root: string, gateMapId: string, targetSha: string): Promise<{ state: GateState; gates: NativeGate[] }> {
   const dir = gateDir(root, gateMapId)
   const state = JSON.parse(await readFile(path.join(dir, "state.json"), "utf8")) as GateState
@@ -175,11 +187,12 @@ async function resolvePacketProjections(root: string, packet: Packet) {
   const edgeIds = new Set(packet.authorityEdgeIds)
   const authorityEvidence = authority.edges.filter((edge) => edgeIds.has(edge.edgeId))
   if (authorityEvidence.length !== edgeIds.size) throw new Error("one or more continuation authority edges disappeared")
+  validatePacketAuthorityClaims(authority.edges, edgeIds, packet.planningAuthority, packet.activeScope, packet.acceptedPredecessors)
   return { authority, gateMap, changeSurface, authorityEvidence }
 }
 
 export const save_packet = tool({
-  description: "Persist one exact-head continuation packet only after repository-native planning, active-scope, gate and derived change-surface evidence are confirmed.",
+  description: "Persist one exact-head continuation packet only after repository-native planning, active-scope, predecessor, gate and derived change-surface evidence are confirmed.",
   args: {
     targetSha: tool.schema.string().optional(), authorityMapId: tool.schema.string().min(1), nativeGateMapId: tool.schema.string().min(1), changeSurfaceMapId: tool.schema.string().min(1),
     planningAuthority: tool.schema.array(tool.schema.string()).min(1), activeScope: tool.schema.string().min(1), objective: tool.schema.string().min(1),
@@ -193,13 +206,17 @@ export const save_packet = tool({
     const root = context.worktree; const targetSha = (args.targetSha ?? await currentHead(root)).trim().toLowerCase(); await requireExactClean(root, targetSha)
     const authority = await loadAuthority(root, args.authorityMapId, targetSha); await loadGateMap(root, args.nativeGateMapId, targetSha); await loadChangeSurface(root, args.changeSurfaceMapId, targetSha)
     const edgeIds = unique(args.authorityEdgeIds); const known = new Set(authority.edges.map((edge) => edge.edgeId)); for (const id of edgeIds) if (!known.has(id)) throw new Error(`authority edge not found: ${id}`)
+    const planningAuthority = unique(args.planningAuthority)
+    const activeScope = args.activeScope.trim()
+    const acceptedPredecessors = unique(args.acceptedPredecessors)
+    validatePacketAuthorityClaims(authority.edges, new Set(edgeIds), planningAuthority, activeScope, acceptedPredecessors)
     const allowedPaths = unique(args.allowedPaths).map(validatePattern)
     const pathScopeAuthority: PathScopeAuthority = allowedPaths.length > 0 ? "DECLARED" : "NOT_DECLARED"
     const restricted: RestrictedPath[] = (args.forbiddenOrAdjacentPaths ?? []).map((item) => ({ pattern: validatePattern(item.pattern), classification: item.classification, rationale: item.rationale.trim() }))
     const packetId = `DCP-${new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}-${targetSha.slice(0, 12)}-${randomUUID().slice(0, 8)}`
     const packet: Packet = {
       schemaVersion: 1, packetId, targetSha, authorityMapId: args.authorityMapId, nativeGateMapId: args.nativeGateMapId, changeSurfaceMapId: args.changeSurfaceMapId,
-      planningAuthority: unique(args.planningAuthority), activeScope: args.activeScope.trim(), objective: args.objective.trim(), prerequisites: unique(args.prerequisites), acceptedPredecessors: unique(args.acceptedPredecessors), requiredReading: unique(args.requiredReading),
+      planningAuthority, activeScope, objective: args.objective.trim(), prerequisites: unique(args.prerequisites), acceptedPredecessors, requiredReading: unique(args.requiredReading),
       pathScopeAuthority, allowedPaths, forbiddenOrAdjacentPaths: restricted, repoProvableChecks: unique(args.repoProvableChecks), hostedCiProvableChecks: unique(args.hostedCiProvableChecks), liveRuntimeRequiredChecks: unique(args.liveRuntimeRequiredChecks), operatorDecisionRequired: unique(args.operatorDecisionRequired), blockers: unique(args.blockers), uncertainties: unique(args.uncertainties), authorityEdgeIds: edgeIds, recordedAt: new Date().toISOString(),
     }
     await mkdir(baseDir(root), { recursive: true }); await mkdir(packetDir(root, packetId), { recursive: false }); await atomicWrite(path.join(packetDir(root, packetId), "packet.json"), `${JSON.stringify(packet, null, 2)}\n`); await atomicWrite(path.join(baseDir(root), "latest.txt"), `${packetId}\n`)
@@ -218,7 +235,7 @@ export const load = tool({
 })
 
 export const scope_guard = tool({
-  description: "Compare proposed repository paths with one accepted continuation packet. The guard never expands scope.",
+  description: "Compare proposed repository paths with one accepted continuation packet. The guard never expands scope and does not invent positive path authority.",
   args: { packetId: tool.schema.string().optional(), proposedPaths: tool.schema.array(tool.schema.string()).min(1).max(500) },
   async execute(args, context) {
     const root = context.worktree; const id = await resolvePacketId(root, args.packetId); const packet = await loadPacket(root, id); await requireExactClean(root, packet.targetSha)
@@ -229,12 +246,12 @@ export const scope_guard = tool({
       const candidate = validatePattern(raw)
       const restricted = packet.forbiddenOrAdjacentPaths.find((item) => matches(item.pattern, candidate))
       if (restricted) return { path: candidate, classification: restricted.classification, matchedPattern: restricted.pattern, rationale: restricted.rationale }
-      if (packet.pathScopeAuthority === "NOT_DECLARED") return { path: candidate, classification: "SCOPE_AUTHORITY_UNPROVEN", matchedPattern: null, rationale: "active repository authority does not declare positive allowed path patterns" }
+      if (packet.pathScopeAuthority === "NOT_DECLARED") return { path: candidate, classification: "SCOPE_AUTHORITY_UNPROVEN", matchedPattern: null, rationale: "repository authority did not declare positive path scope; derived change surface cannot grant mutation authority" }
       const allowed = packet.allowedPaths.find((pattern) => matches(pattern, candidate))
       if (allowed) return { path: candidate, classification: "IN_SCOPE", matchedPattern: allowed, rationale: "declared by accepted continuation packet" }
       return { path: candidate, classification: "UNDECLARED", matchedPattern: null, rationale: "path is not declared by the active scope; scope is not auto-expanded" }
     })
-    const overall = results.some((item) => item.classification === "FORBIDDEN_BY_ACTIVE_SCOPE") ? "FORBIDDEN_BY_ACTIVE_SCOPE" : results.some((item) => item.classification === "ADJACENT_TRACK") ? "ADJACENT_TRACK" : results.some((item) => item.classification === "SCOPE_AUTHORITY_UNPROVEN") ? "SCOPE_AUTHORITY_UNPROVEN" : results.every((item) => item.classification === "IN_SCOPE") ? "IN_SCOPE" : "UNDECLARED"
-    return JSON.stringify({ packetId: id, targetSha: packet.targetSha, overall, paths: results }, null, 2)
+    const overall = results.every((item) => item.classification === "IN_SCOPE") ? "IN_SCOPE" : results.some((item) => item.classification === "FORBIDDEN_BY_ACTIVE_SCOPE") ? "FORBIDDEN_BY_ACTIVE_SCOPE" : results.some((item) => item.classification === "ADJACENT_TRACK") ? "ADJACENT_TRACK" : results.some((item) => item.classification === "SCOPE_AUTHORITY_UNPROVEN") ? "SCOPE_AUTHORITY_UNPROVEN" : "UNDECLARED"
+    return JSON.stringify({ packetId: id, targetSha: packet.targetSha, overall, pathScopeAuthority: packet.pathScopeAuthority, paths: results }, null, 2)
   },
 })
