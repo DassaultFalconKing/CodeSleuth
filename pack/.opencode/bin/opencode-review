@@ -18,7 +18,8 @@ if [ -f "$TUI_CONFIG" ]; then
   export OPENCODE_TUI_CONFIG="$TUI_CONFIG"
 fi
 
-# EHA/read-only dogfood may supply an external writable CodeSleuth runtime.
+# EHA/read-only dogfood may supply an external writable CodeSleuth runtime so
+# package metadata writes stay outside the tracked target repository.
 # OPENCODE_CONFIG_DIR is additive, so it is not an isolation boundary by itself:
 # explicitly suppress target-project .opencode discovery before starting OpenCode.
 if [ -n "${CODESLEUTH_EHA_RUNTIME_CONFIG:-}" ]; then
