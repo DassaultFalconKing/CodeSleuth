@@ -35,6 +35,25 @@ A confirmed authority edge must carry exact tracked evidence. Discovery hints ma
 
 `confidence` is therefore discovery metadata. It is never authority.
 
+### Direction and self-reference
+
+Continuation relations are directional claims, not unordered labels. When a relation is used to authorize a continuation packet, the following endpoint semantics apply:
+
+```text
+CANONICAL_PLANNING_AUTHORITY
+    repository/context subject -> planning-authority object
+
+ACTIVE_IMPLEMENTATION_SCOPE
+    selected planning-authority subject -> active-scope object
+
+ACCEPTED_PREDECESSOR
+    selected active-scope subject -> accepted-predecessor object
+```
+
+A matching relation name and object are insufficient when the subject is wrong. Packet creation fails closed when a selected authority edge does not have the required direction.
+
+Confirmed semantic relations that are inherently irreflexive must not be self-loops. In particular, `ACTIVE_IMPLEMENTATION_SCOPE`, `ACCEPTED_PREDECESSOR`, `SUPERSEDES`, `SUPERSEDED_BY`, `HISTORICAL_ARCHIVE`, `ADJACENT_PARALLEL_TRACK`, and `FORBIDDEN_COMPETING_AUTHORITY` reject `subject == object` after repository-entity normalization. A self-referential edge is evidence of invalid authority construction, not a harmless graph curiosity.
+
 ## 3. Pre-registry change surface
 
 A repository may not yet have `docs/protected-capabilities.json`. CodeSleuth must still be able to navigate likely impact without pretending that an inferred dependency map is a protected registry.
@@ -50,7 +69,9 @@ The **pre-registry change surface** is a deterministic, bounded, non-authoritati
 - documentation ownership links;
 - explicit allowed-path or session ownership declarations.
 
-Every derived surface item binds the tracked evidence used to derive it. The map may guide review, contract archaeology, and scope checking. It must not invent lifecycle maturity, protected status, or compatibility obligations.
+Every derived surface item binds the tracked evidence used to derive it. The map may guide review, contract archaeology, and scope checking. It must not invent lifecycle maturity, protected status, compatibility obligations, or positive mutation authority.
+
+A derived change surface can explain why another path deserves investigation. It never expands `allowedPaths` and never converts an undeclared path into an authorized mutation surface.
 
 ## 4. Development Continuation Packet
 
@@ -70,11 +91,32 @@ A packet must include, directly or through bounded resolved projections:
 - pre-registry change surface when no protected registry exists;
 - `authorityEvidence` — bounded resolved evidence for the authority relationships on which the packet relies;
 - `nativeGates` — bounded resolved project-native verification/acceptance gates;
+- durable Step-isolation events relevant to the exact target;
 - an explicit distinction between directly declared facts and derived navigation.
 
-Internal durable state may reference `authorityEdgeIds`, `nativeGateMapId`, or equivalent identifiers, but packet load/output must expose bounded `authorityEvidence` and `nativeGates`. A consumer must not have to trust an opaque identifier to know why the scope or gate exists.
+Internal durable state may reference `authorityEdgeIds`, `nativeGateMapId`, `isolationEventIds`, or equivalent identifiers, but packet load/output must expose bounded `authorityEvidence`, `nativeGates`, and referenced isolation events. A consumer must not have to trust an opaque identifier to know why the scope, gate, or isolation claim exists.
 
 A packet cannot be created as authoritative continuation state unless both `CANONICAL_PLANNING_AUTHORITY` and `ACTIVE_IMPLEMENTATION_SCOPE` are confirmed.
+
+### Monotonic same-scope retries
+
+A retry on the same exact target SHA and the same normalized active scope must not erase knowledge that has already been bound merely to make formal validation succeed.
+
+The following previously bound obligations are monotonic across such retries:
+
+- planning-authority references and authority edge ids needed by preserved claims;
+- prerequisites;
+- accepted predecessors;
+- required reading;
+- forbidden/adjacent restrictions;
+- repository-provable, hosted-CI, and live-runtime gate obligations;
+- operator-decision obligations;
+- blockers;
+- uncertainties.
+
+Omitting one of these fields in a later save request does not remove the prior obligation. Replacing or retiring an obligation requires a different accepted authority/scope decision rather than omission from a retry payload.
+
+Positive `allowedPaths` are deliberately different. CodeSleuth must never union old and new allowlists automatically, because automatic accumulation would expand mutation authority. A retry may narrow the declared positive path set; an empty set becomes `pathScopeAuthority = NOT_DECLARED` and therefore fails closed for positive scope claims.
 
 ## 5. Scope guard
 
@@ -89,6 +131,10 @@ The scope guard compares a proposed or actual change against the confirmed conti
 Restricted/forbidden and adjacent classifications take precedence over optimistic inclusion.
 
 The scope guard **never auto-expands scope** because an implementation appears to need another file. If the work genuinely must grow, the authority packet must be changed through explicit repository/user authority first.
+
+Path patterns are repository path expressions, not conceptual work labels. Traversal/absolute-path forms and conceptual prose that cannot denote a repository path fail closed rather than becoming mutation authority.
+
+A declared pattern ending in `/` denotes a directory boundary and includes descendants. An ordinary file literal remains exact. Explicit glob syntax remains deterministic. Thus `docs/baseline/` may authorize `docs/baseline/hybrid-retrieval.json`, while `src/lib.rs` does not authorize unrelated files under `src/`.
 
 ## 6. Native Gate Map
 
@@ -118,7 +164,25 @@ all required REPO_PROVABLE and HOSTED_CI_PROVABLE gates PASS
 
 Live dogfood begins only after that boundary. It must never be used to compensate for a repository-testable defect.
 
-## 7. Brownfield contract archaeology and adoption
+## 7. Step isolation and fallback ordering
+
+A Playbook Step marked `fresh_subagent` claims an execution property, not a writing style. If the host cannot prove that the fresh child was materialized, the orchestration boundary must durably append `STEP_ISOLATION_UNPROVEN` for the exact target SHA and Step id **before** any same-session fallback executes that Step.
+
+The required order is:
+
+```text
+fresh child attempt
+    -> isolation cannot be proven
+    -> development_continuation_state_record_isolation_unproven
+    -> durable event id returned
+    -> only then same-session fallback may begin
+```
+
+The final continuation packet binds matching exact-target isolation event ids, and packet load exposes the resolved events. Final prose must derive the isolation status from those durable records. A controller may not execute fallback first and reconstruct a cleaner ordering later in the report.
+
+`STEP_ISOLATION_UNPROVEN` does not necessarily prohibit all useful read-only analysis, but it prohibits any claim that the affected Step actually ran in a fresh isolated context.
+
+## 8. Brownfield contract archaeology and adoption
 
 A registryless repository may have real contracts distributed across implementation, normative/public documentation, and executable tests. CodeSleuth may discover candidates and triangulate them, but discovery confidence is not contract authority.
 
@@ -134,7 +198,7 @@ Adoption is explicitly bounded:
 
 Human/user adjudication occurs outside isolated analytical Playbook Steps. The analyst proposes; the owner decides what becomes canon.
 
-## 8. ExternalEvidenceManifestV1
+## 9. ExternalEvidenceManifestV1
 
 Live or service-dependent observations use `ExternalEvidenceManifestV1` so runtime truth can be consumed without masquerading as repository authority.
 
@@ -156,7 +220,7 @@ An external observation is non-authoritative for repository contracts by itself.
 
 Raw credentials, private keys, obvious tokens, or equivalent secrets must be rejected before persistence.
 
-## 9. Authority hierarchy
+## 10. Authority hierarchy
 
 For RC6 continuation work, use this hierarchy:
 
@@ -172,7 +236,7 @@ exact tracked repository evidence
 
 External runtime evidence may refine knowledge of runtime truth. It does not travel backward through that chain and create repository authority.
 
-## 10. Non-goals
+## 11. Non-goals
 
 RC6 does not add:
 
