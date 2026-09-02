@@ -11,6 +11,10 @@ This command is read-only analysis. It must discover how the target repository i
 
 Read the Playbook manifest first and materialize exactly one `fresh_subagent` Step at a time. All authority and gate claims must be bound to the same clean exact target SHA and tracked Git blobs.
 
+If the host cannot materialize a required fresh child Step, record `STEP_ISOLATION_UNPROVEN` before executing that Step in the current session. Do not silently claim fresh-context isolation or prompt eviction that the host did not provide.
+
+Do not repair the target in place. A failure encountered during this read-only command is evidence, not permission to mutate the environment. In particular, do not change `git config`, run a dependency install/update, rewrite lockfiles, switch tracked dependency pins, or modify repository policy merely to make discovery continue. When continuation would require such a repair, stop that path with `READ_ONLY_BOUNDARY_BLOCKED`, preserve the exact failing observation and required external remediation, and leave the target unchanged.
+
 The final result must include:
 
 - canonical planning authority;
@@ -19,7 +23,8 @@ The final result must include:
 - allowed paths plus forbidden/adjacent paths;
 - project-native verification gates classified by where they can actually be proven;
 - a durable Development Continuation Packet id;
-- current cloud-testability state from `native_gate_state_load`.
+- current cloud-testability state from `native_gate_state_load`;
+- any `STEP_ISOLATION_UNPROVEN` or `READ_ONLY_BOUNDARY_BLOCKED` condition encountered.
 
 If planning or active-scope authority remains unproven, stop with `SCOPE_AUTHORITY_UNPROVEN`. Do not choose the most plausible file by filename, recency, prose quality, or model confidence.
 
