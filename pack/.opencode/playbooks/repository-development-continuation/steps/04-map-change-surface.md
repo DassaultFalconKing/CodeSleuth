@@ -2,7 +2,7 @@
 
 Use the selected active scope and its confirmed repository authority. Produce a bounded change-surface map before any implementation work.
 
-Load the exact authority map first. Build `seedPaths` only from implementation owners that repository authority or exact source evidence currently identifies and that exist at the target SHA. Seeds may be tracked files or tracked directories. Never pass a nonexistent future handoff, planned output file, or guessed path as a seed.
+Load the exact authority map first. Build `seedPaths` only from implementation owners that repository authority or exact source evidence currently identifies and that exist at the target SHA. Seeds may be tracked files or tracked directories; never pass a nonexistent future handoff, planned output file, or guessed path as a seed.
 
 Collect exact tracked authority-named verification paths such as native verify scripts, workflow definitions, contract fixtures, schema/migration entry points or other read-only acceptance surfaces explicitly named by the selected authority. Pass those as `authorityPaths`; they expand the derived inspection surface but never grant mutation authority.
 
