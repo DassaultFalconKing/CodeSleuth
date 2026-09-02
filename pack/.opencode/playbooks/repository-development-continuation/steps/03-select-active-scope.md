@@ -13,6 +13,8 @@ Select the currently admissible implementation scope only from `CONFIRMED` repos
 - exclusions and adjacent parallel tracks;
 - blockers and operator decisions that prevent work from starting.
 
+When repository authority describes an ordered rollout, select the earliest unresolved admissible stop-gate. Do not aggregate later rollout stages merely because they appear in the same TODO, roadmap, worklog, or planning section. A later stage becomes current only after the repository-declared prerequisite/exit gate is satisfied or the repository explicitly makes the stages concurrent.
+
 If more than one current scope is explicitly allowed in parallel, select only the scope requested by the user or the unique scope designated by repository authority. Do not merge parallel tracks into one larger scope.
 
 If no unique admissible scope can be established, return `SCOPE_AUTHORITY_UNPROVEN`. Output a bounded `active_scope` structure for the next Steps; do not edit repository files and do not create a new roadmap/session packet.
