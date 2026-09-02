@@ -13,6 +13,6 @@ Do not preload every Step prompt. Keep OpenCode `build` as the primary controlle
 
 Prefer a fresh host-native subagent for each Step so the child receives fresh context and the parent retains only the bounded Step result. The child must not launch another orchestration layer. After completion, retain/checkpoint only the declared output and advance to the next Step.
 
-If the host cannot provide fresh-Step isolation, execute at most one Step in the current context at a time and do not claim strict eviction; report `STEP_ISOLATION_UNPROVEN` when relevant.
+The controller must not silently fall back. If the host cannot materialize the required fresh child, emit `STEP_ISOLATION_UNPROVEN` before executing the Step in the current session. Execute at most one Step in the current context at a time, do not claim strict eviction, and preserve the isolation limitation in the bounded Step result whenever it matters to acceptance.
 
-Stop on a Playbook/Skill stop condition. Do not improvise around exact-head, contract, architecture, or acceptance blockers.
+Stop on a Playbook/Skill stop condition. Do not improvise around exact-head, contract, architecture, host-boundary, or acceptance blockers.
