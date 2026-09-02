@@ -204,3 +204,34 @@ However, a workstream explicitly classified `READY_NOW` by evidence and tests ma
 - returns to full hosted acceptance before integration into an RC7 candidate stream.
 
 The purpose of triage is to avoid two equally bad extremes: prematurely coding disputed architecture, or freezing all useful work because one corner of RC7 still needs philosophical litigation.
+
+## 6. Branch/base discipline
+
+The RC7 planning branch is a design-input branch, not a runtime implementation base.
+
+At the time this TODO was updated, comparison against the hosted-green RC6 dogfood candidate showed:
+
+```text
+runtime candidate:
+1de37c75251a1e0d9904cffdb82695e92e3fab23
+
+RC7 planning branch:
+docs/rc7-ledger-authority-repair-plan
+
+merge base:
+645aedb8364977ebb3b227b3af35e13ed440b0f5
+
+planning branch relative to runtime candidate:
+16 commits ahead
+39 commits behind
+status: diverged
+```
+
+Therefore:
+
+- read RC7 planning/design documents from this branch as planning inputs;
+- do not create RC7 implementation branches from this stale planning branch;
+- before handing out any `READY_NOW` package, resolve the current exact hosted-green/release-stream runtime base and branch from that exact commit;
+- carry the required RC7 design/test delta into the implementation branch explicitly;
+- if the runtime base changes during RC6 completion, re-evaluate affected tests and assumptions before coding;
+- never infer implementation readiness from a green status on the planning branch alone.
