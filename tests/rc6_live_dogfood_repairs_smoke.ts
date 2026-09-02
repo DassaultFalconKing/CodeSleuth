@@ -20,6 +20,7 @@ async function main() {
   await mkdir(path.join(root, "docs", "baseline"), { recursive: true }); await mkdir(path.join(root, "src"), { recursive: true })
   await writeFile(path.join(root, "TODO.md"), "# Plan\nCurrent scope: docs/SESSION.md\n", "utf8")
   await writeFile(path.join(root, "docs", "SESSION.md"), "# Session\nContinue after docs/S08.md. Read baseline docs.\n", "utf8")
+  await writeFile(path.join(root, "docs", "SESSION-ALT.md"), "# Alternate session\nWrong-direction regression fixture.\n", "utf8")
   await writeFile(path.join(root, "docs", "S08.md"), "# Accepted predecessor\n", "utf8")
   await writeFile(path.join(root, "docs", "baseline", "hybrid-retrieval.json"), "{}\n", "utf8")
   await writeFile(path.join(root, "src", "lib.rs"), "pub fn live() {}\n", "utf8")
@@ -31,8 +32,6 @@ async function main() {
   const planning = JSON.parse(await record_edge.execute({ mapId: authority.mapId, relation: "CANONICAL_PLANNING_AUTHORITY", subject: "repository", object: "TODO.md", confidence: "CONFIRMED", rationale: "plan", evidence: [{ path: "TODO.md", locator: "line 2" }] }, context))
   const active = JSON.parse(await record_edge.execute({ mapId: authority.mapId, relation: "ACTIVE_IMPLEMENTATION_SCOPE", subject: "TODO.md", object: "docs/SESSION.md", confidence: "CONFIRMED", rationale: "active", evidence: [{ path: "TODO.md", locator: "line 2" }] }, context))
   const predecessor = JSON.parse(await record_edge.execute({ mapId: authority.mapId, relation: "ACCEPTED_PREDECESSOR", subject: "docs/SESSION.md", object: "docs/S08.md", confidence: "CONFIRMED", rationale: "accepted predecessor", evidence: [{ path: "docs/SESSION.md", locator: "line 2" }] }, context))
-
-  const wrongDirection = JSON.parse(await record_edge.execute({ mapId: authority.mapId, relation: "ACCEPTED_PREDECESSOR", subject: "wrong-scope", object: "docs/S08.md", confidence: "CONFIRMED", rationale: "wrong direction witness", evidence: [{ path: "docs/SESSION.md", locator: "line 2" }] }, context))
 
   const gateMap = JSON.parse(await gateStart.execute({ objective: "map gates", targetSha: sha }, context))
   await record_gate.execute({ gateMapId: gateMap.gateMapId, name: "repo verify", gateClass: "REPO_PROVABLE", required: true, command: "./verify.sh fast", evidence: [{ path: "docs/SESSION.md", locator: "line 2" }] }, context)
@@ -75,16 +74,19 @@ async function main() {
   } catch (error) { conceptualRejected = String(error).includes("invalid repository path pattern") }
   assert(conceptualRejected, "conceptual scope labels must not be accepted as repository path patterns")
 
+  // Use a distinct active scope so monotonic inheritance from the valid packet above
+  // cannot preserve the correct predecessor edge and accidentally mask this witness.
+  const wrongMap = JSON.parse(await authorityStart.execute({ objective: "reject wrong relation direction", targetSha: sha }, context))
+  const wrongPlanning = JSON.parse(await record_edge.execute({ mapId: wrongMap.mapId, relation: "CANONICAL_PLANNING_AUTHORITY", subject: "repository", object: "TODO.md", confidence: "CONFIRMED", rationale: "plan", evidence: [{ path: "TODO.md", locator: "line 2" }] }, context))
+  const wrongActive = JSON.parse(await record_edge.execute({ mapId: wrongMap.mapId, relation: "ACTIVE_IMPLEMENTATION_SCOPE", subject: "TODO.md", object: "docs/SESSION-ALT.md", confidence: "CONFIRMED", rationale: "alternate active scope", evidence: [{ path: "docs/SESSION-ALT.md", locator: "line 1" }] }, context))
+  const wrongDirection = JSON.parse(await record_edge.execute({ mapId: wrongMap.mapId, relation: "ACCEPTED_PREDECESSOR", subject: "wrong-scope", object: "docs/S08.md", confidence: "CONFIRMED", rationale: "wrong direction witness", evidence: [{ path: "docs/SESSION-ALT.md", locator: "line 1" }] }, context))
   let wrongDirectionRejected = false
   try {
     await save_packet.execute({
-      targetSha: sha, authorityMapId: authority.mapId, nativeGateMapId: gateMap.gateMapId, changeSurfaceMapId: surface.surfaceMapId,
-      planningAuthority: ["TODO.md"], activeScope: "docs/SESSION.md", objective: "reject wrong relation direction", acceptedPredecessors: ["docs/S08.md"], allowedPaths: ["src/lib.rs"], authorityEdgeIds: [planning.edgeId, active.edgeId, wrongDirection.edgeId],
+      targetSha: sha, authorityMapId: wrongMap.mapId, nativeGateMapId: gateMap.gateMapId, changeSurfaceMapId: surface.surfaceMapId,
+      planningAuthority: ["TODO.md"], activeScope: "docs/SESSION-ALT.md", objective: "reject wrong relation direction", acceptedPredecessors: ["docs/S08.md"], allowedPaths: ["src/lib.rs"], authorityEdgeIds: [wrongPlanning.edgeId, wrongActive.edgeId, wrongDirection.edgeId],
     }, context)
-  } catch (error) {
-    const message = String(error)
-    wrongDirectionRejected = message.includes("direction") || message.includes("subject") || message.includes("must be selected")
-  }
+  } catch (error) { wrongDirectionRejected = String(error).includes("direction invalid") }
   assert(wrongDirectionRejected, "accepted predecessor authority must be bound from the active scope, not any matching object")
 
   const selfLoopMap = JSON.parse(await authorityStart.execute({ objective: "reject self loop", targetSha: sha }, context))
