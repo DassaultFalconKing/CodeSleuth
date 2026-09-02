@@ -8,4 +8,6 @@ Read only enough exact tracked content to establish explicit authority relations
 
 Pay special attention to explicit source-of-truth, current-scope, supersedes/archive, predecessor, allowed/excluded path and acceptance-language statements. Do not revive superseded material or promote supporting current-state evidence into planning authority.
 
-Load the completed map. If canonical planning authority or the active implementation scope cannot be confirmed from repository evidence, return `SCOPE_AUTHORITY_UNPROVEN` with the competing/unproven relationships. Do not resolve ambiguity by prose quality, recency, filename or model preference.
+Treat these as hard semantic invariants: accepted predecessor and adjacent parallel track are mutually exclusive for the same semantic entity; historical or superseded material cannot be an accepted predecessor; active scope cannot simultaneously be historical, forbidden, or adjacent. If exact repository evidence genuinely asserts incompatible roles, preserve both evidence records and stop for operator adjudication rather than choosing whichever wording looks newer or more persuasive.
+
+Load the completed map. `development_authority_state_load` must fail closed on contradictory confirmed roles. If canonical planning authority or the active implementation scope cannot be confirmed from repository evidence, return `SCOPE_AUTHORITY_UNPROVEN` with the competing/unproven relationships. Do not resolve ambiguity by prose quality, recency, filename or model preference.
