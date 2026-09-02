@@ -1,6 +1,7 @@
 # RC6 live-dogfood repair plan
 
-**Status:** implementation plan for the exact `b56ae39d8b98e1a67f933e03544c83869c3377f4` repeat-dogfood failures.  
+**Status:** IMPLEMENTED / HOSTED VERIFICATION IN PROGRESS / LIVE RE-DOGFOOD REQUIRED  
+**Original candidate:** `b56ae39d8b98e1a67f933e03544c83869c3377f4`  
 **Evidence source:** `.codesleuth/reports/20260902T131918Z-rc6-live-dogfood-repeat.md` on the immutable `reports` branch.  
 **Scope:** RC6 repair only. This plan does not alter report history, SIB/EHA authority, release refs, or RC7 planning.
 
@@ -20,49 +21,76 @@
 
 The installed wrappers provide an external writable CodeSleuth runtime through `OPENCODE_CONFIG_DIR`/`OPENCODE_CONFIG`, but that directory is additive in current OpenCode configuration discovery. Target-local `.opencode` project configuration can still be discovered and bootstrapped, allowing a newer host to rewrite tracked target package metadata.
 
-### Changes
+### Implemented repair
 
-- Set `OPENCODE_DISABLE_PROJECT_CONFIG=1` in POSIX and PowerShell CodeSleuth OpenCode launchers.
-- Keep the target repository itself as the working directory and readable evidence surface.
-- Extend runtime tests to prove the isolation flag is part of both launch paths and to reject regressions that treat `OPENCODE_CONFIG_DIR` as sufficient isolation.
-- Preserve exact-clean preflight/postcondition checks in live-dogfood acceptance; target dirtiness remains a fail-closed condition, never a compatibility-repair invitation.
+- `OPENCODE_DISABLE_PROJECT_CONFIG=1` is set by POSIX and PowerShell CodeSleuth launchers whenever the external read-only runtime (`CODESLEUTH_EHA_RUNTIME_CONFIG`) is active.
+- The target repository remains the working directory and readable evidence surface; package metadata writes are redirected outside the tracked target.
+- Regression tests require the project-config-disable flag in both launcher paths.
+- Exact-clean preflight/postcondition remains the live acceptance boundary. A dirty target is evidence and a fail-closed condition, never a compatibility-repair invitation.
+
+### Remaining proof
+
+Hosted tests prove the launch contract, not the behavior of every real OpenCode host/version. A new foreign-repository live run must prove that tracked target `.opencode` metadata remains byte-clean before and after analysis.
 
 ## LD-02: durable isolation ordering
 
 ### Root cause
 
-The command contract says to record `STEP_ISOLATION_UNPROVEN` before parent fallback, but the current implementation has no durable primitive whose event ordering can be inspected later. The controller can therefore reconstruct a nicer story in final prose than the execution trace supports.
+The command contract said to record `STEP_ISOLATION_UNPROVEN` before parent fallback, but the original implementation had no durable primitive whose event ordering could be inspected later. The controller could therefore reconstruct a nicer story in final prose than the execution trace supported.
 
-### Changes
+### Implemented repair
 
-- Add append-only continuation isolation events bound to exact target SHA and Step id.
-- Add `development_continuation_state_record_isolation_unproven` for the orchestration boundary to call immediately after fresh-child failure and before parent fallback.
-- Automatically bind matching isolation event ids into the final continuation packet and return the resolved events on load.
-- Update `/repo-continue` and the continuation Playbook Step instructions so final summaries derive isolation state from durable events.
+- Added append-only continuation isolation events under `.opencode/state/development-continuation/isolation-events.ndjson`.
+- Added `development_continuation_state_record_isolation_unproven`, bound to exact target SHA and Step id.
+- `/repo-continue` and the repository-development-continuation Playbook require the durable event before same-session fallback begins.
+- Matching exact-target isolation event ids are bound into the continuation packet; `development_continuation_state_load` exposes resolved events and fails if a referenced event disappears.
 
 ## LD-03: monotonic packet obligations, relation direction, path semantics
 
 ### Root cause
 
-Packet arrays are caller-optional, so retries can omit already-established prerequisites, predecessors, reading, gate obligations, decisions and uncertainty until formal save succeeds. Authority validation matches only relation + object, permitting directionally wrong edges and self-loops. Path validation checks traversal safety but accepts conceptual prose; directory literals do not match descendants.
+Packet arrays were caller-optional, so retries could omit already-established prerequisites, predecessors, reading, gate obligations, decisions and uncertainty until formal save succeeded. Authority validation matched only relation + object, permitting directionally wrong edges and self-loops. Path validation checked traversal safety but accepted conceptual prose; directory literals did not match descendants.
 
-### Changes
+### Implemented repair
 
-- On same-target/same-active-scope packet retries, preserve previously bound obligations monotonically: prerequisites, accepted predecessors, required reading, forbidden/adjacent restrictions, repo/hosted/live gate obligations, operator decisions, blockers and uncertainties. Narrowing/replacing them requires new authority/scope rather than omission.
-- Reject self-loop authority edges used for continuation claims.
-- Validate relation endpoints according to continuation relation semantics rather than object-only matching.
-- Reject non-path conceptual values from path patterns.
-- Give trailing `/` directory patterns descendant semantics; exact file literals stay exact; existing explicit glob patterns remain deterministic.
-- Add regression witnesses reproducing the Aleph failure shapes.
+- Same-target/same-active-scope retries preserve previously bound obligations monotonically: planning/authority refs required by preserved claims, prerequisites, accepted predecessors, required reading, forbidden/adjacent restrictions, repo/hosted/live gate obligations, operator decisions, blockers and uncertainties.
+- Positive `allowedPaths` are deliberately **not** unioned automatically. Mutation authority may narrow or become `NOT_DECLARED`; it must never expand because an earlier packet mentioned another path.
+- Confirmed irreflexive semantic authority relations reject self-loops.
+- Continuation authority validates directional endpoints, including `planning authority -> active scope` and `active scope -> accepted predecessor`.
+- Non-path conceptual values fail closed as path patterns.
+- Trailing `/` directory patterns include descendants; exact file literals remain exact; explicit glob patterns remain deterministic.
+- Derived change-surface evidence remains non-authoritative and cannot grant positive path scope.
 
-## TDD sequence
+## TDD evidence
 
-1. Add regression tests for LD-01, LD-02 and LD-03 and observe failure on the exact candidate behavior.
-2. Implement the minimum runtime, state-tool and contract changes.
-3. Run focused Python and Bun suites.
-4. Run `python -m ruff check .`, contributor anti-pattern scan and repo-wide pytest/Bun acceptance through hosted CI.
-5. Re-run live dogfood separately against foreign exact targets before RC6 acceptance is restored. Hosted/unit green is necessary but does not replace this live witness.
+The tests-first regression commit was `02e23fea6114ed94ab714be5b2e555e828f21432`.
 
-## Completion criteria
+Hosted run `33643073832` captured the intentional RED phase: existing continuation smokes passed, while the new RC6 repeat-dogfood smoke failed because the durable `record_isolation_unproven` primitive did not exist on the original behavior.
 
-The repair candidate is ready for a new live-dogfood repeat only when focused regressions and repo-wide hosted acceptance pass at one exact head. RC6 itself remains unaccepted until a new foreign-repository live run demonstrates: no target mutation, correctly ordered durable isolation events, monotonic DCP obligations, directionally valid authority, and faithful path-scope behavior.
+The implementation was then introduced without rewriting that red evidence. Subsequent failures were debugged individually: one assertion was over-coupled to diagnostic wording, one wrong-direction fixture was contaminated by the newly correct monotonic predecessor history, and one existing wrapper contract required the literal `package metadata` documentation phrase. Those witnesses were corrected without weakening the production safety rules.
+
+## Hosted completion criteria
+
+Before this branch is eligible for another live run, one exact final head must pass:
+
+1. contributor anti-pattern scan;
+2. repo-wide Ruff;
+3. Python 3.10/3.12 on Linux and Windows;
+4. durable-state/context-graph smokes including `rc6_live_dogfood_repairs_smoke.ts`;
+5. Graphify enabled-runtime acceptance;
+6. TUI visual regression.
+
+Any tracked documentation or test update creates a new exact head and requires fresh hosted acceptance.
+
+## Live completion criteria
+
+Hosted green changes status only to `READY_FOR_LIVE_DOGFOOD`.
+
+RC6 itself remains unaccepted until a new foreign-repository live run demonstrates on exact targets:
+
+- no target source/config/package-metadata mutation;
+- `STEP_ISOLATION_UNPROVEN` is durably recorded before any fallback execution and is visible in the final packet;
+- repeated packet saves cannot erase already-bound continuation obligations;
+- wrong-direction/self-loop authority fails closed;
+- trailing directory scope includes real descendants while conceptual labels do not become paths;
+- target-native gates and uncertainties remain faithful rather than being simplified into a synthetic PASS.
