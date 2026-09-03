@@ -2,56 +2,97 @@
 
 **Status:** RC6 implementation design
 **Base:** `feature/rc6-eha-brownfield-bootstrap` @ `0ae58cb2dc06e3d06e0839040f58d5a853f920ee`
+**Core language:** Rust 2024, MSRV 1.88
 
 ## Goal
 
-Make model-facing graph reacquisition a bounded, renderer-neutral portable subsystem that CodeSleuth consumes through an adapter and that other projects such as Aleph_Rugent or Pii_Parcer can vendor without inheriting CodeSleuth persistence, authority, OpenCode, or ontology contracts.
+Make model-facing graph reacquisition a bounded, renderer-neutral portable Rust library that CodeSleuth consumes through a narrow JSON/native adapter and that other projects such as Aleph_Rugent or Pii_Parcer can vendor without inheriting CodeSleuth persistence, authority, OpenCode, or ontology contracts.
 
 ## Boundaries
 
-The portable core owns only in-memory graph validation and read operations:
+The portable core owns only deterministic in-memory graph validation and read operations:
 
 - `describe`
 - deterministic `resolve`
 - bounded `neighbors`
-- bounded `shortestPaths`
+- bounded `shortest_paths`
 - `explain`
 - bounded `diff`
 
-It does **not** own persistence, evidence authority, Git freshness, graph construction, rendering, model routing, or writes.
+It does **not** own persistence, evidence authority, Git freshness, graph construction, rendering, model routing, model execution, or writes.
 
 CodeSleuth remains responsible for loading and validating `RepositoryContextProjection`, exact-HEAD/stale-SourceRef checks, mapping projection nodes/edges into the portable graph shape, and returning the existing derived/non-authoritative policy envelope.
 
+## Rust packaging
+
+The crate lives at `portable/ebca-graph-readside/` and is intentionally independent of Bun/OpenCode. It exposes a Rust library API plus a small stdin/stdout JSON CLI (`ebca-graph-readside`) so non-Rust hosts can reuse exactly the same implementation.
+
+The crate targets Rust 1.88 / edition 2024 to fit the current Aleph_Rugent workspace. Dependencies are intentionally small: `serde`, `serde_json`, and `sha2`.
+
+CodeSleuth must never invoke `cargo run` or compile Rust implicitly during a model tool call. The OpenCode adapter accepts one explicit absolute native binary through `CODESLEUTH_GRAPH_READER_BIN`. Release packaging may later install a verified prebuilt binary at a stable managed path; absence is reported explicitly and does not mutate state.
+
+Existing `repo_context_graph_query` remains the RC6 compatibility/fallback interface until native binary packaging is promoted. The new Rust-backed reader surface therefore adds reacquisition capability without making Rust toolchain availability a hidden ordinary-runtime dependency.
+
 ## Portable graph shape
 
-The core accepts arbitrary string node kinds, edge relations, origins, optional source references, and metadata. IDs are caller-owned opaque identities. The resolver may match an ID only by exact equality; it must never semantically rerank hash-like or opaque IDs. Fuzzy lookup is limited to deterministic key/label prefix and substring matching.
+The core accepts arbitrary string node kinds, edge relations, origins, optional JSON source references, and metadata. IDs are caller-owned opaque identities.
+
+Resolver rule:
+
+- node ID: **exact equality only**;
+- key/label: deterministic exact, prefix, then substring matching;
+- opaque/hash IDs are never tokenized, substring-ranked, or semantically reranked.
+
+This preserves the CodeSleuth prohibition on hash/ID semantic reranking while remaining useful to non-CodeSleuth graphs.
 
 ## Boundedness
 
-All expansion surfaces have hard bounds. Neighborhood pagination uses an opaque graph-bound cursor. A cursor from another graph revision fails closed. Returned edge endpoints always fit inside the returned node bound; no edge may reference an omitted node. Shortest-path search has hop, path-count, and expansion caps.
+Every graph expansion has a hard limit inside the Rust core, not only in the adapter. Neighborhood selection is deterministic and uses a graph-bound continuation cursor. A cursor from another graph revision fails closed. Returned edges may never reference omitted nodes. Shortest-path search has hop, path-count, and expansion caps.
 
 ## CodeSleuth adapter
 
-`context_graph_read.ts` loads through the existing canonical `repo_context_graph_load` tool, rejects current reads when the projection is not exact-head/fresh, maps the projection into the portable shape, and exposes read-only OpenCode tools. Historical `diff` is allowed only for explicit projection IDs and reports freshness for both sides instead of pretending the old projection is current authority.
+`pack/.opencode/tools/context_graph_read.ts`:
 
-The older `repo_context_graph_query` and Mermaid surfaces remain compatibility interfaces for RC6. New model reacquisition should prefer the portable-reader-backed tools; no accepted writer or projection identity contract changes in this slice.
+1. loads through existing canonical `repo_context_graph_load`;
+2. rejects current reads when projection HEAD differs from current HEAD or verified SourceRefs are stale;
+3. reads the validated saved projection;
+4. maps it to the portable Rust graph input;
+5. invokes the exact configured binary via JSON stdin/stdout;
+6. rechecks projection identity after the native call;
+7. returns a CodeSleuth policy envelope declaring the result derived navigation/context and requiring exact-source reopening for material claims.
 
-## Second portable component
+Historical `diff` requires explicit projection IDs for both sides and reports their identities/freshness rather than pretending an old graph is current authority.
 
-The deterministic provenance watermark algorithm is extracted into `pack/.opencode/lib/portable/provenance_watermark.py`. The portable implementation requires an explicit domain separator. `scripts/provenance_watermark.py` remains the CodeSleuth adapter and supplies `codesleuth-provenance-v1`, preserving all existing values and CLI behavior.
+The older `repo_context_graph_query` and Mermaid surfaces remain compatibility interfaces for RC6. No writer, projection identity, persistence authority, or evidence authority changes in this slice.
+
+## Additional portable function
+
+A second portable function is the deterministic provenance-watermark algorithm. The Rust crate exposes a small `watermark` module whose functions require an explicit domain separator. Golden tests reproduce the existing CodeSleuth `codesleuth-provenance-v1` commit/session vectors without replacing the current Python CLI during RC6. This proves the algorithm is project-portable while avoiding a new runtime dependency for an already-working path.
 
 ## Portable tools index
 
-`docs/PORTABLE-TOOLS.md` is the repository index. `pack/.opencode/lib/portable/README.md` is the vendorable package index. Entries distinguish ready portable code from candidates that still have CodeSleuth/runtime coupling.
+`docs/PORTABLE-TOOLS.md` is the repository-level inventory. `portable/README.md` is the vendoring entry point.
+
+Entries are classified as:
+
+- `READY` — project-neutral source with its own tests/contracts;
+- `ADAPTER` — CodeSleuth integration over a portable core;
+- `PORTABLE-CANDIDATE` — useful logic still coupled to CodeSleuth/runtime details;
+- `NOT-PORTABLE` — authority/persistence semantics that must remain project-owned.
+
+Initial inventory includes the Rust graph reader, Rust provenance watermark core, Mermaid QA as a portability candidate, RepositoryEvidence/MCP read-side as a portability candidate, and Graphify normalization as a CodeSleuth adapter rather than a portable authority.
 
 ## Acceptance
 
 The change is acceptable only if:
 
-1. the pure graph-reader smoke test passes without `@opencode-ai/plugin` or CodeSleuth state;
-2. CodeSleuth graph-reader integration rejects stale current projections;
-3. resolver behavior does not fuzzy-match opaque IDs;
-4. neighborhood results never contain dangling edges and respect hard bounds/cursor identity;
-5. existing CodeSleuth provenance watermark values remain byte-for-byte compatible;
-6. the new Bun smoke is reachable from the default `package.json` test umbrella;
-7. the PR is compared against the then-current RC6 target and classified CLEAN or REFIT REQUIRED.
+1. `cargo test --manifest-path portable/ebca-graph-readside/Cargo.toml --locked` passes on exact head;
+2. the pure Rust graph reader has no OpenCode/CodeSleuth-state dependency;
+3. resolver tests prove opaque IDs are exact-match only;
+4. neighborhood tests prove hard bounds, graph-bound cursor rejection, and no dangling returned edges;
+5. shortest-path tests prove hop/path/expansion bounds;
+6. CodeSleuth integration tests build the Rust binary explicitly, bind it through `CODESLEUTH_GRAPH_READER_BIN`, and reject stale current projections;
+7. Rust watermark golden vectors match existing CodeSleuth values;
+8. existing `repo_context_graph_query`, Mermaid and provenance tests remain green;
+9. the new tests are reachable from canonical GitHub acceptance;
+10. the PR is compared against the then-current RC6 target and classified CLEAN or REFIT REQUIRED from actual compare/mergeability evidence.
