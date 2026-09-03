@@ -57,7 +57,7 @@ fn describe_counts_generic_kinds_relations_and_origins() {
     assert_eq!(result.node_kinds["file"], 1);
     assert_eq!(result.node_kinds["symbol"], 1);
     assert_eq!(result.edge_relations["calls"], 1);
-    assert_eq!(result.origins["verified_source"], 4);
+    assert_eq!(result.origins["verified_source"], 5);
     assert_eq!(result.origins["review_inference"], 2);
 }
 
