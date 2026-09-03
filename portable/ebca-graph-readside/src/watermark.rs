@@ -59,9 +59,7 @@ fn validate_actor(actor: &str) -> Result<String, WatermarkError> {
         ));
     }
     if !bytes.iter().all(|byte| {
-        byte.is_ascii_lowercase()
-            || byte.is_ascii_digit()
-            || matches!(*byte, b'.' | b'_' | b'-')
+        byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(*byte, b'.' | b'_' | b'-')
     }) {
         return Err(WatermarkError::new(
             "actor must be lowercase ASCII [a-z0-9._-]",
@@ -124,8 +122,6 @@ pub fn session_watermark(
             "session id must be non-empty and contain no control characters",
         ));
     }
-    let digest = digest12(&format!(
-        "{domain}|session|{actor}|{head_sha}|{session_id}"
-    ));
+    let digest = digest12(&format!("{domain}|session|{actor}|{head_sha}|{session_id}"));
     Ok(format!("{actor}-{digest}"))
 }

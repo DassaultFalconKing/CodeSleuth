@@ -22,14 +22,20 @@ const MAX_DIFF_LIMIT: usize = 500;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReadsideError {
+    kind: &'static str,
     message: String,
 }
 
 impl ReadsideError {
-    fn new(message: impl Into<String>) -> Self {
+    fn new(kind: &'static str, message: impl Into<String>) -> Self {
         Self {
+            kind,
             message: message.into(),
         }
+    }
+
+    pub fn kind(&self) -> &'static str {
+        self.kind
     }
 }
 
@@ -92,10 +98,16 @@ struct Validated<'a> {
 
 fn validate_text(value: &str, what: &str) -> Result<(), ReadsideError> {
     if value.trim().is_empty() {
-        return Err(ReadsideError::new(format!("{what} must not be empty")));
+        return Err(ReadsideError::new(
+            "invalid_graph",
+            format!("{what} must not be empty"),
+        ));
     }
     if value.chars().any(char::is_control) {
-        return Err(ReadsideError::new(format!("{what} must not contain control characters")));
+        return Err(ReadsideError::new(
+            "invalid_graph",
+            format!("{what} must not contain control characters"),
+        ));
     }
     Ok(())
 }
@@ -103,14 +115,16 @@ fn validate_text(value: &str, what: &str) -> Result<(), ReadsideError> {
 fn validate_graph(graph: &Graph) -> Result<Validated<'_>, ReadsideError> {
     validate_text(&graph.graph_id, "graph_id")?;
     if graph.nodes.len() > MAX_GRAPH_NODES {
-        return Err(ReadsideError::new(format!(
-            "graph exceeds {MAX_GRAPH_NODES} node hard bound"
-        )));
+        return Err(ReadsideError::new(
+            "invalid_graph",
+            format!("graph exceeds {MAX_GRAPH_NODES} node hard bound"),
+        ));
     }
     if graph.edges.len() > MAX_GRAPH_EDGES {
-        return Err(ReadsideError::new(format!(
-            "graph exceeds {MAX_GRAPH_EDGES} edge hard bound"
-        )));
+        return Err(ReadsideError::new(
+            "invalid_graph",
+            format!("graph exceeds {MAX_GRAPH_EDGES} edge hard bound"),
+        ));
     }
 
     let mut nodes = BTreeMap::new();
@@ -120,7 +134,10 @@ fn validate_graph(graph: &Graph) -> Result<Validated<'_>, ReadsideError> {
         validate_text(&node.kind, "node kind")?;
         validate_text(&node.key, "node key")?;
         if !all_ids.insert(node.id.as_str()) {
-            return Err(ReadsideError::new(format!("duplicate graph element id: {}", node.id)));
+            return Err(ReadsideError::new(
+                "invalid_graph",
+                format!("duplicate graph element id: {}", node.id),
+            ));
         }
         nodes.insert(node.id.as_str(), node);
     }
@@ -132,19 +149,28 @@ fn validate_graph(graph: &Graph) -> Result<Validated<'_>, ReadsideError> {
         validate_text(&edge.source, "edge source")?;
         validate_text(&edge.target, "edge target")?;
         if !all_ids.insert(edge.id.as_str()) {
-            return Err(ReadsideError::new(format!("duplicate graph element id: {}", edge.id)));
+            return Err(ReadsideError::new(
+                "invalid_graph",
+                format!("duplicate graph element id: {}", edge.id),
+            ));
         }
         if !nodes.contains_key(edge.source.as_str()) {
-            return Err(ReadsideError::new(format!(
-                "edge {} references missing source node {}",
-                edge.id, edge.source
-            )));
+            return Err(ReadsideError::new(
+                "invalid_graph",
+                format!(
+                    "edge {} references missing source node {}",
+                    edge.id, edge.source
+                ),
+            ));
         }
         if !nodes.contains_key(edge.target.as_str()) {
-            return Err(ReadsideError::new(format!(
-                "edge {} references missing target node {}",
-                edge.id, edge.target
-            )));
+            return Err(ReadsideError::new(
+                "invalid_graph",
+                format!(
+                    "edge {} references missing target node {}",
+                    edge.id, edge.target
+                ),
+            ));
         }
         edges.insert(edge.id.as_str(), edge);
     }
@@ -226,12 +252,16 @@ pub fn resolve(graph: &Graph, options: ResolveOptions) -> Result<ResolveResult, 
     validate_graph(graph)?;
     let query = options.query.trim();
     if query.is_empty() {
-        return Err(ReadsideError::new("resolve query must not be empty"));
+        return Err(ReadsideError::new(
+            "invalid_options",
+            "resolve query must not be empty",
+        ));
     }
     if options.limit == 0 || options.limit > MAX_RESOLVE_LIMIT {
-        return Err(ReadsideError::new(format!(
-            "resolve limit must be 1..{MAX_RESOLVE_LIMIT}"
-        )));
+        return Err(ReadsideError::new(
+            "invalid_options",
+            format!("resolve limit must be 1..{MAX_RESOLVE_LIMIT}"),
+        ));
     }
 
     let kinds: BTreeSet<&str> = options.kinds.iter().map(String::as_str).collect();
@@ -389,18 +419,28 @@ fn neighbor_for<'a>(edge: &'a Edge, node_id: &str, direction: Direction) -> Opti
     }
 }
 
-fn select_neighborhood(graph: &Graph, options: &NeighborOptions) -> Result<NeighborhoodSelection, ReadsideError> {
+fn select_neighborhood(
+    graph: &Graph,
+    options: &NeighborOptions,
+) -> Result<NeighborhoodSelection, ReadsideError> {
     let validated = validate_graph(graph)?;
     if options.roots.is_empty() {
-        return Err(ReadsideError::new("neighbors requires at least one exact root node id"));
+        return Err(ReadsideError::new(
+            "invalid_options",
+            "neighbors requires at least one exact root node id",
+        ));
     }
     if options.roots.len() > 50 {
-        return Err(ReadsideError::new("neighbors accepts at most 50 roots"));
+        return Err(ReadsideError::new(
+            "invalid_options",
+            "neighbors accepts at most 50 roots",
+        ));
     }
     if options.hops > MAX_NEIGHBOR_HOPS {
-        return Err(ReadsideError::new(format!(
-            "neighbors hops must be 0..{MAX_NEIGHBOR_HOPS}"
-        )));
+        return Err(ReadsideError::new(
+            "invalid_options",
+            format!("neighbors hops must be 0..{MAX_NEIGHBOR_HOPS}"),
+        ));
     }
 
     let relations = filter_set(&options.relations);
@@ -411,12 +451,24 @@ fn select_neighborhood(graph: &Graph, options: &NeighborOptions) -> Result<Neigh
             continue;
         }
         match options.direction {
-            Direction::Out => adjacency.entry(edge.source.as_str()).or_default().push(edge),
-            Direction::In => adjacency.entry(edge.target.as_str()).or_default().push(edge),
+            Direction::Out => adjacency
+                .entry(edge.source.as_str())
+                .or_default()
+                .push(edge),
+            Direction::In => adjacency
+                .entry(edge.target.as_str())
+                .or_default()
+                .push(edge),
             Direction::Both => {
-                adjacency.entry(edge.source.as_str()).or_default().push(edge);
+                adjacency
+                    .entry(edge.source.as_str())
+                    .or_default()
+                    .push(edge);
                 if edge.target != edge.source {
-                    adjacency.entry(edge.target.as_str()).or_default().push(edge);
+                    adjacency
+                        .entry(edge.target.as_str())
+                        .or_default()
+                        .push(edge);
                 }
             }
         }
@@ -430,7 +482,10 @@ fn select_neighborhood(graph: &Graph, options: &NeighborOptions) -> Result<Neigh
     roots.dedup();
     for root in &roots {
         if !validated.nodes.contains_key(root.as_str()) {
-            return Err(ReadsideError::new(format!("root node does not exist: {root}")));
+            return Err(ReadsideError::new(
+                "not_found",
+                format!("root node does not exist: {root}"),
+            ));
         }
     }
 
@@ -465,7 +520,9 @@ fn select_neighborhood(graph: &Graph, options: &NeighborOptions) -> Result<Neigh
                 truncated = true;
                 break 'walk;
             }
-            if !seen_edges.contains(edge.id.as_str()) && seen_edges.len() >= MAX_NEIGHBOR_SELECTED_EDGES {
+            if !seen_edges.contains(edge.id.as_str())
+                && seen_edges.len() >= MAX_NEIGHBOR_SELECTED_EDGES
+            {
                 truncated = true;
                 break 'walk;
             }
@@ -498,17 +555,21 @@ fn graph_fingerprint(graph: &Graph) -> Result<String, ReadsideError> {
     hasher.update(graph.graph_id.as_bytes());
     for node in nodes {
         hasher.update([0]);
-        hasher.update(
-            serde_json::to_vec(node)
-                .map_err(|error| ReadsideError::new(format!("cannot serialize node fingerprint: {error}")))?,
-        );
+        hasher.update(serde_json::to_vec(node).map_err(|error| {
+            ReadsideError::new(
+                "internal",
+                format!("cannot serialize node fingerprint: {error}"),
+            )
+        })?);
     }
     for edge in edges {
         hasher.update([0]);
-        hasher.update(
-            serde_json::to_vec(edge)
-                .map_err(|error| ReadsideError::new(format!("cannot serialize edge fingerprint: {error}")))?,
-        );
+        hasher.update(serde_json::to_vec(edge).map_err(|error| {
+            ReadsideError::new(
+                "internal",
+                format!("cannot serialize edge fingerprint: {error}"),
+            )
+        })?);
     }
     Ok(format!("{:x}", hasher.finalize()))
 }
@@ -544,39 +605,51 @@ fn parse_cursor(cursor: Option<&str>, signature: &str) -> Result<(usize, usize),
     };
     let parts: Vec<&str> = cursor.split(':').collect();
     if parts.len() != 4 || parts[0] != "v1" || parts[1] != signature {
-        return Err(ReadsideError::new("invalid or mismatched continuation cursor"));
+        return Err(ReadsideError::new(
+            "cursor_mismatch",
+            "invalid or mismatched continuation cursor",
+        ));
     }
-    let node_offset = parts[2]
-        .parse::<usize>()
-        .map_err(|_| ReadsideError::new("invalid continuation cursor node offset"))?;
-    let edge_offset = parts[3]
-        .parse::<usize>()
-        .map_err(|_| ReadsideError::new("invalid continuation cursor edge offset"))?;
+    let node_offset = parts[2].parse::<usize>().map_err(|_| {
+        ReadsideError::new("cursor_mismatch", "invalid continuation cursor node offset")
+    })?;
+    let edge_offset = parts[3].parse::<usize>().map_err(|_| {
+        ReadsideError::new("cursor_mismatch", "invalid continuation cursor edge offset")
+    })?;
     Ok((node_offset, edge_offset))
 }
 
-pub fn neighbors(graph: &Graph, options: NeighborOptions) -> Result<NeighborhoodResult, ReadsideError> {
+pub fn neighbors(
+    graph: &Graph,
+    options: NeighborOptions,
+) -> Result<NeighborhoodResult, ReadsideError> {
     if options.node_limit == 0 || options.node_limit > MAX_NEIGHBOR_NODE_LIMIT {
-        return Err(ReadsideError::new(format!(
-            "neighbors node_limit must be 1..{MAX_NEIGHBOR_NODE_LIMIT}"
-        )));
+        return Err(ReadsideError::new(
+            "invalid_options",
+            format!("neighbors node_limit must be 1..{MAX_NEIGHBOR_NODE_LIMIT}"),
+        ));
     }
     if options.edge_limit == 0 || options.edge_limit > MAX_NEIGHBOR_EDGE_LIMIT {
-        return Err(ReadsideError::new(format!(
-            "neighbors edge_limit must be 1..{MAX_NEIGHBOR_EDGE_LIMIT}"
-        )));
+        return Err(ReadsideError::new(
+            "invalid_options",
+            format!("neighbors edge_limit must be 1..{MAX_NEIGHBOR_EDGE_LIMIT}"),
+        ));
     }
 
     let selection = select_neighborhood(graph, &options)?;
     if !selection.edge_ids.is_empty() && options.node_limit < 2 {
         return Err(ReadsideError::new(
+            "invalid_options",
             "neighbors node_limit must be at least 2 when the selection contains edges",
         ));
     }
     let signature = query_signature(graph, &options)?;
     let (mut node_offset, mut edge_offset) = parse_cursor(options.cursor.as_deref(), &signature)?;
     if node_offset > selection.node_ids.len() || edge_offset > selection.edge_ids.len() {
-        return Err(ReadsideError::new("continuation cursor is outside the selected graph window"));
+        return Err(ReadsideError::new(
+            "cursor_mismatch",
+            "continuation cursor is outside the selected graph window",
+        ));
     }
 
     let validated = validate_graph(graph)?;
@@ -585,10 +658,9 @@ pub fn neighbors(graph: &Graph, options: NeighborOptions) -> Result<Neighborhood
 
     while edge_offset < selection.edge_ids.len() && returned_edges.len() < options.edge_limit {
         let edge_id = &selection.edge_ids[edge_offset];
-        let edge = validated
-            .edges
-            .get(edge_id.as_str())
-            .ok_or_else(|| ReadsideError::new(format!("selected edge disappeared: {edge_id}")))?;
+        let edge = validated.edges.get(edge_id.as_str()).ok_or_else(|| {
+            ReadsideError::new("internal", format!("selected edge disappeared: {edge_id}"))
+        })?;
         let mut additions = 0;
         if !included.contains(edge.source.as_str()) {
             additions += 1;
@@ -619,7 +691,9 @@ pub fn neighbors(graph: &Graph, options: NeighborOptions) -> Result<Neighborhood
                 .nodes
                 .get(node_id.as_str())
                 .copied()
-                .ok_or_else(|| ReadsideError::new(format!("selected node disappeared: {node_id}")))
+                .ok_or_else(|| {
+                    ReadsideError::new("internal", format!("selected node disappeared: {node_id}"))
+                })
                 .cloned()
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -629,6 +703,7 @@ pub fn neighbors(graph: &Graph, options: NeighborOptions) -> Result<Neighborhood
         !returned_ids.contains(edge.source.as_str()) || !returned_ids.contains(edge.target.as_str())
     }) {
         return Err(ReadsideError::new(
+            "internal",
             "internal invariant failure: neighborhood would contain a dangling returned edge",
         ));
     }
@@ -698,12 +773,24 @@ fn path_adjacency<'a>(
             continue;
         }
         match direction {
-            Direction::Out => adjacency.entry(edge.source.as_str()).or_default().push(edge),
-            Direction::In => adjacency.entry(edge.target.as_str()).or_default().push(edge),
+            Direction::Out => adjacency
+                .entry(edge.source.as_str())
+                .or_default()
+                .push(edge),
+            Direction::In => adjacency
+                .entry(edge.target.as_str())
+                .or_default()
+                .push(edge),
             Direction::Both => {
-                adjacency.entry(edge.source.as_str()).or_default().push(edge);
+                adjacency
+                    .entry(edge.source.as_str())
+                    .or_default()
+                    .push(edge);
                 if edge.target != edge.source {
-                    adjacency.entry(edge.target.as_str()).or_default().push(edge);
+                    adjacency
+                        .entry(edge.target.as_str())
+                        .or_default()
+                        .push(edge);
                 }
             }
         }
@@ -720,23 +807,34 @@ pub fn shortest_paths(
 ) -> Result<ShortestPathResult, ReadsideError> {
     let validated = validate_graph(graph)?;
     if !validated.nodes.contains_key(options.source.as_str()) {
-        return Err(ReadsideError::new(format!("source node does not exist: {}", options.source)));
+        return Err(ReadsideError::new(
+            "not_found",
+            format!("source node does not exist: {}", options.source),
+        ));
     }
     if !validated.nodes.contains_key(options.target.as_str()) {
-        return Err(ReadsideError::new(format!("target node does not exist: {}", options.target)));
+        return Err(ReadsideError::new(
+            "not_found",
+            format!("target node does not exist: {}", options.target),
+        ));
     }
     if options.max_hops == 0 || options.max_hops > MAX_PATH_HOPS {
-        return Err(ReadsideError::new(format!(
-            "max_hops must be 1..{MAX_PATH_HOPS}"
-        )));
+        return Err(ReadsideError::new(
+            "invalid_options",
+            format!("max_hops must be 1..{MAX_PATH_HOPS}"),
+        ));
     }
     if options.max_paths == 0 || options.max_paths > MAX_PATHS {
-        return Err(ReadsideError::new(format!("max_paths must be 1..{MAX_PATHS}")));
+        return Err(ReadsideError::new(
+            "invalid_options",
+            format!("max_paths must be 1..{MAX_PATHS}"),
+        ));
     }
     if options.expansion_limit == 0 || options.expansion_limit > MAX_PATH_EXPANSIONS {
-        return Err(ReadsideError::new(format!(
-            "expansion_limit must be 1..{MAX_PATH_EXPANSIONS}"
-        )));
+        return Err(ReadsideError::new(
+            "invalid_options",
+            format!("expansion_limit must be 1..{MAX_PATH_EXPANSIONS}"),
+        ));
     }
     if options.source == options.target {
         return Ok(ShortestPathResult {
@@ -806,7 +904,11 @@ pub fn shortest_paths(
         }
     }
 
-    results.sort_by(|a, b| a.node_ids.cmp(&b.node_ids).then_with(|| a.edge_ids.cmp(&b.edge_ids)));
+    results.sort_by(|a, b| {
+        a.node_ids
+            .cmp(&b.node_ids)
+            .then_with(|| a.edge_ids.cmp(&b.edge_ids))
+    });
     Ok(ShortestPathResult {
         graph_id: graph.graph_id.clone(),
         paths: results,
@@ -832,12 +934,17 @@ pub struct ExplainResult {
     pub truncated: bool,
 }
 
-pub fn explain(graph: &Graph, element_id: &str, incident_limit: usize) -> Result<ExplainResult, ReadsideError> {
+pub fn explain(
+    graph: &Graph,
+    element_id: &str,
+    incident_limit: usize,
+) -> Result<ExplainResult, ReadsideError> {
     let validated = validate_graph(graph)?;
     if incident_limit == 0 || incident_limit > MAX_EXPLAIN_INCIDENT {
-        return Err(ReadsideError::new(format!(
-            "incident_limit must be 1..{MAX_EXPLAIN_INCIDENT}"
-        )));
+        return Err(ReadsideError::new(
+            "invalid_options",
+            format!("incident_limit must be 1..{MAX_EXPLAIN_INCIDENT}"),
+        ));
     }
     if let Some(node) = validated.nodes.get(element_id) {
         let mut incident: Vec<Edge> = graph
@@ -865,12 +972,16 @@ pub fn explain(graph: &Graph, element_id: &str, incident_limit: usize) -> Result
             .nodes
             .get(edge.source.as_str())
             .copied()
-            .ok_or_else(|| ReadsideError::new("edge source disappeared after validation"))?;
+            .ok_or_else(|| {
+                ReadsideError::new("internal", "edge source disappeared after validation")
+            })?;
         let target = validated
             .nodes
             .get(edge.target.as_str())
             .copied()
-            .ok_or_else(|| ReadsideError::new("edge target disappeared after validation"))?;
+            .ok_or_else(|| {
+                ReadsideError::new("internal", "edge target disappeared after validation")
+            })?;
         return Ok(ExplainResult {
             graph_id: graph.graph_id.clone(),
             element_type: "edge".into(),
@@ -882,7 +993,10 @@ pub fn explain(graph: &Graph, element_id: &str, incident_limit: usize) -> Result
             truncated: false,
         });
     }
-    Err(ReadsideError::new(format!("graph element does not exist: {element_id}")))
+    Err(ReadsideError::new(
+        "not_found",
+        format!("graph element does not exist: {element_id}"),
+    ))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -924,11 +1038,18 @@ pub struct GraphDiff {
     pub truncated: bool,
 }
 
-pub fn diff(before: &Graph, after: &Graph, options: DiffOptions) -> Result<GraphDiff, ReadsideError> {
+pub fn diff(
+    before: &Graph,
+    after: &Graph,
+    options: DiffOptions,
+) -> Result<GraphDiff, ReadsideError> {
     let before_validated = validate_graph(before)?;
     let after_validated = validate_graph(after)?;
     if options.limit == 0 || options.limit > MAX_DIFF_LIMIT {
-        return Err(ReadsideError::new(format!("diff limit must be 1..{MAX_DIFF_LIMIT}")));
+        return Err(ReadsideError::new(
+            "invalid_options",
+            format!("diff limit must be 1..{MAX_DIFF_LIMIT}"),
+        ));
     }
 
     let added_nodes_all: Vec<Node> = after_validated

@@ -90,13 +90,23 @@ jobs:
   bun:
     name: Durable state / context graph
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ env.CODESLEUTH_ACCEPTANCE_SHA }}
       - name: Verify exact checked-out commit
         run: test "$(git rev-parse HEAD)" = "$CODESLEUTH_ACCEPTANCE_SHA" && echo "EXACT HEAD $CODESLEUTH_ACCEPTANCE_SHA"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: portable/ebca-graph-readside
+      - name: Build portable graph reader
+        run: cargo build --manifest-path portable/ebca-graph-readside/Cargo.toml --locked
+      - name: Bind portable graph reader identity
+        run: echo "CODESLEUTH_GRAPH_READER_BIN=${GITHUB_WORKSPACE}/portable/ebca-graph-readside/target/debug/ebca-graph-readside" >> "$GITHUB_ENV"
       - uses: oven-sh/setup-bun@v2
       - uses: actions/setup-node@v7
         with:
@@ -149,24 +159,20 @@ jobs:
         with:
           toolchain: 1.88.0
           components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: portable/ebca-graph-readside
       - name: Verify Rust runtime identity
         run: |
           rustc --version
           cargo --version
           test "$(rustc --version | awk '{print $2}')" = "1.88.0"
-      - name: Canonically format portable Rust crate
-        run: cargo fmt --manifest-path portable/ebca-graph-readside/Cargo.toml --all
-      - name: Upload canonical rustfmt output
-        uses: actions/upload-artifact@v4
-        with:
-          name: portable-rustfmt-${{ env.CODESLEUTH_ACCEPTANCE_SHA }}
-          path: portable/ebca-graph-readside/
-          if-no-files-found: error
-          retention-days: 1
+      - name: Check portable Rust formatting
+        run: cargo fmt --manifest-path portable/ebca-graph-readside/Cargo.toml --all -- --check
       - name: Lint portable Rust crate
-        run: cargo clippy --manifest-path portable/ebca-graph-readside/Cargo.toml --all-targets -- -D warnings
+        run: cargo clippy --manifest-path portable/ebca-graph-readside/Cargo.toml --locked --all-targets -- -D warnings
       - name: Test portable Rust crate
-        run: cargo test --manifest-path portable/ebca-graph-readside/Cargo.toml
+        run: cargo test --manifest-path portable/ebca-graph-readside/Cargo.toml --locked
 
   graphify-enabled:
     name: Graphify enabled runtime / Python 3.12 / Ubuntu

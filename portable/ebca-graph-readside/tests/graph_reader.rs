@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use ebca_graph_readside::{
-    describe, diff, explain, neighbors, resolve, shortest_paths, DiffOptions, Direction, Edge, Graph,
-    NeighborOptions, Node, ResolveOptions, ShortestPathOptions,
+    DiffOptions, Direction, Edge, Graph, NeighborOptions, Node, ResolveOptions,
+    ShortestPathOptions, describe, diff, explain, neighbors, resolve, shortest_paths,
 };
 use serde_json::json;
 
@@ -34,15 +34,45 @@ fn graph_v1() -> Graph {
     Graph {
         graph_id: "graph-v1".into(),
         nodes: vec![
-            node("sha256:aaaaaaaa", "file", "app", "Application", "verified_source"),
+            node(
+                "sha256:aaaaaaaa",
+                "file",
+                "app",
+                "Application",
+                "verified_source",
+            ),
             node("n-helper", "symbol", "helper", "Helper", "verified_source"),
             node("n-users", "table", "users", "Users", "verified_source"),
-            node("n-api", "external", "payments", "Payments API", "review_inference"),
+            node(
+                "n-api",
+                "external",
+                "payments",
+                "Payments API",
+                "review_inference",
+            ),
         ],
         edges: vec![
-            edge("e-call", "calls", "sha256:aaaaaaaa", "n-helper", "verified_source"),
-            edge("e-read", "reads_from", "n-helper", "n-users", "verified_source"),
-            edge("e-api", "depends_on", "sha256:aaaaaaaa", "n-api", "review_inference"),
+            edge(
+                "e-call",
+                "calls",
+                "sha256:aaaaaaaa",
+                "n-helper",
+                "verified_source",
+            ),
+            edge(
+                "e-read",
+                "reads_from",
+                "n-helper",
+                "n-users",
+                "verified_source",
+            ),
+            edge(
+                "e-api",
+                "depends_on",
+                "sha256:aaaaaaaa",
+                "n-api",
+                "review_inference",
+            ),
         ],
         metadata: BTreeMap::new(),
     }
@@ -75,7 +105,10 @@ fn resolve_never_fuzzy_matches_opaque_node_ids() {
         },
     )
     .expect("valid resolve");
-    assert!(partial.matches.is_empty(), "opaque IDs must not participate in fuzzy matching");
+    assert!(
+        partial.matches.is_empty(),
+        "opaque IDs must not participate in fuzzy matching"
+    );
 
     let exact = resolve(
         &graph,
@@ -188,7 +221,10 @@ fn shortest_paths_respect_hop_and_path_bounds() {
     )
     .expect("bounded paths");
     assert_eq!(found.paths.len(), 1);
-    assert_eq!(found.paths[0].node_ids, vec!["sha256:aaaaaaaa", "n-helper", "n-users"]);
+    assert_eq!(
+        found.paths[0].node_ids,
+        vec!["sha256:aaaaaaaa", "n-helper", "n-users"]
+    );
     assert_eq!(found.paths[0].edge_ids, vec!["e-call", "e-read"]);
 
     let blocked = shortest_paths(
@@ -206,6 +242,22 @@ fn shortest_paths_respect_hop_and_path_bounds() {
     )
     .expect("bounded paths");
     assert!(blocked.paths.is_empty());
+
+    let expansion_capped = shortest_paths(
+        &graph,
+        ShortestPathOptions {
+            source: "sha256:aaaaaaaa".into(),
+            target: "n-users".into(),
+            direction: Direction::Out,
+            relations: vec![],
+            origins: vec![],
+            max_hops: 3,
+            max_paths: 3,
+            expansion_limit: 1,
+        },
+    )
+    .expect("expansion-capped paths");
+    assert!(expansion_capped.truncated);
 }
 
 #[test]
@@ -224,9 +276,21 @@ fn diff_is_id_based_deterministic_and_bounded() {
     let mut after = graph_v1();
     after.graph_id = "graph-v2".into();
     after.nodes[1].label = Some("Helper v2".into());
-    after.nodes.push(node("n-audit", "table", "audit", "Audit", "verified_source"));
+    after.nodes.push(node(
+        "n-audit",
+        "table",
+        "audit",
+        "Audit",
+        "verified_source",
+    ));
     after.edges.retain(|edge| edge.id != "e-api");
-    after.edges.push(edge("e-audit", "writes_to", "n-helper", "n-audit", "verified_source"));
+    after.edges.push(edge(
+        "e-audit",
+        "writes_to",
+        "n-helper",
+        "n-audit",
+        "verified_source",
+    ));
 
     let result = diff(&before, &after, DiffOptions { limit: 20 }).expect("graph diff");
     assert_eq!(result.before_graph_id, "graph-v1");
@@ -245,6 +309,12 @@ fn malformed_graphs_fail_closed() {
     assert!(describe(&duplicate).is_err());
 
     let mut dangling = graph_v1();
-    dangling.edges.push(edge("e-bad", "calls", "missing", "n-helper", "verified_source"));
+    dangling.edges.push(edge(
+        "e-bad",
+        "calls",
+        "missing",
+        "n-helper",
+        "verified_source",
+    ));
     assert!(describe(&dangling).is_err());
 }

@@ -2,14 +2,22 @@ use ebca_graph_readside::watermark::{commit_watermark, normalize_subject, sessio
 
 #[test]
 fn normalize_subject_matches_codesleuth_contract() {
-    assert_eq!(normalize_subject("  FIX:   One\tThing  \nignored body"), "fix: one thing");
+    assert_eq!(
+        normalize_subject("  FIX:   One\tThing  \nignored body"),
+        "fix: one thing"
+    );
 }
 
 #[test]
 fn commit_watermark_matches_existing_codesleuth_golden_vector() {
     let parent = "1".repeat(40);
-    let value = commit_watermark("codesleuth-provenance-v1", "s56", &parent, "  FIX:   One\tThing  \nignored body")
-        .expect("valid watermark");
+    let value = commit_watermark(
+        "codesleuth-provenance-v1",
+        "s56",
+        &parent,
+        "  FIX:   One\tThing  \nignored body",
+    )
+    .expect("valid watermark");
     assert_eq!(value, "s56-099ece38e6a1");
 }
 
@@ -24,8 +32,13 @@ fn session_watermark_matches_existing_codesleuth_golden_vector_and_is_domain_sep
         .expect("valid session watermark");
     assert_eq!(other_session, "agent1-eb1ef412881b");
 
-    let other_domain = session_watermark("another-project-provenance-v1", "agent1", &head, "session-a")
-        .expect("valid session watermark");
+    let other_domain = session_watermark(
+        "another-project-provenance-v1",
+        "agent1",
+        &head,
+        "session-a",
+    )
+    .expect("valid session watermark");
     assert_ne!(other_domain, first);
 }
 
