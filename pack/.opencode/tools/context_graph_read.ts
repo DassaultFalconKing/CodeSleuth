@@ -1,4 +1,5 @@
 import { tool } from "@opencode-ai/plugin"
+import { createHash } from "node:crypto"
 import { access, readFile } from "node:fs/promises"
 import path from "node:path"
 
@@ -76,6 +77,10 @@ function parseToolJson(value: unknown, label: string): any {
   } catch {
     throw new Error(`${label} returned invalid JSON`)
   }
+}
+
+function projectionPayloadDigest(raw: string): string {
+  return createHash("sha256").update(raw, "utf8").digest("hex")
 }
 
 function projectionPath(root: string, projectionId: string): string {
@@ -203,7 +208,7 @@ async function loadValidatedProjection(
   selector: { projectionId?: string; reviewId?: string },
   expectedHeadSha?: string,
   mode: "current" | "historical" = "current",
-): Promise<{ loaded: any; projection: RepositoryContextProjection; currentHeadSha: string }> {
+): Promise<{ loaded: any; projection: RepositoryContextProjection; currentHeadSha: string; payloadDigest: string }> {
   const loaded = parseToolJson(await contextGraphLoad.execute(selector, context), "repo_context_graph_load")
   const currentHeadSha = loaded?.freshness?.currentHeadSha
   if (typeof currentHeadSha !== "string" || !EXACT_GIT_SHA_RE.test(currentHeadSha)) {
@@ -225,17 +230,20 @@ async function loadValidatedProjection(
   if (projection.projectionId !== loaded.projectionId || projection.headSha !== loaded.headSha) {
     throw new Error("persisted projection identity changed during graph read")
   }
-  return { loaded, projection, currentHeadSha }
+  return { loaded, projection, currentHeadSha, payloadDigest: projectionPayloadDigest(raw) }
 }
 
 async function assertProjectionUnchanged(
   context: ToolContext,
-  expected: { projectionId: string; headSha: string },
+  expected: { projectionId: string; headSha: string; payloadDigest: string },
 ): Promise<void> {
   const raw = await readFile(projectionPath(context.worktree, expected.projectionId), "utf8")
   const projection = JSON.parse(raw) as RepositoryContextProjection
   if (projection.projectionId !== expected.projectionId || projection.headSha !== expected.headSha) {
     throw new Error("projection identity changed during native graph read")
+  }
+  if (projectionPayloadDigest(raw) !== expected.payloadDigest) {
+    throw new Error("projection payload changed during native graph read")
   }
 }
 
@@ -322,14 +330,18 @@ export const describe = tool({
     if (args.expectedHeadSha && !EXACT_GIT_SHA_RE.test(args.expectedHeadSha)) {
       throw new Error("expectedHeadSha must be one exact lowercase 40- or 64-hex Git object id")
     }
-    const { loaded, projection, currentHeadSha } = await loadValidatedProjection(
+    const { loaded, projection, currentHeadSha, payloadDigest } = await loadValidatedProjection(
       context,
       { projectionId: args.projectionId, reviewId: args.reviewId },
       args.expectedHeadSha,
       "current",
     )
     const result = await invokeNative({ operation: "describe", graph: toPortableGraph(projection) })
-    await assertProjectionUnchanged(context, { projectionId: projection.projectionId, headSha: projection.headSha })
+    await assertProjectionUnchanged(context, {
+      projectionId: projection.projectionId,
+      headSha: projection.headSha,
+      payloadDigest,
+    })
     return envelope({ operation: "describe", currentHeadSha, projection, freshness: loaded.freshness, result })
   },
 })
@@ -348,7 +360,7 @@ export const resolve = tool({
     if (args.expectedHeadSha && !EXACT_GIT_SHA_RE.test(args.expectedHeadSha)) {
       throw new Error("expectedHeadSha must be one exact lowercase 40- or 64-hex Git object id")
     }
-    const { loaded, projection, currentHeadSha } = await loadValidatedProjection(
+    const { loaded, projection, currentHeadSha, payloadDigest } = await loadValidatedProjection(
       context,
       { projectionId: args.projectionId, reviewId: args.reviewId },
       args.expectedHeadSha,
@@ -364,7 +376,11 @@ export const resolve = tool({
         limit: args.limit ?? 20,
       },
     })
-    await assertProjectionUnchanged(context, { projectionId: projection.projectionId, headSha: projection.headSha })
+    await assertProjectionUnchanged(context, {
+      projectionId: projection.projectionId,
+      headSha: projection.headSha,
+      payloadDigest,
+    })
     return envelope({ operation: "resolve", currentHeadSha, projection, freshness: loaded.freshness, result })
   },
 })
@@ -387,7 +403,7 @@ export const neighbors = tool({
     if (args.expectedHeadSha && !EXACT_GIT_SHA_RE.test(args.expectedHeadSha)) {
       throw new Error("expectedHeadSha must be one exact lowercase 40- or 64-hex Git object id")
     }
-    const { loaded, projection, currentHeadSha } = await loadValidatedProjection(
+    const { loaded, projection, currentHeadSha, payloadDigest } = await loadValidatedProjection(
       context,
       { projectionId: args.projectionId, reviewId: args.reviewId },
       args.expectedHeadSha,
@@ -407,7 +423,11 @@ export const neighbors = tool({
         ...(args.cursor ? { cursor: args.cursor } : {}),
       },
     })
-    await assertProjectionUnchanged(context, { projectionId: projection.projectionId, headSha: projection.headSha })
+    await assertProjectionUnchanged(context, {
+      projectionId: projection.projectionId,
+      headSha: projection.headSha,
+      payloadDigest,
+    })
     return envelope({ operation: "neighbors", currentHeadSha, projection, freshness: loaded.freshness, result })
   },
 })
@@ -430,7 +450,7 @@ export const shortest_paths = tool({
     if (args.expectedHeadSha && !EXACT_GIT_SHA_RE.test(args.expectedHeadSha)) {
       throw new Error("expectedHeadSha must be one exact lowercase 40- or 64-hex Git object id")
     }
-    const { loaded, projection, currentHeadSha } = await loadValidatedProjection(
+    const { loaded, projection, currentHeadSha, payloadDigest } = await loadValidatedProjection(
       context,
       { projectionId: args.projectionId, reviewId: args.reviewId },
       args.expectedHeadSha,
@@ -450,7 +470,11 @@ export const shortest_paths = tool({
         expansionLimit: args.expansionLimit ?? 1000,
       },
     })
-    await assertProjectionUnchanged(context, { projectionId: projection.projectionId, headSha: projection.headSha })
+    await assertProjectionUnchanged(context, {
+      projectionId: projection.projectionId,
+      headSha: projection.headSha,
+      payloadDigest,
+    })
     return envelope({ operation: "shortest_paths", currentHeadSha, projection, freshness: loaded.freshness, result })
   },
 })
@@ -467,7 +491,7 @@ export const explain = tool({
     if (args.expectedHeadSha && !EXACT_GIT_SHA_RE.test(args.expectedHeadSha)) {
       throw new Error("expectedHeadSha must be one exact lowercase 40- or 64-hex Git object id")
     }
-    const { loaded, projection, currentHeadSha } = await loadValidatedProjection(
+    const { loaded, projection, currentHeadSha, payloadDigest } = await loadValidatedProjection(
       context,
       { projectionId: args.projectionId, reviewId: args.reviewId },
       args.expectedHeadSha,
@@ -479,7 +503,11 @@ export const explain = tool({
       elementId: args.elementId,
       incidentLimit: args.incidentLimit ?? 20,
     })
-    await assertProjectionUnchanged(context, { projectionId: projection.projectionId, headSha: projection.headSha })
+    await assertProjectionUnchanged(context, {
+      projectionId: projection.projectionId,
+      headSha: projection.headSha,
+      payloadDigest,
+    })
     return envelope({ operation: "explain", currentHeadSha, projection, freshness: loaded.freshness, result })
   },
 })
@@ -518,10 +546,12 @@ export const diff = tool({
     await assertProjectionUnchanged(context, {
       projectionId: before.projection.projectionId,
       headSha: before.projection.headSha,
+      payloadDigest: before.payloadDigest,
     })
     await assertProjectionUnchanged(context, {
       projectionId: after.projection.projectionId,
       headSha: after.projection.headSha,
+      payloadDigest: after.payloadDigest,
     })
     return JSON.stringify(
       {
