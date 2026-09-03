@@ -85,7 +85,7 @@ fn validate_sha(sha: &str) -> Result<String, WatermarkError> {
 
 fn digest12(payload: &str) -> String {
     let digest = Sha256::digest(payload.as_bytes());
-    format!("{:x}", digest)[..12].to_string()
+    format!("{digest:x}")[..12].to_string()
 }
 
 pub fn commit_watermark(

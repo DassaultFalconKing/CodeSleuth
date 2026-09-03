@@ -571,7 +571,8 @@ fn graph_fingerprint(graph: &Graph) -> Result<String, ReadsideError> {
             )
         })?);
     }
-    Ok(format!("{:x}", hasher.finalize()))
+    let digest = hasher.finalize();
+    Ok(format!("{digest:x}"))
 }
 
 fn query_signature(graph: &Graph, options: &NeighborOptions) -> Result<String, ReadsideError> {
@@ -596,7 +597,8 @@ fn query_signature(graph: &Graph, options: &NeighborOptions) -> Result<String, R
         hasher.update([0]);
         hasher.update(value.as_bytes());
     }
-    Ok(format!("{:x}", hasher.finalize()))
+    let digest = hasher.finalize();
+    Ok(format!("{digest:x}"))
 }
 
 fn parse_cursor(cursor: Option<&str>, signature: &str) -> Result<(usize, usize), ReadsideError> {
