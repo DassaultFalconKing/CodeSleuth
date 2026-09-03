@@ -36,6 +36,7 @@
       "git clean*": "deny"
     },
     "codesleuth_context_*": "deny",
+    "context_graph_read_*": "deny",
     "repo_context_provider_*": "deny",
     "external_directory": "ask",
     "websearch": "ask",
@@ -69,6 +70,7 @@
     "build": {
       "permission": {
         "codesleuth_context_get": "allow",
+        "context_graph_read_*": "allow",
         "repo_context_provider_status": "allow",
         "repo_context_provider_extract": "allow"
       }

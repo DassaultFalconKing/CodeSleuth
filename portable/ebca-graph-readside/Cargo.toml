@@ -1,0 +1,21 @@
+[package]
+name = "ebca-graph-readside"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "AGPL-3.0-or-later"
+description = "Portable bounded graph read-side primitives for evidence-based agent systems"
+publish = false
+
+[lib]
+name = "ebca_graph_readside"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ebca-graph-readside"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"

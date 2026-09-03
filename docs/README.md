@@ -15,6 +15,7 @@ Start with [`ROAD/INDEX.md`](ROAD/INDEX.md) when you need to know **which docume
 - [`SEMANTIC-REFIT.md`](SEMANTIC-REFIT.md) — normative **semantic-continuity criterion**: `semantic surface -> claim reconciliation -> evidence`, plus refit discipline across implementation and history changes.
 - [`CONTEXT-GRAPH-DISCIPLINE.md`](CONTEXT-GRAPH-DISCIPLINE.md) — source -> durable review state -> bounded RepositoryContextProjection -> derived graph/Mermaid discipline.
 - [`GRAPH-CONSUMPTION-CONTRACT.md`](GRAPH-CONSUMPTION-CONTRACT.md) — bounded consumption of derived graph context.
+- [`PORTABLE-TOOLS.md`](PORTABLE-TOOLS.md) — vendorable/reusable machinery inventory and licensing boundary.
 - [`PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md`](PLAYBOOK-SKILL-COMMAND-TOOL-CONTRACT.md) — atomic Skills, isolated Playbook Steps, Commands, and bounded Tools.
 - [`EXTENSION-LOAD-UNITS.md`](EXTENSION-LOAD-UNITS.md) — shared Catalog, Detail, and `Source -> Inspect -> Validate -> Confirm -> Result` loader units.
 
