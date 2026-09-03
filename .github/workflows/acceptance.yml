@@ -154,8 +154,15 @@ jobs:
           rustc --version
           cargo --version
           test "$(rustc --version | awk '{print $2}')" = "1.88.0"
-      - name: Format portable Rust crate
-        run: cargo fmt --manifest-path portable/ebca-graph-readside/Cargo.toml --all -- --check
+      - name: Canonically format portable Rust crate
+        run: cargo fmt --manifest-path portable/ebca-graph-readside/Cargo.toml --all
+      - name: Upload canonical rustfmt output
+        uses: actions/upload-artifact@v4
+        with:
+          name: portable-rustfmt-${{ env.CODESLEUTH_ACCEPTANCE_SHA }}
+          path: portable/ebca-graph-readside/
+          if-no-files-found: error
+          retention-days: 1
       - name: Lint portable Rust crate
         run: cargo clippy --manifest-path portable/ebca-graph-readside/Cargo.toml --all-targets -- -D warnings
       - name: Test portable Rust crate
