@@ -1,0 +1,25 @@
+{
+  "profileId": "codesleuth",
+  "profileVersion": 1,
+  "schemaFieldCandidates": ["schemaId", "schema", "codesleuth_schema", "type"],
+  "defaultIdFields": ["id", "codesleuth_id", "objectId"],
+  "kinds": {
+    "EvidenceClaimV1": {"folder": "claims", "idFields": ["claimId", "id"], "relations": {"evidence": ["evidenceRefs"], "authority": ["authorityRefs"]}},
+    "RepairCaseV1": {"folder": "repair-cases", "idFields": ["repairCaseId", "caseId", "id"], "relations": {"violates": ["contractIds"], "finding": ["findingIds"], "repairPacket": ["repairPacketId"], "failedEha": ["ehaCampaignId"]}},
+    "RepairPacketV1": {"folder": "repair-packets", "idFields": ["repairPacketId", "packetId", "id"], "relations": {"repairCase": ["repairCaseId"], "regressionWitness": ["regressionWitnessIds"], "candidate": ["candidateId", "candidateSha"]}},
+    "RepairLearningRecordV1": {"folder": "lessons", "idFields": ["learningRecordId", "lessonId", "id"], "relations": {"repairCase": ["repairCaseId"], "capability": ["capabilityIds"]}},
+    "Finding": {"folder": "findings", "idFields": ["findingId", "id"], "relations": {"contract": ["contractIds"], "repair": ["repairIds"]}},
+    "Contract": {"folder": "contracts", "idFields": ["contractId", "id"], "relations": {"finding": ["findingIds"], "contradiction": ["contradictionIds"]}},
+    "RegressionWitness": {"folder": "regression-witnesses", "idFields": ["witnessId", "regressionWitnessId", "id"], "relations": {"contract": ["contractIds"], "repair": ["repairIds"], "sha": ["subjectSha", "candidateSha"]}},
+    "EHACampaign": {"folder": "eha-campaigns", "idFields": ["campaignId", "ehaCampaignId", "id"], "relations": {"target": ["targetId", "targetSha"], "repairCase": ["repairCaseId"]}},
+    "ImplementationLedgerEvent": {"folder": "implementation-events", "idFields": ["eventId", "id"], "relations": {"subject": ["subjectId"], "repairCase": ["repairCaseId"]}}
+  },
+  "bases": [
+    {"name": "Open Repairs", "filter": "schemaId == 'RepairCaseV1' && status != 'closed'"},
+    {"name": "Failed EHA Campaigns", "filter": "schemaId == 'EHACampaign' && result == 'FAIL'"},
+    {"name": "Contracts With Contradictions", "filter": "schemaId == 'Contract' && contradictionCount > 0"},
+    {"name": "Lessons By Capability", "filter": "schemaId == 'RepairLearningRecordV1'"},
+    {"name": "Forbidden Regressions", "filter": "schemaId == 'RegressionWitness' && forbidden == true"},
+    {"name": "Stale Evidence", "filter": "stale == true"}
+  ]
+}

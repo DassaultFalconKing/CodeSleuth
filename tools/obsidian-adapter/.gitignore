@@ -1,0 +1,7 @@
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.venv/
+obsidian-plugin/node_modules/
+obsidian-plugin/main.js
+obsidian-plugin/*.map
