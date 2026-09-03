@@ -1,0 +1,80 @@
+{
+  "id": "tui.self-install",
+  "surface": "tui",
+  "user": {
+    "role": "CodeSleuth maintainer working on the CodeSleuth repository itself",
+    "goal": "Inspect or update the local CodeSleuth installation without accidentally applying project policy to the maintainer checkout.",
+    "notice_first": [
+      "the target is the CodeSleuth source checkout",
+      "self-install behavior is different from an ordinary project",
+      "unsafe project-policy actions are unavailable"
+    ],
+    "natural_next_action": [
+      "open Settings",
+      "confirm the self-install restrictions",
+      "change only controls that are valid for self-install",
+      "apply"
+    ],
+    "must_not_need_to_know": [
+      "self-target detection functions",
+      "command-line flags used behind the UI",
+      "Textual widget ids"
+    ],
+    "success_visible_as": [
+      "the workflow-rule maintenance option is visibly disabled and false",
+      "the interface explains why the option is unavailable",
+      "Apply cannot imply that maintainer AGENTS.md will be rewritten"
+    ],
+    "confusion_if": [
+      "the policy switch appears enabled",
+      "self-install looks identical to ordinary repository installation",
+      "the interface suggests maintainer policy files may be rewritten"
+    ],
+    "must_not_imply": [
+      "self-install may rewrite maintainer AGENTS.md",
+      "binding a project dependency is required for self-install",
+      "CodeSleuth source maintenance is an ordinary consumer-project install"
+    ]
+  },
+  "entry": {
+    "state": "home-self-target",
+    "user_description": "The CodeSleuth console is targeting the CodeSleuth source checkout."
+  },
+  "trajectory": [
+    {
+      "state": "home-self-target",
+      "user_expects": "Settings explains self-install restrictions before applying changes.",
+      "action": {
+        "kind": "activate",
+        "label": "Settings"
+      },
+      "next_state": "settings-self-install"
+    },
+    {
+      "state": "settings-self-install",
+      "user_expects": "Project-policy maintenance is disabled and explicitly explained.",
+      "action": {
+        "kind": "inspect",
+        "label": "Maintain CodeSleuth workflow rules in root AGENTS.md"
+      },
+      "next_state": "settings-self-install"
+    }
+  ],
+  "affordances": [
+    {
+      "surface": "disabled repository-policy switch",
+      "appears_as": "an intentionally unavailable action",
+      "user_expects": ["a visible explanation of the restriction"],
+      "user_does_not_expect": ["a hidden way to enable the action on this target"]
+    }
+  ],
+  "implementation_mapping": {
+    "screen": "CodeSleuthConfigScreen",
+    "selectors": {
+      "Settings": "#configure",
+      "Repository policy": "#enforce-agents",
+      "Bind dependency": "#bind-dependency"
+    },
+    "self_target_contract": "project_lifecycle.is_self_target"
+  }
+}
