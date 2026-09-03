@@ -1,0 +1,85 @@
+{
+  "id": "tui.inspect-playbook",
+  "surface": "tui",
+  "user": {
+    "role": "repository operator",
+    "goal": "Browse available playbooks and understand one playbook before deciding what to do next.",
+    "notice_first": [
+      "a catalog of available playbooks",
+      "which playbook is selected",
+      "a detail view describing the selected playbook"
+    ],
+    "natural_next_action": [
+      "select a playbook",
+      "read its steps and skill/tool requirements",
+      "return to the catalog or continue through an explicit load/configuration flow"
+    ],
+    "must_not_need_to_know": [
+      "overlay storage paths",
+      "adapter class names",
+      "host command implementation",
+      "catalog row selectors"
+    ],
+    "success_visible_as": [
+      "the selected playbook is obvious",
+      "detail content explains the playbook",
+      "selection does not unexpectedly execute anything"
+    ],
+    "confusion_if": [
+      "selecting a row appears to run the playbook",
+      "catalog and detail selection are visually disconnected",
+      "skills and tools look like hidden implementation metadata rather than requirements"
+    ],
+    "must_not_imply": [
+      "selecting a playbook executes it",
+      "CodeSleuth is a second execution controller",
+      "a playbook owns tools independently of OpenCode"
+    ]
+  },
+  "entry": {
+    "state": "playbooks-catalog",
+    "user_description": "The Playbooks surface is open with available items visible."
+  },
+  "trajectory": [
+    {
+      "state": "playbooks-catalog",
+      "user_expects": "Selecting an item changes the detail view without executing it.",
+      "action": {
+        "kind": "select",
+        "label": "a playbook row"
+      },
+      "next_state": "playbook-detail"
+    },
+    {
+      "state": "playbook-detail",
+      "user_expects": "The detail view explains steps and skill/tool requirements in inspect-only mode.",
+      "action": {
+        "kind": "inspect",
+        "label": "playbook details"
+      },
+      "next_state": "playbook-detail"
+    }
+  ],
+  "affordances": [
+    {
+      "surface": "playbook row",
+      "appears_as": "selectable catalog item",
+      "user_expects": ["inspect details"],
+      "user_does_not_expect": ["execute immediately"]
+    },
+    {
+      "surface": "playbook detail",
+      "appears_as": "read-only explanation of the selected item",
+      "user_expects": ["read steps", "inspect skills", "inspect tools"],
+      "user_does_not_expect": ["implicit tool execution"]
+    }
+  ],
+  "implementation_mapping": {
+    "surface": "Playbooks catalog/detail",
+    "selectors": {
+      "Catalog": "#playbooks-catalog",
+      "Detail": "#playbooks-detail"
+    },
+    "authority_boundary": "OpenCode retains execution and tool-routing authority"
+  }
+}
