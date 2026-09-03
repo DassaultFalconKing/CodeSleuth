@@ -135,6 +135,32 @@ jobs:
       - name: Run durable-state and context-graph smokes
         run: bun run test
 
+  portable-rust:
+    name: Portable Rust graph read-side / 1.88
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CODESLEUTH_ACCEPTANCE_SHA }}
+      - name: Verify exact checked-out commit
+        run: test "$(git rev-parse HEAD)" = "$CODESLEUTH_ACCEPTANCE_SHA" && echo "EXACT HEAD $CODESLEUTH_ACCEPTANCE_SHA"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+          components: rustfmt, clippy
+      - name: Verify Rust runtime identity
+        run: |
+          rustc --version
+          cargo --version
+          test "$(rustc --version | awk '{print $2}')" = "1.88.0"
+      - name: Format portable Rust crate
+        run: cargo fmt --manifest-path portable/ebca-graph-readside/Cargo.toml --all -- --check
+      - name: Lint portable Rust crate
+        run: cargo clippy --manifest-path portable/ebca-graph-readside/Cargo.toml --all-targets -- -D warnings
+      - name: Test portable Rust crate
+        run: cargo test --manifest-path portable/ebca-graph-readside/Cargo.toml
+
   graphify-enabled:
     name: Graphify enabled runtime / Python 3.12 / Ubuntu
     runs-on: ubuntu-latest
