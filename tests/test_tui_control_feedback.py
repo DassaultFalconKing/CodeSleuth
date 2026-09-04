@@ -148,6 +148,28 @@ async def test_update_available_highlights_home_action_and_dispatches(tmp_path: 
 
 
 @pytest.mark.asyncio
+async def test_lifecycle_output_drives_update_available_state(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
+    repo = tmp_path / "target"
+    init_repo(repo)
+
+    app = RecordingCodeSleuthApp(repo, None)
+    async with app.run_test(size=(120, 35)) as pilot:
+        await pilot.pause()
+        update = app.query_one("#update", Button)
+        update.disabled = False
+        app.write_ui_log("[green]check[/]:\nREVIEW PACK UPDATE AVAILABLE")
+        await pilot.pause()
+        assert update.variant == "primary"
+        app.write_ui_log("[green]check[/]:\nREVIEW PACK CURRENT")
+        await pilot.pause()
+        assert update.variant == "default"
+        app.write_ui_log("[green]update[/]:\nCODESLEUTH SOURCE UPDATE AVAILABLE\nFast-forward")
+        await pilot.pause()
+        assert update.variant == "default"
+
+
+@pytest.mark.asyncio
 async def test_runtime_workers_never_touch_widgets_and_mutating_actions_are_single_flight(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
