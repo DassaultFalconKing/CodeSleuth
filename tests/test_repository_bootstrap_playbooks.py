@@ -30,7 +30,7 @@ def test_repository_bootstrap_playbooks_are_builtin_and_valid() -> None:
 
 def test_repository_bootstrap_prompts_are_verbatim() -> None:
     playbooks = ROOT / "pack" / ".opencode" / "playbooks"
-    bootstrap_prompt = playbooks / "repository-bootstrap" / "steps" / "01-forensic-discovery.md"
+    bootstrap_prompt = playbooks / "repository-bootstrap" / "PROMPT.verbatim.md"
     task_prompt = playbooks / "repository-task-session" / "steps" / "01-task-specific-session.md"
 
     assert _sha256(bootstrap_prompt) == BOOTSTRAP_SHA256
