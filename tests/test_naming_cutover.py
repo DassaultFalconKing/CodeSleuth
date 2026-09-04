@@ -124,6 +124,11 @@ def test_rc7_canonical_invocation_namespace_is_materialized_from_naming_authorit
     assert playbook_catalog.CANONICAL_COMMANDS == expected_playbook_commands
     assert playbook_catalog.COMMAND_ALIASES == expected_playbook_aliases
 
+    records = {record.id: record for record in playbook_catalog.discover_playbooks(ROOT, ROOT)}
+    for playbook_id, canonical_command in expected_playbook_commands.items():
+        assert records[playbook_id].canonical_command == canonical_command
+        assert records[playbook_id].command_alias == expected_playbook_aliases[playbook_id]
+
     catalog_source = CATALOG.read_text(encoding="utf-8")
     assert '"repository-deep-review": "/repo-review"' not in catalog_source
     assert '"eha-sib-acceptance": "/eha-test"' not in catalog_source
