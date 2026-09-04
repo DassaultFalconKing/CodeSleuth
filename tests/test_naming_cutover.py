@@ -85,6 +85,8 @@ def test_rc7_canonical_invocation_namespace_is_materialized_from_naming_authorit
     invocation = data["canonical"]["invocation"]
 
     assert invocation["namespace"] == "codesleuth"
+    assert invocation["commandNamespace"] == f"{invocation['namespace']}/"
+    command_prefix = f"/{invocation['commandNamespace']}"
     operations = invocation["operations"]
     assert operations["review"]["path"] == "/codesleuth/review"
     assert operations["eha-test"]["path"] == "/codesleuth/eha/test"
@@ -94,7 +96,10 @@ def test_rc7_canonical_invocation_namespace_is_materialized_from_naming_authorit
 
     canonical_paths = {metadata["path"] for metadata in operations.values()}
     assert len(canonical_paths) == len(operations)
-    assert all(path.startswith("/codesleuth/") for path in canonical_paths)
+    assert all(path.startswith(command_prefix) for path in canonical_paths)
+
+    playbook_ids = [metadata["playbookId"] for metadata in operations.values() if metadata.get("playbookId")]
+    assert len(playbook_ids) == len(set(playbook_ids))
 
     legacy_root_aliases = {f"/{path.stem}" for path in COMMANDS.glob("*.md")}
     declared_compatibility_aliases = {
