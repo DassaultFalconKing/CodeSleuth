@@ -20,17 +20,21 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: W7 focused regression
         run: bun tests/acceptance_profile_snapshot_smoke.ts
-      - name: Package exact source tree
+      - name: Package exact local harness
         if: always()
         run: |
           git rev-parse HEAD > W7-EXACT-SHA.txt
           git archive --format=zip --output=w7-source.zip HEAD
-      - name: Upload exact source tree
+          cp "$(command -v bun)" w7-bun
+          tar -czf w7-node-modules.tar.gz node_modules
+      - name: Upload exact local harness
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: w7-source-${{ github.sha }}
+          name: w7-harness-${{ github.sha }}
           path: |
             w7-source.zip
             W7-EXACT-SHA.txt
+            w7-bun
+            w7-node-modules.tar.gz
           if-no-files-found: error
