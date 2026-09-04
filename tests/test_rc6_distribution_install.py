@@ -26,6 +26,12 @@ RC6_SURFACES = {
 }
 
 
+def _canonical_command_surfaces() -> set[str]:
+    naming = json.loads((ROOT / "pack/.opencode/codesleuth-naming.json").read_text(encoding="utf-8"))
+    operations = naming["canonical"]["invocation"]["operations"]
+    return {f"commands/{metadata['path'].removeprefix('/')}.md" for metadata in operations.values()}
+
+
 def _git(repo: Path, *args: str) -> None:
     subprocess.run(["git", "-C", str(repo), *args], check=True, text=True, capture_output=True)
 
@@ -49,4 +55,16 @@ def test_clean_install_materializes_and_manages_every_rc6_surface(tmp_path: Path
     for rel in RC6_SURFACES:
         assert (oc / rel).is_file(), rel
 
-    subprocess.run([sys.executable, str(oc / "bin" / "review-pack-smoke.py"), str(repo)], check=True)
+    canonical_commands = _canonical_command_surfaces()
+    assert canonical_commands <= managed
+    for rel in canonical_commands:
+        assert (oc / rel).is_file(), rel
+
+    verify = oc / "bin" / "review-pack-smoke.py"
+    subprocess.run([sys.executable, str(verify), str(repo)], check=True)
+
+    removed = sorted(canonical_commands)[0]
+    (oc / removed).unlink()
+    failed = subprocess.run([sys.executable, str(verify), str(repo)], text=True, capture_output=True, check=False)
+    assert failed.returncode != 0
+    assert removed in (failed.stderr + failed.stdout)
