@@ -3,6 +3,8 @@
 Newest first. Each bullet: `file` — UTC date — title — type — target SHA — status — HEAD relationship.
 This catalog is a derived navigation/read model, not EHA or finding authority. PASS never transfers to another SHA.
 
+- `20260904T002358Z-rc6-ac341eb-eha.md` — 2026-09-04T00:23Z — RC6 Exact-Head Acceptance SIB0/SIB1/SIB2 — ac341eb78 — eha-sib-acceptance — ac341eb78ef849af1fb1dbed89b06b06af9853fa — PASS — EXACT
+- `20260904T002120Z-rc6-live-dogfood.md` — 2026-09-04T00:21Z — RC6 live-dogfood on current hosted-green candidate — ac341eb78 — live-dogfood — ac341eb78ef849af1fb1dbed89b06b06af9853fa — LIVE_DOGFOOD_ACCEPTABLE — EXACT
 - `20260903T125425Z-rc6-live-dogfood-repeat.md` — 2026-09-03T12:54Z — RC6 live-dogfood on Class A/C repair candidate — 0ae58cb2 — live-dogfood-repeat — 0ae58cb2dc06e3d06e0839040f58d5a853f920ee — LIVE_DOGFOOD_ACCEPTABLE — EXACT
 - `20260902T232718Z-rc6-repeat-dogfood-go-nogo.md` — 2026-09-02T23:27Z — RC6 repeat live-dogfood independent go/no-go — 1de37c75 — live-dogfood-readiness — 1de37c75251a1e0d9904cffdb82695e92e3fab23 — NO-GO (existing live-dogfood FAIL remains authority) — EXACT
 - `20260902T204117Z-rc6-live-dogfood-repeat.md` — 2026-09-02T20:41Z — RC6 live-dogfood on current hosted-green candidate — 1de37c75 — live-dogfood-repeat — 1de37c75251a1e0d9904cffdb82695e92e3fab23 — FAIL — EXACT
