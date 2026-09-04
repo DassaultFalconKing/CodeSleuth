@@ -9,7 +9,7 @@ $ARGUMENTS
 
 Keep OpenCode `build` as primary controller. Read only the Playbook manifest and current Step. The result is a bounded derived RepositoryContextProjection; it is navigation/context, not repository authority or sufficient finding evidence.
 
-Apply [`docs/GRAPH-CONSUMPTION-CONTRACT.md`](../../../docs/GRAPH-CONSUMPTION-CONTRACT.md) to every provider/query/rendering path. Provider output is candidate structure, `RepositoryContextProjection` is the single normalized repository-context graph contract, the exact-head context capsule is the preferred model-facing consumer, and Mermaid is secondary derived presentation.
+Apply [`docs/GRAPH-CONSUMPTION-CONTRACT.md`](../../../../docs/GRAPH-CONSUMPTION-CONTRACT.md) to every provider/query/rendering path. Provider output is candidate structure, `RepositoryContextProjection` is the single normalized repository-context graph contract, the exact-head context capsule is the preferred model-facing consumer, and Mermaid is secondary derived presentation.
 
 When handing graph context to a coding or review model, prefer
 `codesleuth_context_get`. It validates the projection against exact current HEAD
