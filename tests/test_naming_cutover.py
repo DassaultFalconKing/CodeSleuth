@@ -14,6 +14,7 @@ TOOLS = ROOT / "pack/.opencode/tools"
 CATALOG = BIN / "playbook_catalog.py"
 sys.path.insert(0, str(BIN))
 
+import playbook_catalog  # noqa: E402
 from codesleuth_naming import NamingStateConflict, load_naming, resolve_state_file, runtime_metadata_present  # noqa: E402
 from codesleuth_version import VersionMetadataError, installed_version  # noqa: E402
 
@@ -104,14 +105,28 @@ def test_rc7_canonical_invocation_namespace_is_materialized_from_naming_authorit
     assert legacy_root_aliases <= declared_compatibility_aliases
 
     for metadata in operations.values():
-        canonical_file = COMMANDS / f"{metadata['path'].removeprefix('/')} .md".replace(" .md", ".md")
+        canonical_file = COMMANDS / f"{metadata['path'].removeprefix('/')}.md"
         assert canonical_file.is_file(), f"missing canonical host-native command: {canonical_file.relative_to(ROOT)}"
         for alias in metadata.get("compatibilityAliases", []):
             alias_file = COMMANDS / f"{alias.removeprefix('/')}.md"
             assert alias_file.is_file(), f"missing required compatibility alias: {alias}"
 
+    expected_playbook_commands = {
+        metadata["playbookId"]: metadata["path"]
+        for metadata in operations.values()
+        if metadata.get("playbookId")
+    }
+    expected_playbook_aliases = {
+        metadata["playbookId"]: metadata["compatibilityAliases"][0]
+        for metadata in operations.values()
+        if metadata.get("playbookId") and metadata.get("compatibilityAliases")
+    }
+    assert playbook_catalog.CANONICAL_COMMANDS == expected_playbook_commands
+    assert playbook_catalog.COMMAND_ALIASES == expected_playbook_aliases
+
     catalog_source = CATALOG.read_text(encoding="utf-8")
-    assert "COMMAND_ALIASES" not in catalog_source
+    assert '"repository-deep-review": "/repo-review"' not in catalog_source
+    assert '"eha-sib-acceptance": "/eha-test"' not in catalog_source
     assert "load_naming" in catalog_source
 
     direct_tool_sentinels = {
