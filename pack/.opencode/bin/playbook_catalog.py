@@ -12,17 +12,31 @@ from pathlib import Path
 from typing import Any, Iterable
 from uuid import uuid4
 
-# Inverse of tests/test_playbook_skill_contract.py::test_product_commands_route_broad_work_to_playbooks
+from codesleuth_naming import load_naming
+
+
+def _playbook_command_metadata_from_naming() -> dict[str, tuple[str, tuple[str, ...]]]:
+    operations = load_naming()["canonical"]["invocation"]["operations"]
+    metadata_by_playbook: dict[str, tuple[str, tuple[str, ...]]] = {}
+    for operation in operations.values():
+        playbook_id = operation.get("playbookId")
+        if not playbook_id:
+            continue
+        aliases = tuple(str(alias) for alias in operation.get("compatibilityAliases", []))
+        metadata_by_playbook[str(playbook_id)] = (str(operation["path"]), aliases)
+    return metadata_by_playbook
+
+
+_PLAYBOOK_COMMAND_METADATA = _playbook_command_metadata_from_naming()
+CANONICAL_COMMANDS: dict[str, str] = {
+    playbook_id: metadata[0] for playbook_id, metadata in _PLAYBOOK_COMMAND_METADATA.items()
+}
+# Compatibility API for current catalog/TUI consumers. Values are derived from the
+# sole naming authority above rather than maintained as a second namespace map.
 COMMAND_ALIASES: dict[str, str] = {
-    "repository-deep-review": "/repo-review",
-    "protected-capability-assessment": "/repo-contracts",
-    "repository-contract-bootstrap": "/repo-contract-bootstrap",
-    "repository-development-continuation": "/repo-continue",
-    "repository-documentation": "/repo-docs",
-    "repository-map": "/repo-map",
-    "feature-port": "/repo-port",
-    "eha-sib-acceptance": "/eha-test",
-    "eha-repair": "/eha-repair",
+    playbook_id: metadata[1][0]
+    for playbook_id, metadata in _PLAYBOOK_COMMAND_METADATA.items()
+    if metadata[1]
 }
 
 _MAX_ZIP_ENTRIES = 200
@@ -54,6 +68,7 @@ class PlaybookRecord:
     path: Path
     steps: tuple[PlaybookStep, ...]
     summary: str
+    canonical_command: str | None
     command_alias: str | None
     schema_version: int = 1
 
@@ -215,6 +230,7 @@ def parse_playbook_dir(playbook_dir: Path, *, origin: str) -> PlaybookRecord:
         path=playbook_dir,
         steps=tuple(steps),
         summary=playbook_summary(playbook_dir),
+        canonical_command=CANONICAL_COMMANDS.get(playbook_id),
         command_alias=COMMAND_ALIASES.get(playbook_id),
         schema_version=schema_version,
     )
