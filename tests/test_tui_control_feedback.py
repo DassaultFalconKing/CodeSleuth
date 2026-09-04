@@ -109,6 +109,45 @@ async def test_update_button_dispatches_through_runtime_feedback_layer(tmp_path:
 
 
 @pytest.mark.asyncio
+async def test_home_exposes_update_codesleuth_action(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
+    repo = tmp_path / "target"
+    init_repo(repo)
+
+    app = RecordingCodeSleuthApp(repo, None)
+    async with app.run_test(size=(120, 35)) as pilot:
+        await pilot.pause()
+        update = app.query_one("#update", Button)
+        assert app.current_surface == "home"
+        assert update.display
+        assert str(update.label) == "Update CodeSleuth"
+        assert update.disabled
+
+
+@pytest.mark.asyncio
+async def test_update_available_highlights_home_action_and_dispatches(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CODESLEUTH_HOST_STATE_DIR", str(tmp_path / "host-state"))
+    repo = tmp_path / "target"
+    init_repo(repo)
+    calls: list[str] = []
+    monkeypatch.setattr(RecordingCodeSleuthApp, "run_runtime_action", lambda self, action: calls.append(action))
+
+    app = RecordingCodeSleuthApp(repo, None)
+    async with app.run_test(size=(120, 35)) as pilot:
+        await pilot.pause()
+        update = app.query_one("#update", Button)
+        update.disabled = False
+        app.set_update_available(True)
+        await pilot.pause()
+        assert update.display
+        assert update.variant == "primary"
+        await pilot.click("#update")
+        await pilot.pause()
+        assert calls == ["update"]
+        assert any("Update started" in line for line in app.recorded_log)
+
+
+@pytest.mark.asyncio
 async def test_runtime_workers_never_touch_widgets_and_mutating_actions_are_single_flight(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
