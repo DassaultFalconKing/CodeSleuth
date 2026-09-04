@@ -8,10 +8,6 @@ from textual.widgets import Button, Footer, Header, Input, Label, RichLog, Selec
 import codesleuth_tui as _base
 
 
-if "update" not in _base.SURFACE_ACTIONS["home"]:
-    _base.SURFACE_ACTIONS["home"] = (*_base.SURFACE_ACTIONS["home"], "update")
-
-
 class CodeSleuthApp(_base.CodeSleuthApp):
     """Runtime console with persistent activity output and explicit control feedback."""
 
@@ -77,6 +73,11 @@ class CodeSleuthApp(_base.CodeSleuthApp):
     def on_mount(self) -> None:
         super().on_mount()
         self.query_one("#update", Button).label = "Update CodeSleuth"
+
+    def show_surface(self, route: str) -> None:
+        super().show_surface(route)
+        if route == "home":
+            self.query_one("#update", Button).display = True
 
     def set_update_available(self, available: bool) -> None:
         self.query_one("#update", Button).variant = "primary" if available else "default"
