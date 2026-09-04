@@ -40,7 +40,91 @@
       "updateApplied": "CODESLEUTH UPDATE APPLIED",
       "verifyPass": "CODESLEUTH VERIFY PASS"
     },
-    "temporaryPrefix": "codesleuth-update-"
+    "temporaryPrefix": "codesleuth-update-",
+    "invocation": {
+      "namespace": "codesleuth",
+      "commandNamespace": "codesleuth/",
+      "operations": {
+        "bug-hunt": {
+          "path": "/codesleuth/bug-hunt",
+          "compatibilityAliases": ["/bug-hunt"],
+          "playbookId": "bug-hunter"
+        },
+        "eha-repair": {
+          "path": "/codesleuth/eha/repair",
+          "compatibilityAliases": ["/eha-repair"],
+          "playbookId": "eha-repair"
+        },
+        "eha-status": {
+          "path": "/codesleuth/eha/status",
+          "compatibilityAliases": ["/eha-status"]
+        },
+        "eha-test": {
+          "path": "/codesleuth/eha/test",
+          "compatibilityAliases": ["/eha-test"],
+          "playbookId": "eha-sib-acceptance"
+        },
+        "playbook": {
+          "path": "/codesleuth/playbook",
+          "compatibilityAliases": ["/playbook"]
+        },
+        "continue": {
+          "path": "/codesleuth/continue",
+          "compatibilityAliases": ["/repo-continue"],
+          "playbookId": "repository-development-continuation"
+        },
+        "contract-adjudicate": {
+          "path": "/codesleuth/contracts/adjudicate",
+          "compatibilityAliases": ["/repo-contract-adjudicate"]
+        },
+        "contract-bootstrap": {
+          "path": "/codesleuth/contracts/bootstrap",
+          "compatibilityAliases": ["/repo-contract-bootstrap"],
+          "playbookId": "repository-contract-bootstrap"
+        },
+        "contracts": {
+          "path": "/codesleuth/contracts",
+          "compatibilityAliases": ["/repo-contracts"],
+          "playbookId": "protected-capability-assessment"
+        },
+        "docs": {
+          "path": "/codesleuth/docs",
+          "compatibilityAliases": ["/repo-docs"],
+          "playbookId": "repository-documentation"
+        },
+        "map": {
+          "path": "/codesleuth/map",
+          "compatibilityAliases": ["/repo-map"],
+          "playbookId": "repository-map"
+        },
+        "port": {
+          "path": "/codesleuth/port",
+          "compatibilityAliases": ["/repo-port"],
+          "playbookId": "feature-port"
+        },
+        "profile": {
+          "path": "/codesleuth/profile",
+          "compatibilityAliases": ["/repo-profile"]
+        },
+        "prompts": {
+          "path": "/codesleuth/prompts",
+          "compatibilityAliases": ["/repo-prompts"]
+        },
+        "report": {
+          "path": "/codesleuth/report",
+          "compatibilityAliases": ["/repo-report"]
+        },
+        "review-resume": {
+          "path": "/codesleuth/review/resume",
+          "compatibilityAliases": ["/repo-review-resume"]
+        },
+        "review": {
+          "path": "/codesleuth/review",
+          "compatibilityAliases": ["/repo-review"],
+          "playbookId": "repository-deep-review"
+        }
+      }
+    }
   },
   "legacy": {
     "state": {
