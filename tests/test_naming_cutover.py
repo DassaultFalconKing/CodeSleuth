@@ -9,6 +9,9 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 BIN = ROOT / "pack" / ".opencode" / "bin"
 MANIFEST = ROOT / "pack/.opencode/codesleuth-naming.json"
+COMMANDS = ROOT / "pack/.opencode/commands"
+TOOLS = ROOT / "pack/.opencode/tools"
+CATALOG = BIN / "playbook_catalog.py"
 sys.path.insert(0, str(BIN))
 
 from codesleuth_naming import NamingStateConflict, load_naming, resolve_state_file, runtime_metadata_present  # noqa: E402
@@ -74,3 +77,48 @@ def test_conflicting_persistent_state_fails_closed(tmp_path: Path) -> None:
         resolve_state_file(opencode, "metadata")
     with pytest.raises(VersionMetadataError, match="conflicting CodeSleuth persistent state"):
         installed_version(tmp_path)
+
+
+def test_rc7_canonical_invocation_namespace_is_materialized_from_naming_authority() -> None:
+    data = load_naming(MANIFEST)
+    invocation = data["canonical"]["invocation"]
+
+    assert invocation["namespace"] == "codesleuth"
+    operations = invocation["operations"]
+    assert operations["review"]["path"] == "/codesleuth/review"
+    assert operations["eha-test"]["path"] == "/codesleuth/eha/test"
+    assert operations["eha-status"]["path"] == "/codesleuth/eha/status"
+    assert operations["eha-repair"]["path"] == "/codesleuth/eha/repair"
+    assert operations["continue"]["path"] == "/codesleuth/continue"
+
+    canonical_paths = {metadata["path"] for metadata in operations.values()}
+    assert len(canonical_paths) == len(operations)
+    assert all(path.startswith("/codesleuth/") for path in canonical_paths)
+
+    legacy_root_aliases = {f"/{path.stem}" for path in COMMANDS.glob("*.md")}
+    declared_compatibility_aliases = {
+        alias
+        for metadata in operations.values()
+        for alias in metadata.get("compatibilityAliases", [])
+    }
+    assert legacy_root_aliases <= declared_compatibility_aliases
+
+    for metadata in operations.values():
+        canonical_file = COMMANDS / f"{metadata['path'].removeprefix('/')} .md".replace(" .md", ".md")
+        assert canonical_file.is_file(), f"missing canonical host-native command: {canonical_file.relative_to(ROOT)}"
+        for alias in metadata.get("compatibilityAliases", []):
+            alias_file = COMMANDS / f"{alias.removeprefix('/')}.md"
+            assert alias_file.is_file(), f"missing required compatibility alias: {alias}"
+
+    catalog_source = CATALOG.read_text(encoding="utf-8")
+    assert "COMMAND_ALIASES" not in catalog_source
+    assert "load_naming" in catalog_source
+
+    direct_tool_sentinels = {
+        "context_graph_read.ts",
+        "eha_state.ts",
+        "repo_profile.ts",
+        "review_state.ts",
+    }
+    assert all((TOOLS / name).is_file() for name in direct_tool_sentinels)
+    assert not (TOOLS / "codesleuth").exists()
