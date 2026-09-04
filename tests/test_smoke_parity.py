@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import json
 from pathlib import Path
 
 
@@ -51,3 +52,25 @@ def test_source_and_installed_verify_require_all_advertised_rc6_surfaces() -> No
     assert required <= source
     assert required <= installed
     assert source == installed
+
+
+def test_rc7_canonical_commands_preserve_legacy_alias_semantics() -> None:
+    naming = json.loads((ROOT / "pack/.opencode/codesleuth-naming.json").read_text(encoding="utf-8"))
+    operations = naming["canonical"]["invocation"]["operations"]
+    commands = ROOT / "pack/.opencode/commands"
+
+    for metadata in operations.values():
+        canonical_path = commands / f"{metadata['path'].removeprefix('/')}.md"
+        assert canonical_path.is_file()
+        canonical_text = canonical_path.read_text(encoding="utf-8")
+
+        for alias in metadata.get("compatibilityAliases", []):
+            alias_path = commands / f"{alias.removeprefix('/')}.md"
+            assert alias_path.is_file()
+            alias_text = alias_path.read_text(encoding="utf-8")
+            if metadata["path"] == "/codesleuth/map":
+                canonical_text = canonical_text.replace(
+                    "../../../../docs/GRAPH-CONSUMPTION-CONTRACT.md",
+                    "../../../docs/GRAPH-CONSUMPTION-CONTRACT.md",
+                )
+            assert canonical_text == alias_text
