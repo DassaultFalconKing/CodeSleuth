@@ -2,16 +2,12 @@
   "schema_version": 1,
   "id": "repository-bootstrap",
   "publication_route": "reports",
-  "description": "Forensic discovery and evidence bootstrap for an initially unknown repository or code folder.",
+  "description": "Forensic discovery and evidence bootstrap for an initially unknown repository or code folder, decomposed into bounded Steps while preserving the exact source prompt.",
   "steps": [
-    {
-      "id": "forensic-discovery",
-      "execution": "step",
-      "prompt": "steps/01-forensic-discovery.md",
-      "skills": [],
-      "depends_on": [],
-      "output": "repository_bootstrap",
-      "isolation": "fresh_subagent"
-    }
+    {"id": "identify-and-inventory", "execution": "step", "prompt": "steps/01-forensic-discovery.md", "skills": [], "depends_on": [], "output": "identity_inventory", "isolation": "fresh_subagent"},
+    {"id": "authority-and-execution", "execution": "step", "prompt": "steps/02-authority-and-execution.md", "skills": [], "depends_on": ["identify-and-inventory"], "output": "authority_execution", "isolation": "fresh_subagent"},
+    {"id": "evidence-architecture-risks", "execution": "step", "prompt": "steps/03-evidence-architecture-risks.md", "skills": [], "depends_on": ["authority-and-execution"], "output": "architecture_risks", "isolation": "fresh_subagent"},
+    {"id": "report-and-stop", "execution": "step", "prompt": "steps/04-report-and-stop.md", "skills": [], "depends_on": ["evidence-architecture-risks"], "output": "bootstrap_report", "isolation": "fresh_subagent"},
+    {"id": "persist-report", "execution": "skill", "skill": "codesleuth-reports", "depends_on": ["report-and-stop"], "output": "report_path", "isolation": "fresh_subagent"}
   ]
 }
