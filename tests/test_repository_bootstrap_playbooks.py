@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import subprocess
 import sys
 from pathlib import Path
 
@@ -14,8 +15,10 @@ BOOTSTRAP_SHA256 = "cfdfb0b1fba6978088a256682ec935a7b4e2cc0ed9342eee1f3825c8a083
 TASK_SESSION_SHA256 = "b9b0d48f5bc41ed898db97082baf18c795060a898532c0381deb470aa697df7b"
 
 
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+def _sha256_git_blob(path: Path) -> str:
+    relative_path = path.relative_to(ROOT).as_posix()
+    content = subprocess.check_output(["git", "show", f"HEAD:{relative_path}"], cwd=ROOT)
+    return hashlib.sha256(content).hexdigest()
 
 
 def test_repository_bootstrap_playbooks_are_builtin_and_valid() -> None:
@@ -33,5 +36,5 @@ def test_repository_bootstrap_prompts_are_verbatim() -> None:
     bootstrap_prompt = playbooks / "repository-bootstrap" / "PROMPT.verbatim.md"
     task_prompt = playbooks / "repository-task-session" / "steps" / "01-task-specific-session.md"
 
-    assert _sha256(bootstrap_prompt) == BOOTSTRAP_SHA256
-    assert _sha256(task_prompt) == TASK_SESSION_SHA256
+    assert _sha256_git_blob(bootstrap_prompt) == BOOTSTRAP_SHA256
+    assert _sha256_git_blob(task_prompt) == TASK_SESSION_SHA256
