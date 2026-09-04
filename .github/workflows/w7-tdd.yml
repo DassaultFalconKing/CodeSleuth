@@ -1,0 +1,36 @@
+name: W7 TDD witness
+
+on:
+  push:
+    branches:
+      - feature/rc7-acceptance-profile-snapshot
+
+permissions:
+  contents: read
+
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: W7 focused regression
+        run: bun tests/acceptance_profile_snapshot_smoke.ts
+      - name: Package exact source tree
+        if: always()
+        run: |
+          git rev-parse HEAD > W7-EXACT-SHA.txt
+          git archive --format=zip --output=w7-source.zip HEAD
+      - name: Upload exact source tree
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w7-source-${{ github.sha }}
+          path: |
+            w7-source.zip
+            W7-EXACT-SHA.txt
+          if-no-files-found: error
