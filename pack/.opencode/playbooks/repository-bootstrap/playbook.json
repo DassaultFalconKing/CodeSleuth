@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "repository-bootstrap",
+  "publication_route": "reports",
+  "description": "Forensic discovery and evidence bootstrap for an initially unknown repository or code folder.",
+  "steps": [
+    {
+      "id": "forensic-discovery",
+      "execution": "step",
+      "prompt": "steps/01-forensic-discovery.md",
+      "skills": [],
+      "depends_on": [],
+      "output": "repository_bootstrap",
+      "isolation": "fresh_subagent"
+    }
+  ]
+}
