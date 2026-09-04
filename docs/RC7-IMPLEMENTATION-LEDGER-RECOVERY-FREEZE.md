@@ -1,110 +1,102 @@
 # RC7 FF1 — Implementation Ledger + Recovery Authority Freeze
 
-**Status:** NORMATIVE RC7 FINAL-FREEZE CONTRACT FOR W2 + W4  
+**Status:** NORMATIVE RC7 FINAL-FREEZE CONTRACT FOR W2 + W4 RECOVERY SEMANTICS  
 **Session:** FF1 — Implementation Ledger + Recovery Authority Freeze  
 **Mode:** DESIGN / CONTRACT FREEZE ONLY  
 **Branch:** `docs/rc7-ff1-implementation-ledger-recovery-freeze`  
 **Exact design base:** `af0c5dcd4054cb2eef35d7661125fc939b9e3263`  
+**Current accepted runtime predecessor:** `6621c65b868d3e279ddcbd8dee182a95c6fb29f8`  
 **Implementation:** explicitly out of scope for this session
 
-This document freezes the Implementation Ledger authority, plan/requirement identity, event lifecycle, derived-state rules, recovery-generation model, and active-generation selection tightly enough that W2 and W4 implementation does not need to invent semantic authority.
+This contract freezes the Implementation Ledger authority, plan and requirement identity, event schemas, exact-target derived state, recovery-generation lineage, and active-generation algorithm tightly enough that implementation does not invent semantic authority.
 
 The compact rule is:
 
-> **An accepted plan is bound by exact identity; implementation history is append-only; current execution state is derived for an exact target; plan revision creates a new ledger identity; damaged implementation history is recovered through domain-owned lineage and explicit generation selection, never by rewriting history or by generic recovery authority.**
+> **An accepted plan is bound by exact identity and an authority-backed requirement catalog; implementation history is append-only; current state is derived for one exact target; plan revision creates a new ledger identity; damaged history is recovered through immutable same-plan generations; generation selection remains Implementation-domain authority, while permission to perform an authority-changing selection is supplied by W10/FF2 rather than invented here.**
 
 ---
 
-# 1. Freeze verdict
+# 1. Freeze verdict and implementation frontier
 
-FF1 freezes one new narrow RC7 authority:
+FF1 freezes one deliberate new RC7 domain authority:
 
 ```text
 Implementation Ledger
     owns: accepted-plan execution history
     does not own: project planning policy, source truth, Finding truth,
-                  EHA/SIB verdicts, acceptance policy, or generic claims
+                  EHA/SIB verdicts, acceptance policy, repair permission,
+                  or generic claims
 ```
 
-The following previously blocked workstreams are unlocked by this contract once it is integrated into the accepted RC7 design stream:
+The implementation frontier after FF1 is:
 
 ```text
 W2  Implementation Ledger core
-W4  Implementation Ledger domain recovery
+    -> IMPLEMENTABLE after this freeze is accepted
+
+W4A Implementation recovery read/build/validate mechanics
+    -> IMPLEMENTABLE after W2 + LedgerIntegrityCore
+
+W4B authority-changing SELECT mutation
+    -> SEMANTICS FROZEN HERE
+    -> MUTATION AUTHORIZATION BLOCKED on FF2/W10 LedgerRecoveryCaseV1
 ```
 
-This document does **not** authorize W6 EHA V2, W10 `EhaRepairCaseV1` / `LedgerRecoveryCaseV1` permission schemas, W12 learning records, W13 claim views, W14 final renderer parity, W15 integrated context epistemics, or complete W16 lifecycle exposure.
+FF1 does **not** authorize W6 EHA V2, W10 repair/recovery case permission schemas, W12 learning records, W13 claim views, W14 final renderer parity, W15 integrated context epistemics, or complete W16 lifecycle exposure.
 
-No generic `LedgerIntegrityCore` operation may select an authoritative Implementation generation.
+No generic `LedgerIntegrityCore` operation may choose or mutate an authoritative Implementation generation.
 
 ---
 
 # 2. Exact authority inputs
 
-## 2.1 FF1 design identity
-
-The session branch was re-resolved immediately before this freeze and still pointed exactly to:
+FF1 was produced from the accepted RC7 planning stream at:
 
 ```text
-branch:
-docs/rc7-ff1-implementation-ledger-recovery-freeze
-
-exact base:
+planning/design base:
 af0c5dcd4054cb2eef35d7661125fc939b9e3263
 ```
 
-The base already contains the accepted MF1–MF5 set plus their cross-contract adjudication.
-
-## 2.2 Current accepted SIB runtime contract input
-
-The current `SIB` ref resolves to:
+The accepted RC6/SIB2 runtime predecessor consumed as executable-contract evidence is:
 
 ```text
+SIB/runtime predecessor:
 6621c65b868d3e279ddcbd8dee182a95c6fb29f8
 ```
 
-That exact commit is the accepted RC6/SIB2 runtime predecessor used as current executable-contract authority for FF1. This docs-only branch is not a runtime implementation base and does not move or reinterpret `SIB`, `main`, release refs, tags, releases, or EHA state.
+Material runtime contracts include:
 
-Material current-runtime contracts inspected at that exact SIB commit include:
+- `docs/DURABLE-EVIDENCE-STORE.md`;
+- `docs/DEVELOPMENT-CONTINUATION-CONTRACT.md`;
+- `docs/STABLE-INTEGRATION-BASELINE.md`;
+- `docs/SIB0-CAPABILITY-INVENTORY.md`;
+- `docs/PROTECTED-CAPABILITY-CONTRACTS.md`;
+- `docs/RC6-IMPLEMENTATION-LEDGER.md`;
+- `docs/EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md`.
 
-- `docs/DURABLE-EVIDENCE-STORE.md` — current narrow filesystem evidence-store/write-boundary contract;
-- `docs/DEVELOPMENT-CONTINUATION-CONTRACT.md` — current exact-target, planning-authority, active-scope and no-manufactured-authority contract;
-- `docs/STABLE-INTEGRATION-BASELINE.md` — current SIB0/SIB1/SIB2 identity and exact-acceptance semantics;
-- `docs/RC6-IMPLEMENTATION-LEDGER.md` — current human-readable implementation ledger precedent, explicitly subordinate to executable/normative/durable authority;
-- `docs/EVIDENCE-BASED-CODE-ANALYSIS-THESAURUS.md` — EBCA identity/authority/evidence/uncertainty vocabulary.
-
-## 2.3 Accepted RC7 freeze inputs
-
-Accepted micro-freeze identities consumed by FF1:
+Accepted RC7 inputs consumed by FF1:
 
 | Input | Exact accepted source head | FF1 use |
 | --- | --- | --- |
 | MF1 Finding recovery | `c761e1ebacfebad5a4779da69d9d3a9d7a1d8a51` | recovery-generation and selection precedent |
-| MF2 acceptance profile snapshot | `d751b03c52168d59a23a445652cf042aa0e0c239` | immutable acceptance-policy snapshot boundary; no duplication in Implementation Ledger |
-| MF3 completeness | `b1e697e7cf8c9409538a20f9449b8ddd8780352e` | independent completeness axes remain external to Implementation Ledger |
-| MF4 repair termination | `dc3191c11db669e416a3d86af69e7cfae95365af` | automatic source-repair control remains separate from ledger recovery |
-| MF5 RepairPacket / host profile | `c9fa42dc032a37509534395f577d7069ae75eb56` | downstream typed repair/render boundary; no recovery authority |
+| MF2 acceptance profile snapshot | `d751b03c52168d59a23a445652cf042aa0e0c239` | immutable acceptance-policy snapshot boundary |
+| MF3 completeness | `b1e697e7cf8c9409538a20f9449b8ddd8780352e` | completeness stays outside Implementation authority |
+| MF4 repair termination | `dc3191c11db669e416a3d86af69e7cfae95365af` | source-repair control stays separate from ledger recovery |
+| MF5 RepairPacket / host profile | `c9fa42dc032a37509534395f577d7069ae75eb56` | packets/presentation do not grant authority |
 
-The normative cross-contract integration decision is `docs/RC7-MICRO-FREEZE-CROSS-CONTRACT-ADJUDICATION.md` on the FF1 base. In particular:
+Additional provenance inputs:
 
-- MF1 active-generation selection remains domain-owned;
-- MF2 immutable snapshot input remains outside evaluated completeness;
-- MF4 profile identity is bound to `AcceptanceProfileSnapshotV1.semanticDigest`;
-- MF5 packets/profiles do not grant mutation or recovery authority.
+- synthesis blob `a3556ca3bd84546835a3ff66847cfb03da54fc7b`;
+- pinned antithesis commit `be5d158880f649ecb568d9a505c694e87bd76e0e`;
+- feature-plan seed blob `ddac1c4a34b0c57f7c6ff668cc7e3d99a56f03c5`.
 
-Additional design inputs:
-
-- synthesis: `docs/RC7-THESIS-ANTITHESIS-SYNTHESIS.md`, blob `a3556ca3bd84546835a3ff66847cfb03da54fc7b`;
-- pinned antithesis: commit `be5d158880f649ecb568d9a505c694e87bd76e0e`, review blob `02a87228ed1b1b989c4e7dd785b0dd9acba8de9b`;
-- feature-plan seed: `docs/RC7-FEATURE-PLAN.md`, blob `ddac1c4a34b0c57f7c6ff668cc7e3d99a56f03c5`.
-
-The thesis, synthesis, feature-plan seed and antithesis are inputs/provenance. Where this document makes an explicit FF1 decision inside W2/W4, this freeze is the implementation authority for that scope.
+Where this document explicitly decides W2/W4 semantics, this FF1 contract is the implementation authority for that scope.
 
 ---
 
-# 3. Preserved authority model
+# 3. Authority model and SIB0 architectural disposition
 
-FF1 preserves the synthesis axiom that Finding, Implementation and EHA are separate authorities.
+FF1 preserves separate domain owners:
 
 ```text
 PROJECT / REPOSITORY AUTHORITY
@@ -112,67 +104,92 @@ PROJECT / REPOSITORY AUTHORITY
 ├─ tracked Git source + exact Git object identity
 ├─ project-native planning / architecture / acceptance authority
 ├─ Finding domain authority
-│    └─ existing findings + amendments (+ Finding recovery control)
 ├─ Implementation domain authority
-│    └─ accepted-plan execution events (+ Implementation recovery control)
 └─ EHA domain authority
-     └─ existing eha.ndjson lineage / later V2 evolution
 
 DERIVED / NON-AUTHORITATIVE
 │
 ├─ Markdown implementation ledger
 ├─ reports / Mermaid / graph / search views
 ├─ Development Authority Map navigation
-├─ AcceptanceProfileSnapshotV1 as immutable campaign input
+├─ AcceptanceProfileSnapshotV1
 ├─ completeness assessments
 ├─ RepairPacketV1 / host presentation
 └─ LLM context
 
 SHARED MECHANICS ONLY
 └─ LedgerIntegrityCore
-     framing / bytes / digests / JSON / schema hooks /
-     duplicate detection / reference-format primitives /
-     generic lineage-shape validation
+     exact bytes / digests / NDJSON framing / JSON / schema hooks /
+     duplicate primitives / reference lexical checks / generic DAG checks
 ```
 
-## 3.1 What the Implementation Ledger owns
+## 3.1 Implementation authority ownership
 
-The Implementation Ledger owns durable statements that an accepted-plan work step, implementation observation, implementation verification, blocker transition, or authority-backed defer/resume action was recorded for the bound plan.
+The Implementation Ledger owns durable statements that implementation work, implementation observations, implementation-local verification, blocker transitions, and authority-backed defer/resume decisions were recorded for one exact accepted plan.
 
 It may answer:
 
-- which exact accepted plan one ledger is bound to;
-- which stable requirement identities belong to that plan;
-- which implementation work/evidence events were durably recorded;
-- which implementation-local verification observations were durably recorded;
-- which blockers remain open;
-- whether project authority has deferred/resumed a requirement;
-- what execution state is derivable for one exact queried Git target;
-- which recovery generation is authoritative for this Implementation Ledger.
+- which exact accepted plan is bound;
+- which exact requirement catalog belongs to that plan;
+- which implementation events were durably recorded;
+- what current implementation and local-verification state is supportable for one exact target SHA;
+- which blockers are open;
+- whether a requirement is ACTIVE or DEFERRED according to upstream authority decisions;
+- which recovery generation is selected by the Implementation-domain selection history.
 
-## 3.2 What it does not own
-
-The Implementation Ledger MUST NOT decide or persist as its own truth:
+It MUST NOT decide or persist as its own truth:
 
 - which plan is current project planning authority;
-- whether a plan is accepted merely because it was bound once;
-- current tracked source content except by exact references;
+- whether a plan is accepted merely because it was once bound;
 - Finding lifecycle;
 - EHA/SIB verdicts;
 - acceptance-profile policy;
-- DiscoveryCompleteness or PolicyCompleteness;
+- completeness claims;
 - source-mutation permission;
 - automatic repair-loop policy;
+- ledger-recovery permission;
 - generic EBCA claim truth;
-- graph, report, Markdown or renderer truth.
+- graph/report/Markdown truth.
 
-A referenced EHA run/verdict remains EHA-owned. The Implementation Ledger records the reference, not a competing verdict.
+## 3.2 RC7 SIB0 disposition
+
+The accepted predecessor SIB0 inventory defines `CC-STATE` as the existing persistent-review-state capability and explicitly requires a replacement SIB0 lineage when a fundamental ownership/authority boundary is added or redefined.
+
+FF1 deliberately adds a separate durable **Implementation authority** under `.opencode/state/`. That is not silently classified as ordinary RC6 feature population.
+
+The RC7 architectural disposition is therefore frozen as:
+
+```text
+RC7_SIB0_STATUS:
+REOPENED
+
+CAPABILITY_CLASS_COUNT:
+UNCHANGED
+
+AFFECTED_CLASS:
+CC-STATE
+
+RC7_REDEFINITION:
+persistent-review-state
+    -> persistent-evidence-and-implementation-state
+       with separate Finding / Implementation / EHA domain authorities
+       and shared structural mechanics only
+
+CONSEQUENCE:
+RC6/SIB2 remains the accepted predecessor,
+but its SIB0 acceptance does not transfer to the redefined RC7 CC-STATE.
+RC7 must establish a replacement exact-head SIB0 before claiming RC7 SIB1/SIB2.
+```
+
+W2/W4 implementation may proceed on the RC7 integration stream from the accepted predecessor, but the resulting architecture is not allowed to inherit predecessor SIB0 acceptance by ancestry.
+
+This section is the explicit SIB0 adjudication that prevents the new Implementation authority from being smuggled in as if no architectural boundary changed.
 
 ---
 
-# 4. Physical V1 authority layout
+# 4. Physical V1 layout
 
-V1 uses one new narrow worktree-local state root under the existing `.opencode/state/` capability class:
+V1 uses one worktree-local Implementation-domain root:
 
 ```text
 .opencode/state/implementation-ledgers/
@@ -188,41 +205,53 @@ V1 uses one new narrow worktree-local state root under the existing `.opencode/s
 
 Rules:
 
-1. `<planId>` is the deterministic `PlanIdentityV1.planId` defined below and is path-safe by construction.
-2. `events.ndjson` is the baseline-generation event stream.
+1. `<planId>` is path-safe by construction.
+2. Root `events.ndjson` is the baseline-generation stream.
 3. Absence of `recovery/` means the deterministic baseline generation is active.
-4. If `recovery/` exists, `selections.ndjson` is mandatory and is the Implementation-domain generation-selection authority.
-5. A generation directory is an immutable candidate until selected. Presence does not create authority.
-6. Temporary generation construction uses a non-authoritative temporary path and becomes visible under its final `<generationId>/` only by same-filesystem atomic publication after validation.
-7. No `latest.txt`, timestamp, directory sort, model choice, or generated Markdown selects the active plan or generation.
-8. V1 performs no garbage collection of published generations or selections. Published historical generations and selection decisions are retained. Unpublished temporary construction directories may be cleaned because they never entered authority.
-
-The active **project plan** is still selected by upstream project/planning authority. This directory layout only answers which generation is authoritative **inside one already-identified plan ledger**.
+4. If `recovery/` exists, `selections.ndjson` is mandatory.
+5. A generation directory is a non-authoritative immutable candidate until selected.
+6. Temporary construction is non-authoritative and publishes by same-filesystem atomic rename only after validation.
+7. No `latest.txt`, timestamp, directory sort, report, model choice, or generation creation selects authority.
+8. Published V1 generations and selection records are retained; V1 performs no authoritative-history garbage collection.
+9. Upstream project/planning authority still selects the active project plan. This root selects only a generation inside an already-identified plan ledger.
 
 ---
 
-# 5. Canonical identity primitives
+# 5. Canonical primitives
 
 ## 5.1 Canonical JSON
 
-FF1-owned content identities use RFC 8785 JSON Canonicalization Scheme (JCS):
+FF1-owned semantic identities use RFC 8785 JCS:
 
 ```text
 canonicalBytes = UTF8(JCS(value))
 digestHex      = lowercaseHex(SHA256(canonicalBytes))
 ```
 
-Inputs must conform to their exact V1 schema before canonicalization. Duplicate JSON object keys are invalid. Strings are Unicode NFC before schema validation where the field permits Unicode. Set-valued arrays are deduplicated and sorted by canonical JSON bytes before hashing. Arrays explicitly defined as ordered preserve order.
+Before hashing:
 
-Volatile timestamps, actor display names, tool versions and host paths do not participate in semantic identities unless a schema below explicitly states otherwise.
+- duplicate JSON object keys are invalid;
+- strings defined as Unicode text are NFC;
+- set-valued arrays are duplicate-free and sorted by canonical JSON bytes;
+- ordered arrays preserve order;
+- timestamps, actor display names, tool versions, host paths, and explanatory prose are excluded unless a schema explicitly includes them.
 
-## 5.2 Exact Git identities
+## 5.2 Common scalar forms
 
-V1 Git commit and blob identities are the full lowercase 40-hex object IDs used by the current repository contracts. Abbreviated SHAs are invalid in authoritative FF1 records.
+```text
+GitShaV1       = exactly 40 lowercase hexadecimal characters
+Sha256V1       = exactly 64 lowercase hexadecimal characters
+MachineIdV1    = ASCII regex [A-Za-z0-9][A-Za-z0-9._:/-]{0,127}
+ReasonCodeV1   = ASCII regex [A-Z][A-Z0-9_]{0,63}
+RepoPathV1     = normalized repository-root-relative POSIX path;
+                 no absolute path, no empty segment, no '.' or '..'
+EventIdV1      = "ie1-" + 64 lowercase hex
+RequirementIdV1 = "ireq1-" + 64 lowercase hex
+```
 
-## 5.3 Stable cross-domain references
+## 5.3 Stable references and material-reference binding
 
-FF1 reuses the MF5 `StableRefV1` principle:
+FF1 reuses MF5's structural shape:
 
 ```text
 StableRefV1 {
@@ -232,75 +261,151 @@ StableRefV1 {
 }
 ```
 
-The `id` is copied from the owning domain. FF1 MUST NOT normalize, regenerate, or reinterpret another domain's ID.
+The owning domain owns `id`. FF1 never normalizes or regenerates another domain's ID.
 
-A cross-domain reference is a pointer to another authority/evidence object. Copying a referenced value into an Implementation event does not transfer ownership of that value.
+For FF1, a reference is **material** when it supports a positive implementation/local-verification claim or authorizes a defer/resume/correction/selection action.
+
+A material reference is admissible only when one of these is true:
+
+```text
+A. digestSha256 is present and rehydrated bytes/semantic object match it exactly;
+
+OR
+
+B. the owning-domain contract explicitly declares the referenced id immutable
+   and content-addressed, and the resolver verifies that invariant.
+```
+
+If neither is true, the material reference is unresolved for positive/control use.
+
+Navigation-only references may omit a digest, but they cannot support `IMPLEMENTED`, `PASS`, `NOT_APPLICABLE`, authority-changing control, or recovery selection.
 
 ---
 
-# 6. `PlanIdentityV1`
+# 6. Deterministic repository, plan, and requirement identity
 
-One Implementation Ledger is bound to exactly one accepted plan identity.
+## 6.1 `RepositoryIdentityV1`
+
+FF1 does not use a host path, branch name, remote nickname, or report metadata as repository identity.
+
+Repository identity is derived from the Git history bound by the accepted plan's `bindingSha`:
+
+```text
+rootSet = sorted ascending full GitShaV1 values for every commit
+          reachable from bindingSha that has zero parents
+
+repositoryIdentityBytes = UTF8(
+  "GitRepositoryIdentityV1\n" +
+  concat("root=" + sha + "\n" for sha in rootSet)
+)
+
+repositoryId = "gitrepo1-" + SHA256_HEX(repositoryIdentityBytes)
+```
+
+Requirements:
+
+- `rootSet` MUST be non-empty;
+- object traversal is over the exact local Git object graph for `bindingSha`;
+- shallow/incomplete history that cannot prove the complete root set fails with `REPOSITORY_IDENTITY_UNRESOLVED`;
+- adding unrelated history may deliberately change repository identity for a later binding; ordinary descendants with the same reachable roots retain the same repository identity.
+
+## 6.2 `ImplementationRequirementCatalogV1`
+
+The Implementation Ledger does not decide which prose is a material requirement.
+
+A bound plan requires an authority-backed catalog:
+
+```text
+ImplementationRequirementCatalogV1 {
+  schemaVersion: "ImplementationRequirementCatalogV1"
+  planPath: RepoPathV1
+  planBlobSha: GitShaV1
+  requirements: RequirementCatalogEntryV1[]
+}
+
+RequirementCatalogEntryV1 {
+  localRequirementId: PlanLocalRequirementIdV1
+  sourceLocator: SourceLocatorV1
+  requiredLocalOracleIds: MachineIdV1[]
+}
+
+SourceLocatorV1 {
+  path: RepoPathV1
+  blobSha: GitShaV1
+  startLine: positive integer
+  endLine: integer >= startLine
+  exactBytesSha256: Sha256V1
+}
+```
+
+Catalog rules:
+
+1. `requirements[]` is non-empty and sorted by `localRequirementId`.
+2. `localRequirementId` values are unique.
+3. Every locator points into the exact `planBlobSha` and bounded bytes include the explicit local ID plus the material requirement statement.
+4. `requiredLocalOracleIds[]` is a set, duplicate-free and canonically sorted.
+5. The catalog is itself referenced by a **material**, digest-bound `StableRefV1(domain = PROJECT_POLICY)`.
+6. The owning `planAuthorityRef` must explicitly adopt this exact catalog as the complete implementation requirement universe for the bound scope.
+7. A model, heading scanner, ordinal position, TODO parser, similarity search, or Development Authority Map confidence value MUST NOT create or extend the catalog.
+
+If the project has not supplied/adopted this catalog, binding stops with `REQUIREMENT_CATALOG_UNRESOLVED`.
+
+## 6.3 `PlanIdentityV1`
 
 ```text
 PlanIdentityV1 {
   schemaVersion: "PlanIdentityV1"
   planId: "iplan1-" + 64 lowercase hex
 
-  repositoryId: non-empty stable project identifier
-  planPath: repository-root-relative tracked path
-  planBlobSha: full lowercase Git blob SHA
-  planAuthorityRef: StableRefV1
+  repositoryId
+  bindingSha: GitShaV1
+  planPath: RepoPathV1
+  planBlobSha: GitShaV1
+  planAuthorityRef: StableRefV1(domain = PROJECT_POLICY)
+  requirementCatalogRef: StableRefV1(domain = PROJECT_POLICY)
 }
 ```
 
-`planAuthorityRef` MUST resolve to explicit project-owned authority that establishes the exact referenced plan blob/path as accepted, frozen, canonical, or otherwise authorized for the implementation scope. A filename, recency, LLM judgment, Development Authority Map confidence value, or generated report is not sufficient authority.
+At bind time:
 
-The Development Authority Map/Continuation machinery may navigate to the owning authority, but the derived map does not become plan policy merely because it found it.
+- `repositoryId` recomputes from `bindingSha` by section 6.1;
+- `planPath` at `bindingSha` resolves exactly to `planBlobSha`;
+- `planAuthorityRef` is material/digest-bound and resolves to explicit project-owned authority establishing this exact `bindingSha` + `planPath` + `planBlobSha` as accepted/frozen/canonical for implementation;
+- the same authority explicitly adopts `requirementCatalogRef` as the complete implementation requirement catalog for this bound scope;
+- the catalog's `planPath` and `planBlobSha` match the plan identity exactly.
 
-The identity preimage is exactly:
+The plan identity preimage is exactly:
 
 ```json
 {
+  "bindingSha": "<GitShaV1>",
   "planAuthorityRef": <StableRefV1>,
-  "planBlobSha": "<full blob sha>",
-  "planPath": "<repository path>",
-  "repositoryId": "<stable repository id>",
+  "planBlobSha": "<GitShaV1>",
+  "planPath": "<RepoPathV1>",
+  "repositoryId": "<repositoryId>",
+  "requirementCatalogRef": <StableRefV1>,
   "schemaVersion": "PlanIdentityV1"
 }
 ```
-
-Then:
 
 ```text
 planId = "iplan1-" + SHA256_HEX(JCS(identityPreimage))
 ```
 
-`planId` therefore changes when repository identity, authoritative plan path, exact plan bytes, or owning plan-authority identity changes.
+## 6.4 Plan revision
 
-## 6.1 Plan revision rule
-
-A plan revision is **not** an Implementation recovery generation.
-
-Any change to a `PlanIdentityV1` identity input creates:
+Any change to an identity input creates a new plan identity and new ledger root:
 
 ```text
-new PlanIdentityV1
--> new planId
--> new implementation-ledger root
+changed bindingSha / plan bytes / path / authority / catalog / repository identity
+    -> new PlanIdentityV1
+    -> new planId
+    -> new implementation-ledger root
 ```
 
-Recovery generations under `<planId>` MUST preserve the exact same `PlanIdentityV1` and requirement catalog as the baseline. A recovery generation that changes `PLAN_BOUND`, plan identity, or requirement identity is invalid.
+A recovery generation MUST preserve the exact same plan identity and catalog. Plan revision is never recovery.
 
-A predecessor/successor plan relation may be retained as an outbound authority/navigation reference in the new plan binding, but it does not transfer requirement status or evidence.
-
----
-
-# 7. Stable `RequirementIdV1`
-
-FF1 rejects generated requirement identity based on prose similarity, heading order, timestamps, or model interpretation.
-
-Every material requirement tracked by the Implementation Ledger MUST expose an explicit plan-local identifier in the exact accepted plan authority.
+## 6.5 `RequirementIdV1`
 
 ```text
 PlanLocalRequirementIdV1
@@ -311,184 +416,171 @@ PlanLocalRequirementIdV1
     = no C0/C1 controls
 ```
 
-The plan-local ID is not silently case-folded or rewritten.
-
-For one bound plan:
-
 ```text
 RequirementIdentityPreimageV1 {
   schemaVersion: "ImplementationRequirementIdentityV1"
-  planId: <PlanIdentityV1.planId>
-  localRequirementId: <exact plan-owned id>
-}
-
-requirementId =
-  "ireq1-" + SHA256_HEX(JCS(RequirementIdentityPreimageV1))
-```
-
-Consequences:
-
-1. the same plan-local identifier under the same exact plan identity produces the same `requirementId`;
-2. the same local identifier under a revised plan produces a different `requirementId` because `planId` changed;
-3. old implementation evidence therefore cannot silently attach to a revised plan;
-4. cross-plan requirement lineage, when project authority declares it, is navigation/provenance only until new-plan evidence is explicitly recorded.
-
-## 7.1 Requirement binding record
-
-The first event retains a validated binding for every material requirement:
-
-```text
-RequirementBindingV1 {
+  planId
   localRequirementId
-  requirementId
-  sourceLocator {
-    path
-    blobSha
-    startLine
-    endLine
-    exactBytesSha256
-  }
 }
+
+requirementId = "ireq1-" + SHA256_HEX(JCS(RequirementIdentityPreimageV1))
 ```
 
-The source range MUST contain the exact plan-owned requirement identifier and the material requirement statement it identifies. `exactBytesSha256` is over the exact UTF-8/file bytes in that bounded range; no whitespace or newline normalization occurs before hashing.
-
-Every material requirement in the declared implementation scope must have exactly one binding. Missing, duplicated, ambiguous, inferred-only, or unresolvable identifiers stop plan binding with:
-
-```text
-REQUIREMENT_IDENTITY_UNRESOLVED
-```
-
-The Implementation Ledger MUST NOT invent an ID to keep working.
+The `PLAN_BOUND` event retains the validated catalog bindings and deterministic requirement IDs. Old-plan evidence never silently attaches to a revised plan.
 
 ---
 
-# 8. `ImplementationEventV1`
+# 7. `ImplementationEventV1` exact envelope
 
-Authoritative execution history is one LF-terminated NDJSON object per event.
-
-Common envelope:
+Every authoritative event is one canonical JSON object followed by one LF byte.
 
 ```text
 ImplementationEventV1 {
   schemaVersion: 1
   kind: "ImplementationEventV1"
-  eventId: "ie1-" + 64 lowercase hex
+  eventId: EventIdV1
 
   planId
   eventType
-  subjectSha: full exact Git commit SHA
+  subjectSha: GitShaV1
   requirementIds: RequirementIdV1[]
   evidenceRefs: StableRefV1[]
-  payload: type-specific object
+  payload: exact event-type payload
 
   provenance {
     recordedAt
     actorRef?
-    toolId
+    toolId: MachineIdV1
     toolVersion?
   }
 }
 ```
 
-`requirementIds` and `evidenceRefs` are set-valued unless an event contract below states otherwise. They are deduplicated and canonically sorted for identity.
-
-Event semantic identity is computed over every field above except `eventId` and `provenance`:
+`requirementIds` and `evidenceRefs` are set-valued and canonically sorted. `provenance` and `eventId` are excluded from the semantic preimage.
 
 ```text
 eventId = "ie1-" + SHA256_HEX(JCS(eventSemanticPreimage))
 ```
 
-Re-recording the same semantic event with a different timestamp/tool version/actor therefore yields the same event ID and is rejected as a duplicate rather than manufacturing new history.
+Physical append order is authoritative event order. `recordedAt` never reorders history.
 
-Physical NDJSON append order is domain event order. `recordedAt` is provenance and MUST NOT override physical order.
+The V1 event-type set is closed:
 
-## 8.1 Allowed V1 event types
+```text
+PLAN_BOUND
+WORK_STEP_RECORDED
+IMPLEMENTATION_EVIDENCE_RECORDED
+VERIFICATION_RECORDED
+BLOCKER_RECORDED
+BLOCKER_RESOLVED
+DEFER_DECISION_RECORDED
+RESUME_DECISION_RECORDED
+EVENT_INVALIDATED
+EVENT_REINSTATED
+```
 
-The V1 event set is closed. Unknown event types or schema versions fail closed.
+Unknown type/schema fails closed.
 
-### `PLAN_BOUND`
+---
 
-Exactly one `PLAN_BOUND` MUST be the first durable event in the baseline stream and therefore in every recovery generation prefix.
+# 8. Exact V1 event payload schemas
+
+## 8.1 `PLAN_BOUND`
+
+Envelope rules:
+
+- exactly first event;
+- exactly once;
+- `subjectSha == PlanIdentityV1.bindingSha`;
+- `requirementIds == []`;
+- `evidenceRefs` contains material refs for `planAuthorityRef` and `requirementCatalogRef`.
 
 Payload:
 
 ```text
 PlanBoundV1 {
   planIdentity: PlanIdentityV1
-  requirements: RequirementBindingV1[]
+  requirements: BoundRequirementV1[]
   predecessorPlanRefs: StableRefV1[]
+}
+
+BoundRequirementV1 {
+  localRequirementId
+  requirementId
+  sourceLocator: SourceLocatorV1
+  requiredLocalOracleIds: MachineIdV1[]
+}
+```
+
+`requirements[]` MUST exactly equal the adopted catalog after deterministic requirement-ID derivation. `predecessorPlanRefs` are navigation only and transfer no status.
+
+## 8.2 `WORK_STEP_RECORDED`
+
+```text
+WorkStepRecordedV1 {
+  workUnitId: MachineIdV1
+  operationId: MachineIdV1
+  changedSurfaces: ChangedSurfaceV1[]
+}
+
+ChangedSurfaceV1 {
+  path: RepoPathV1
+  changeKind: ADDED | MODIFIED | DELETED | RENAMED | TYPE_CHANGED
+  beforeBlobSha?: GitShaV1
+  afterBlobSha?: GitShaV1
+  previousPath?: RepoPathV1
 }
 ```
 
 Rules:
 
-- `planId` MUST recompute from `planIdentity`;
-- every requirement ID MUST recompute from `planId` + exact local ID;
-- requirement bindings MUST validate against the exact plan blob;
-- the plan authority reference MUST resolve at bind time;
-- `predecessorPlanRefs` are provenance/navigation only and transfer no status;
-- `PLAN_BOUND` cannot be invalidated, superseded, corrected by recovery, or repeated inside one plan ledger.
-
-### `WORK_STEP_RECORDED`
-
-Records that bounded implementation work actually occurred for one or more bound requirements on `subjectSha`.
-
-Requirements:
-
 - `requirementIds` non-empty;
-- at least one exact material `evidenceRef`;
-- payload contains a stable `workUnitId` and bounded operation/changed-surface descriptors;
-- intention, TODO prose, or a model statement without observed evidence is not a work event.
+- `evidenceRefs` non-empty and material;
+- `changedSurfaces` non-empty and sorted by `(path, changeKind, previousPath-or-empty)`;
+- `ADDED` requires `afterBlobSha` and forbids `beforeBlobSha`;
+- `DELETED` requires `beforeBlobSha` and forbids `afterBlobSha`;
+- `MODIFIED`/`TYPE_CHANGED` require both before and after blob SHA;
+- `RENAMED` requires `previousPath`, before blob SHA, and after blob SHA;
+- changed files alone establish only that bounded work occurred, never `IMPLEMENTED`.
 
-This event can establish `IN_PROGRESS`; it cannot establish `IMPLEMENTED` or acceptance.
-
-### `IMPLEMENTATION_EVIDENCE_RECORDED`
-
-Records an evidence-backed implementation-state observation for exactly one requirement on `subjectSha`.
-
-```text
-implementationState =
-    PARTIAL
-    | IMPLEMENTED
-    | NOT_IMPLEMENTED
-    | INCONCLUSIVE
-```
-
-Rules:
-
-- exactly one `requirementId`;
-- material evidence references are mandatory;
-- `IMPLEMENTED` requires positive evidence sufficient for the bounded implementation claim under the requirement's owning contract;
-- changed files alone do not imply `IMPLEMENTED`;
-- `INCONCLUSIVE` is preserved as uncertainty and is never promoted by prose.
-
-This is implementation-domain execution state. It is not SIB1/SIB2 acceptance.
-
-### `VERIFICATION_RECORDED`
-
-Two V1 verification forms exist.
-
-#### `LOCAL_CHECK`
+## 8.3 `IMPLEMENTATION_EVIDENCE_RECORDED`
 
 ```text
-LocalVerificationV1 {
-  verificationKind: "LOCAL_CHECK"
-  oracleId: stable machine check identity
-  result: PASS | FAIL | INCONCLUSIVE | UNAVAILABLE | NOT_APPLICABLE
-  notApplicableRationaleRef?: StableRefV1
+ImplementationEvidenceRecordedV1 {
+  observationKind: "REQUIREMENT_IMPLEMENTATION"
+  implementationState: PARTIAL | IMPLEMENTED | NOT_IMPLEMENTED | INCONCLUSIVE
 }
 ```
 
 Rules:
 
 - exactly one requirement ID;
-- exact run/evidence references are mandatory;
-- `NOT_APPLICABLE` requires explicit authority-backed rationale;
-- the event binds the exact `subjectSha` on which the check ran;
-- the result is implementation-local verification evidence, not EHA/SIB acceptance.
+- material evidence refs non-empty;
+- positive `IMPLEMENTED` requires every material ref to resolve with exact digest/content-addressed binding;
+- unresolved material evidence downgrades the effective read result and never upgrades to `IMPLEMENTED`;
+- this is implementation-domain state, not acceptance.
 
-#### `EHA_REFERENCE`
+## 8.4 `VERIFICATION_RECORDED / LOCAL_CHECK`
+
+```text
+LocalVerificationV1 {
+  verificationKind: "LOCAL_CHECK"
+  oracleId: MachineIdV1
+  result: PASS | FAIL | INCONCLUSIVE | UNAVAILABLE | NOT_APPLICABLE
+  notApplicableRationaleRef?: StableRefV1(domain = PROJECT_POLICY)
+}
+```
+
+Rules:
+
+- exactly one requirement ID;
+- material run/evidence refs non-empty;
+- `oracleId` must occur in the bound requirement's `requiredLocalOracleIds`, unless the event is retained as historical non-required evidence; only required-oracle events participate in the required aggregate;
+- `NOT_APPLICABLE` requires material `notApplicableRationaleRef` and exact authority-backed waiver/rationale;
+- `notApplicableRationaleRef` is forbidden for any result other than `NOT_APPLICABLE`;
+- event is exact-target bound by `subjectSha`.
+
+## 8.5 `VERIFICATION_RECORDED / EHA_REFERENCE`
 
 ```text
 EhaVerificationReferenceV1 {
@@ -499,130 +591,151 @@ EhaVerificationReferenceV1 {
 
 Rules:
 
-- the Implementation Ledger stores the exact EHA reference;
-- it MUST NOT copy the EHA verdict into a second independently authoritative `result` field;
-- any combined display that shows the EHA verdict rehydrates it from EHA authority at read time.
+- requirement IDs may be empty or non-empty according to the referenced EHA scope;
+- `ehaEventRef` must be material/immutable for a trustworthy display;
+- no copied EHA verdict field is permitted;
+- EHA verdict is rehydrated from EHA authority at read time.
 
-### `BLOCKER_RECORDED`
-
-Creates one open blocker whose identity is the `BLOCKER_RECORDED` event ID.
-
-Payload declares scope:
+## 8.6 `BLOCKER_RECORDED`
 
 ```text
-blockerScope = PLAN | REQUIREMENT
-reasonCode
+BlockerRecordedV1 {
+  blockerScope: PLAN | REQUIREMENT
+  reasonCode: ReasonCodeV1
+}
 ```
 
 Rules:
 
-- `REQUIREMENT` scope requires exactly one requirement ID;
-- `PLAN` scope requires no requirement IDs;
-- exact evidence/authority refs explaining the blocker are mandatory.
+- PLAN scope requires zero requirement IDs;
+- REQUIREMENT scope requires exactly one requirement ID;
+- material evidence/authority refs non-empty;
+- blocker identity is this event ID.
 
-### `BLOCKER_RESOLVED`
+## 8.7 `BLOCKER_RESOLVED`
 
-References exactly one currently open `BLOCKER_RECORDED.eventId` and records exact resolution evidence.
+```text
+BlockerResolvedV1 {
+  blockerEventId: EventIdV1
+  resolutionCode: ReasonCodeV1
+}
+```
 
 Rules:
 
-- unknown blocker -> illegal transition;
-- already resolved blocker -> illegal transition;
-- a recurring condition is recorded as a new blocker event rather than reopening the old blocker ID.
+- material resolution evidence refs non-empty;
+- referenced blocker must exist and be open;
+- `requirementIds` must exactly match the referenced blocker scope;
+- `subjectSha` is the exact target where resolution is evidenced;
+- double resolve is illegal; recurrence creates a new blocker event.
 
-### `DEFER_DECISION_RECORDED`
+## 8.8 `DEFER_DECISION_RECORDED`
 
-Records an upstream project/plan-authority decision to defer exactly one requirement.
+```text
+DeferDecisionRecordedV1 {
+  decisionAuthorityRef: StableRefV1(domain = PROJECT_POLICY)
+  reasonCode: ReasonCodeV1
+}
+```
 
 Rules:
 
 - exactly one requirement ID;
-- payload contains non-empty `decisionAuthorityRef`;
-- the referenced authority, not the Implementation Ledger, owns the decision;
-- deferring an already deferred requirement without an intervening resume is illegal.
+- `decisionAuthorityRef` is material;
+- referenced authority owns the decision;
+- deferring an already deferred requirement is illegal.
 
-### `RESUME_DECISION_RECORDED`
-
-Records an upstream authority decision that resumes exactly one currently deferred requirement.
-
-Rules:
-
-- references the current defer event;
-- carries non-empty `decisionAuthorityRef`;
-- resume while not deferred is illegal.
-
-### `EVENT_INVALIDATED`
-
-Append-only semantic correction for an incorrectly recorded evidence event.
-
-It may target only:
+## 8.9 `RESUME_DECISION_RECORDED`
 
 ```text
-WORK_STEP_RECORDED
-IMPLEMENTATION_EVIDENCE_RECORDED
-VERIFICATION_RECORDED
+ResumeDecisionRecordedV1 {
+  deferEventId: EventIdV1
+  decisionAuthorityRef: StableRefV1(domain = PROJECT_POLICY)
+  reasonCode: ReasonCodeV1
+}
 ```
 
 Rules:
 
-- payload contains `targetEventId`, non-empty `operatorDecisionRef`, reason code, and correction evidence refs;
-- target must currently be `VALID`;
-- target becomes `INVALIDATED` for derived-state computation but remains byte-for-byte historical evidence;
-- invalidating `PLAN_BOUND`, blockers, defer/resume authority decisions, recovery selections, or another correction-control event is forbidden.
+- exactly one requirement ID;
+- `deferEventId` must reference the currently effective defer event for that requirement;
+- `decisionAuthorityRef` is material;
+- resume while not deferred is illegal.
 
-### `EVENT_REINSTATED`
+## 8.10 `EVENT_INVALIDATED`
 
-The inverse operator-adjudicated correction when an evidence event was previously invalidated in error.
+```text
+EventInvalidatedV1 {
+  targetEventId: EventIdV1
+  operatorDecisionRef: StableRefV1(domain = PROJECT_POLICY)
+  reasonCode: ReasonCodeV1
+}
+```
 
 Rules:
 
-- same target classes as `EVENT_INVALIDATED`;
-- target must currently be `INVALIDATED`;
-- non-empty `operatorDecisionRef` and re-establishing evidence refs are mandatory;
-- target becomes `VALID` again for derivation;
-- reinstating an already-valid target is illegal.
+- envelope `evidenceRefs` contains material correction evidence;
+- target class must be `WORK_STEP_RECORDED`, `IMPLEMENTATION_EVIDENCE_RECORDED`, or `VERIFICATION_RECORDED`;
+- `subjectSha` and `requirementIds` exactly match the target event;
+- target must currently be VALID;
+- target becomes INVALIDATED for derivation but historical bytes remain unchanged.
 
-The allowed target-disposition lifecycle is therefore exactly:
+## 8.11 `EVENT_REINSTATED`
+
+```text
+EventReinstatedV1 {
+  targetEventId: EventIdV1
+  operatorDecisionRef: StableRefV1(domain = PROJECT_POLICY)
+  reasonCode: ReasonCodeV1
+}
+```
+
+Rules:
+
+- envelope `evidenceRefs` contains material re-establishing evidence;
+- same target classes as invalidation;
+- `subjectSha` and `requirementIds` exactly match the target event;
+- target must currently be INVALIDATED;
+- target becomes VALID again.
+
+Correction lifecycle is exactly:
 
 ```text
 VALID --EVENT_INVALIDATED--> INVALIDATED
 INVALIDATED --EVENT_REINSTATED--> VALID
 ```
 
-Correction-control events themselves are immutable. An erroneous control decision is represented by the inverse control transition on the original target, not by rewriting or deleting the control event.
+Correction-control events themselves are immutable.
 
 ---
 
-# 9. Domain lifecycle and deterministic derived state
+# 9. Deterministic domain lifecycle and exact-target read model
 
 ## 9.1 Validation order
 
-The active generation is interpreted in this order:
+Active material is interpreted in this order:
 
-1. structural validation through `LedgerIntegrityCore` mechanics;
-2. exact `PLAN_BOUND` / identity validation;
-3. event-ID and requirement-reference validation;
-4. event-disposition control lifecycle validation;
-5. blocker lifecycle validation;
-6. defer/resume lifecycle validation;
-7. cross-domain material-reference validation/resolution status;
-8. exact-target derived requirement state.
+1. structural validation through `LedgerIntegrityCore`;
+2. exact `PLAN_BOUND` / repository / plan / catalog validation;
+3. event-ID validation;
+4. requirement/reference/cardinality validation;
+5. event-disposition lifecycle;
+6. blocker lifecycle;
+7. defer/resume lifecycle;
+8. material-reference resolution and digest/content-addressed validation;
+9. exact-target per-requirement derivation.
 
-A structurally readable ledger can still be semantically invalid. Shared mechanics do not decide that semantic validity.
+Structurally readable does not imply semantically trusted.
 
 ## 9.2 Exact-target rule
 
-Every query for current implementation state MUST name one full exact `targetSha`.
+Every current-state query names one full exact `targetSha`.
 
-For each requirement, only valid evidence/work/verification events whose `subjectSha` equals the queried `targetSha` may establish positive current implementation or verification state for that target.
+Only valid events whose `subjectSha == targetSha` may establish positive current implementation or local-verification state for that target.
 
-Events from ancestor, sibling, tree-equivalent, cherry-picked, rebased, or otherwise different SHAs remain historical execution context. They do not silently transfer current implementation or verification status.
+Ancestor, sibling, tree-equivalent, rebased, cherry-picked, or otherwise different SHAs remain historical context only. If no same-SHA evidence exists for an axis, that axis is `UNESTABLISHED`/`UNAVAILABLE` as defined below, never inherited success.
 
-If the queried target has no current evidence for an axis, the result is `UNESTABLISHED`, not inherited PASS and not inferred failure.
-
-## 9.3 Requirement state axes
-
-The authoritative derived read model preserves independent axes instead of collapsing them into one seductive `done=true` bit.
+## 9.3 Requirement read model
 
 ```text
 ImplementationRequirementStateV1 {
@@ -631,111 +744,130 @@ ImplementationRequirementStateV1 {
   targetSha
 
   workState:
-    UNESTABLISHED
-    | IN_PROGRESS
-    | PARTIAL
-    | IMPLEMENTED
-    | NOT_IMPLEMENTED
-    | INCONCLUSIVE
+    UNESTABLISHED | IN_PROGRESS | PARTIAL |
+    IMPLEMENTED | NOT_IMPLEMENTED | INCONCLUSIVE
 
+  localVerificationByOracle: LocalOracleStateV1[]
   localVerificationResult:
-    UNESTABLISHED
-    | PASS
-    | FAIL
-    | INCONCLUSIVE
-    | UNAVAILABLE
-    | NOT_APPLICABLE
+    UNESTABLISHED | PASS | FAIL | INCONCLUSIVE |
+    UNAVAILABLE | NOT_APPLICABLE
 
   ehaRefs: StableRefV1[]
 
-  disposition:
-    ACTIVE
-    | DEFERRED
+  disposition: ACTIVE | DEFERRED
+  openBlockerEventIds: EventIdV1[]
 
-  openBlockerEventIds: eventId[]
+  trustLevel: TRUSTWORTHY | DEGRADED | UNTRUSTED
+  limitations: ReasonCodeV1[]
+}
 
-  trustLevel:
-    TRUSTWORTHY
-    | DEGRADED
-    | UNTRUSTED
-
-  limitations: stable machine-readable diagnostics[]
+LocalOracleStateV1 {
+  oracleId: MachineIdV1
+  result: PASS | FAIL | INCONCLUSIVE | UNAVAILABLE | NOT_APPLICABLE
+  sourceEventId: EventIdV1
 }
 ```
 
 ### Work-state derivation
 
-For the exact queried target and after event validity filtering:
+For the exact target after validity filtering:
 
-1. if one or more `IMPLEMENTATION_EVIDENCE_RECORDED` events exist, the last valid event in authoritative append order sets `workState` to its declared state;
-2. otherwise, if one or more `WORK_STEP_RECORDED` events exist, `workState = IN_PROGRESS`;
-3. otherwise `workState = UNESTABLISHED`.
+1. last valid `IMPLEMENTATION_EVIDENCE_RECORDED` for the requirement sets the recorded work state;
+2. otherwise any valid `WORK_STEP_RECORDED` yields `IN_PROGRESS`;
+3. otherwise `UNESTABLISHED`.
 
-### Verification derivation
+A positive event whose material refs no longer resolve exactly cannot produce effective `IMPLEMENTED`; the read model exposes `INCONCLUSIVE` or `UNAVAILABLE` with a limitation.
 
-For the exact queried target:
+### Per-oracle verification derivation
 
-1. the last valid `LOCAL_CHECK` event in authoritative append order supplies the recorded local result;
-2. `EHA_REFERENCE` events populate `ehaRefs` only and do not become local PASS/FAIL;
-3. a required material reference that cannot be resolved or whose bound digest conflicts cannot support a positive result: the effective read model exposes `UNAVAILABLE` or `INCONCLUSIVE` as appropriate and retains the recorded event as historical evidence;
-4. no EHA verdict is synthesized or cached as Implementation authority.
+For every `requiredLocalOracleId` in the bound catalog:
 
-### Blocker derivation
+1. select only valid same-target `LOCAL_CHECK` events with that exact `oracleId`;
+2. the last such event in append order determines that oracle's recorded result;
+3. if none exists, that required oracle is `UNAVAILABLE` for aggregate purposes;
+4. a material-reference resolution failure turns an otherwise positive result into `UNAVAILABLE` or `INCONCLUSIVE`, never PASS.
 
-Open blockers are the set of valid `BLOCKER_RECORDED` events without a legal matching `BLOCKER_RESOLVED` event. Blocker state is orthogonal to work/verification state. A verified implementation may still be blocked by an unresolved project dependency; a blocker does not rewrite prior evidence.
+Different oracle IDs **never overwrite one another**.
 
-### Defer derivation
+### Required aggregate local-verification result
 
-`ACTIVE` and `DEFERRED` follow the legal authority-backed defer/resume event sequence. Defer does not mean `NOT_IMPLEMENTED`, and resume does not establish implementation evidence.
-
-## 9.4 No aggregate acceptance status
-
-The Implementation Ledger MUST NOT persist or derive an authoritative:
+Let `R` be the exact bound `requiredLocalOracleIds` set.
 
 ```text
-SIB0 = PASS
-SIB1 = PASS
-SIB2 = PASS
-releaseAccepted = true
-overallAcceptance = PASS
+if R is empty:
+    localVerificationResult = NOT_APPLICABLE
+else if any required oracle == FAIL:
+    localVerificationResult = FAIL
+else if any required oracle == INCONCLUSIVE:
+    localVerificationResult = INCONCLUSIVE
+else if any required oracle == UNAVAILABLE:
+    localVerificationResult = UNAVAILABLE
+else if all required oracles == NOT_APPLICABLE:
+    localVerificationResult = NOT_APPLICABLE
+else if every required oracle is PASS or authority-backed NOT_APPLICABLE
+        and at least one required oracle == PASS:
+    localVerificationResult = PASS
+else:
+    localVerificationResult = UNESTABLISHED
 ```
 
-It also MUST NOT persist a generic authoritative `done=true` over a plan.
+A later PASS from oracle B can never erase FAIL from required oracle A.
 
-A presentation may summarize execution coverage, but acceptance remains owned by its acceptance/EHA authority and must be shown as a reference-derived view.
+`EHA_REFERENCE` events populate only `ehaRefs`; they never become local PASS/FAIL.
+
+### Blocker and defer derivation
+
+Open blockers are blocker-record events without legal matching resolution events. Blocker state is orthogonal to work/verification.
+
+`ACTIVE`/`DEFERRED` follows the legal authority-backed defer/resume sequence. Defer does not mean NOT_IMPLEMENTED; resume does not establish implementation.
+
+## 9.4 No aggregate acceptance authority
+
+The Implementation Ledger MUST NOT persist or derive authoritative:
+
+```text
+SIB0 PASS
+SIB1 PASS
+SIB2 PASS
+releaseAccepted
+acceptance PASS
+plan done=true
+```
+
+Acceptance remains owned by the acceptance/EHA authority.
 
 ---
 
 # 10. Ordinary append/write contract
 
-Implementation history may be written only through the Implementation-domain API. Raw agent/Skill/Playbook/report writes to the authority files are forbidden.
+Implementation history may be written only through the Implementation-domain API.
 
 A conforming writer MUST:
 
-1. resolve and validate the current project plan authority before creating or mutating a plan ledger;
-2. resolve the Implementation-domain active generation;
-3. fail closed if selection history/generation authority is ambiguous or untrusted;
-4. serialize writes through an exclusive domain write lock or equivalent compare-and-append mechanism;
-5. verify expected active `generationId`, current byte length and current exact stream digest before append;
-6. append exactly one complete canonical JSON record plus one terminal LF;
-7. never edit, truncate, reorder, compact or normalize prior authoritative bytes;
-8. re-read/revalidate the resulting state before returning a successful semantic mutation result.
+1. re-resolve current project plan authority;
+2. re-resolve the exact bound requirement catalog;
+3. resolve the Implementation-domain active generation;
+4. fail closed on ambiguous/untrusted selection or active material;
+5. serialize writes with an exclusive domain lock or compare-and-append equivalent;
+6. verify expected active generation ID, exact current byte length, and exact stream digest;
+7. validate the proposed event against the complete V1 schema and current legal lifecycle;
+8. append exactly one canonical JSON record plus one LF;
+9. never rewrite/truncate/reorder/compact prior authoritative bytes;
+10. re-read and revalidate before reporting successful mutation.
 
-If concurrent state changed after the writer's precondition snapshot, the write is rejected and retried from fresh state. It MUST NOT append an event whose legal transition was checked against stale state.
+Concurrent change invalidates the stale write precondition. The writer retries only from freshly resolved state.
 
-After a recovery successor is selected, all ordinary writes target only that selected generation. Its predecessor is permanently write-fenced.
+After a recovery successor is selected, ordinary writes target only the selected generation; predecessors are permanently write-fenced.
 
-If upstream planning authority no longer establishes this exact plan as the active implementation scope, ordinary new work/evidence writes fail closed for that plan. Historical reads remain allowed.
+If upstream planning authority no longer establishes this exact plan as active implementation scope, ordinary new work/evidence writes fail closed. Historical reads remain allowed.
 
 ---
 
 # 11. Implementation recovery generations
 
-Implementation recovery is domain-owned W4 behavior. It repairs trustworthy representation of **one fixed `PlanIdentityV1` history**. It does not revise the plan and does not repair project source.
+Recovery is domain-owned W4 behavior for **one fixed PlanIdentityV1 and fixed requirement catalog**. It repairs trustworthy representation; it does not revise the plan, source, or acceptance outcome.
 
 ## 11.1 Baseline generation
-
-Every bound plan has one deterministic baseline generation:
 
 ```text
 baselineGenerationId =
@@ -745,26 +877,22 @@ baselineGenerationId =
   ))
 ```
 
-The baseline ID is stable across ordinary append-only writes. It is a lineage-root identity, not the event-stream content digest.
+The baseline ID is lineage-root identity, not stream-content digest.
 
-Before the first recovery selection, ordinary writes append to root `events.ndjson`.
-
-## 11.2 Exact stream snapshots
+## 11.2 Exact snapshots
 
 ```text
 ImplementationStreamSnapshotV1 {
   byteLength: non-negative integer
-  sha256: 64 lowercase hex
+  sha256: Sha256V1
 }
 ```
 
-The digest is SHA-256 over exact file bytes. No newline conversion, Unicode normalization, JSON reserialization or whitespace normalization occurs before hashing.
+Digest is over exact bytes with no normalization.
 
-## 11.3 Recovery reason and V1 operation
+## 11.3 Allowed V1 safe-reframe operations
 
-V1 structural recovery intentionally follows the accepted MF1 safe-reframe precedent.
-
-Allowed reason codes / transforms are exactly:
+Allowed mapping is exactly:
 
 ```text
 MISSING_TERMINAL_LF          -> APPEND_TERMINAL_LF
@@ -772,68 +900,47 @@ EMPTY_RECORD                 -> OMIT_EMPTY_RECORD_SEPARATOR
 INCOMPLETE_TERMINAL_FRAGMENT -> OMIT_INCOMPLETE_TERMINAL_FRAGMENT
 ```
 
-### `APPEND_TERMINAL_LF`
+`APPEND_TERMINAL_LF` is allowed only when the terminal bytes form one complete domain-valid event and the only defect is missing `0x0A`.
 
-Allowed only when the terminal non-LF bytes are one complete JSON event accepted by the current Implementation-domain validator and the sole framing defect is the missing final LF byte. Recovery appends exactly one `0x0A`.
+`OMIT_EMPTY_RECORD_SEPARATOR` removes only a redundant LF producing an empty NDJSON record.
 
-### `OMIT_EMPTY_RECORD_SEPARATOR`
+`OMIT_INCOMPLETE_TERMINAL_FRAGMENT` removes only a terminal non-LF fragment that is not one complete JSON event; exact omitted byte range and digest remain in recovery evidence. It never reconstructs intended content.
 
-Allowed only for an empty NDJSON record created solely by adjacent LF separators. Only the redundant separator byte may be omitted.
+V1 MUST NOT:
 
-### `OMIT_INCOMPLETE_TERMINAL_FRAGMENT`
-
-Allowed only for a terminal non-LF fragment that does not parse as one complete JSON event. Recovery records the exact byte range and SHA-256 of the omitted fragment and retains the damaged predecessor bytes forever.
-
-The transform does not reconstruct the intended event.
-
-### Forbidden V1 recovery transformations
-
-V1 recovery MUST NOT:
-
-- alter or omit a complete LF-terminated non-empty record;
-- omit a complete event merely because its schema version is unknown;
+- alter/omit a complete LF-terminated non-empty record;
+- drop a complete unknown-schema record;
 - deduplicate a duplicate event ID;
 - delete an illegal lifecycle transition;
-- rewrite `PLAN_BOUND`, `planId`, a requirement ID, subject SHA, evidence reference, or recorded result;
+- rewrite plan/requirement/subject/evidence/result identity;
 - reorder complete events;
-- copy events into a revised plan identity;
-- manufacture a missing event from model prose, logs, timestamps or likely intent.
+- transfer events to a revised plan;
+- manufacture a missing event from prose/logs/timestamps/likely intent.
 
-A complete unsupported-schema event, duplicate ID, semantic lifecycle violation, unresolved identity collision, or corrupt complete middle record therefore yields:
+Defects requiring those operations stop with operator/unrecoverable diagnostics and produce no selectable hiding generation.
 
-```text
-OPERATOR_DECISION_REQUIRED
-or
-UNRECOVERABLE_WITHOUT_EXACT_EVIDENCE
-```
+## 11.4 Torn terminal semantic-loss rule
 
-and V1 MUST NOT create/select a recovery generation that hides the defect.
-
-## 11.4 Semantic-loss consequence
-
-`APPEND_TERMINAL_LF` and `OMIT_EMPTY_RECORD_SEPARATOR` preserve all complete event semantics. After complete validation and selection, they may yield `TRUSTWORTHY` state.
-
-`OMIT_INCOMPLETE_TERMINAL_FRAGMENT` proves only that the fragment was not one complete durable event. It does not prove what operation may have been attempted before interruption.
-
-A generation using that transform MUST record:
+Any selected generation using `OMIT_INCOMPLETE_TERMINAL_FRAGMENT` records:
 
 ```text
 semanticLossRisk = UNKNOWN_TERMINAL_EVENT
 ```
 
-and its current read model is `DEGRADED` until exact-target evidence is re-established after selection.
+V1 does **not** attempt partial-JSON requirement attribution.
 
-For every requirement, pre-recovery positive `IMPLEMENTED` or local `PASS` evidence may still be shown as historical prefix evidence, but it MUST NOT be presented as a fresh positive current claim after an `UNKNOWN_TERMINAL_EVENT` recovery until a post-selection evidence-bearing event re-establishes the corresponding axis for the queried exact target.
+The consequence is deterministically **plan-wide**:
 
-If the torn fragment cannot safely identify an affected requirement, the uncertainty is plan-wide. The implementation MUST NOT ask a model to guess which requirement the fragment probably concerned.
+- trust level is `DEGRADED`;
+- pre-recovery positive `IMPLEMENTED` and local PASS values remain visible as historical prefix evidence only;
+- no positive current work/local-verification axis for any requirement may be presented as freshly established until a post-selection same-target evidence event re-establishes that axis;
+- a model may not guess which requirement the fragment probably concerned.
 
-This is the FF1 application of EBCA's `unknown remains unknown` rule.
+This is deliberately conservative and closes the previous implementation-defined attribution hole.
 
 ---
 
 # 12. `ImplementationRecoveryGenerationV1`
-
-A published generation manifest contains at least:
 
 ```text
 ImplementationRecoveryGenerationV1 {
@@ -845,24 +952,23 @@ ImplementationRecoveryGenerationV1 {
   generationId
   sourceGenerationId
   predecessorGenerationId
-
   sourceSnapshot: ImplementationStreamSnapshotV1
 
   recovery {
-    reasonCodes[]
+    reasonCodes: ReasonCodeV1[]
     corruption[] {
-      code
+      code: ReasonCodeV1
       startByte
       endByteExclusive
-      rawSha256
+      rawSha256: Sha256V1
     }
-    reasonDigest
+    reasonDigest: Sha256V1
     operation {
       schemaVersion: 1
       operationKind: "SAFE_REFRAME_V1"
       transforms[]
     }
-    operationDigest
+    operationDigest: Sha256V1
     semanticLossRisk: NONE | UNKNOWN_TERMINAL_EVENT
   }
 
@@ -870,7 +976,7 @@ ImplementationRecoveryGenerationV1 {
 
   provenance {
     recordedAt
-    toolId
+    toolId: MachineIdV1
     toolVersion?
     actorRef?
   }
@@ -883,9 +989,9 @@ For V1:
 sourceGenerationId == predecessorGenerationId
 ```
 
-Corruption descriptors are sorted by `startByte`, `endByteExclusive`, `code`, `rawSha256` before `reasonDigest` is computed. The operation descriptor and transforms are retained in full; digest-only provenance is insufficient.
+Corruption descriptors are sorted by `(startByte, endByteExclusive, code, rawSha256)` before `reasonDigest`.
 
-Generation identity preimage is exactly:
+Generation identity bytes are exactly:
 
 ```text
 ImplementationRecoveryGenerationV1\n
@@ -901,45 +1007,27 @@ recoveredContentSha256=<recoveredPrefix.sha256>\n
 recoveredContentByteLength=<recoveredPrefix.byteLength>\n
 ```
 
-Then:
-
 ```text
-generationId = "irg1-" + SHA256_HEX(UTF8(identityPreimage))
+generationId = "irg1-" + SHA256_HEX(UTF8(identityBytes))
 ```
 
-Identity includes the fixed `planId` and exact source/recovered bytes. It excludes timestamp, filesystem mtime, actor display name, tool version, absolute host path, explanatory prose, branch name, generation-directory creation order, and mutable refs.
+Timestamp, actor/tool labels, host paths, branch names, prose, and directory creation order are excluded.
 
-## 12.1 Recovered prefix and post-selection continuation
-
-`recoveredPrefix` binds exact bytes at generation creation, not every future legitimate append.
-
-Before selection:
-
-- candidate `events.ndjson` must exactly match the recorded prefix length/digest;
-- no ordinary event may append to the candidate.
-
-After selection:
-
-- recovered prefix bytes are immutable forever;
-- ordinary domain events may append after that prefix;
-- a future recovery snapshots the complete then-current active generation, including its recovered prefix plus all post-selection appends;
-- once a successor is selected, its predecessor is permanently write-fenced.
+Before selection, candidate bytes must exactly equal `recoveredPrefix`. After selection, the prefix is immutable and ordinary valid events may append. A future recovery snapshots the complete then-current selected generation.
 
 ---
 
-# 13. Implementation generation-selection authority
+# 13. Generation-selection authority and W10 permission boundary
 
-No generation manifest has an `active: true` field. Generation creation is not authority selection.
+Creation is never selection. No generation manifest has `active: true`.
 
-Selection is one explicit append-only Implementation-domain control history:
+Selection history lives at:
 
 ```text
 recovery/selections.ndjson
 ```
 
-## 13.1 Bootstrap baseline anchor
-
-Before the first recovery candidate is selected, creation of the recovery control subtree records exactly one baseline anchor:
+## 13.1 Baseline anchor
 
 ```text
 ImplementationGenerationSelectionV1 {
@@ -955,7 +1043,7 @@ ImplementationGenerationSelectionV1 {
 }
 ```
 
-## 13.2 Selection event
+## 13.2 SELECT record
 
 ```text
 ImplementationGenerationSelectionV1 {
@@ -965,7 +1053,8 @@ ImplementationGenerationSelectionV1 {
   planId
   selectedGenerationId
   supersedesSelectionIds[]
-  operatorDecisionRef
+  recoveryCaseRef: StableRefV1(domain = LEDGER_RECOVERY_CASE)
+  operatorDecisionRef: StableRefV1(domain = PROJECT_POLICY)
   recordedAt
   actorRef
   toolId
@@ -973,11 +1062,9 @@ ImplementationGenerationSelectionV1 {
 }
 ```
 
-Every `SELECT` changes Implementation-domain authority and therefore requires non-empty explicit `operatorDecisionRef` and actor/tool attribution.
+`recoveryCaseRef` and `operatorDecisionRef` are material references.
 
-`supersedesSelectionIds[]` is deduplicated and lexicographically sorted before identity hashing.
-
-Selection identity is:
+Selection identity is still the authority transition itself:
 
 ```text
 ImplementationGenerationSelectionV1\n
@@ -986,86 +1073,94 @@ selectedGenerationId=<selectedGenerationId>\n
 supersedes=<comma-separated sorted selection ids>\n
 ```
 
-then:
-
 ```text
 selectionId = "igs1-" + SHA256_HEX(UTF8(selectionIdentityBytes))
 ```
 
-Timestamp, actor/tool provenance and `operatorDecisionRef` do not participate in selection identity. The state transition is the identity; provenance records who/when/under which explicit approval reference performed it.
+Provenance and permission refs do not alter transition identity, but a writer MUST validate them before mutation.
+
+### W10 boundary
+
+FF1 freezes **what a SELECT means and how it participates in authority**, but FF1 does not invent who is allowed to create `LEDGER_RECOVERY_CASE` or approve the operator decision.
+
+Until FF2/W10 freezes `LedgerRecoveryCaseV1` and its approval rules:
+
+```text
+read / validate existing conforming selection history = allowed
+build / validate recovery candidates               = allowed
+preview the selection transition                    = allowed
+append a production SELECT                          = fail
+result                                               = SELECTION_AUTHORITY_NOT_AVAILABLE
+```
+
+W10 MUST consume this exact selection model. It may strengthen permission validation, but it may not move active-generation authority into a generic recovery layer or make candidate creation equal selection.
+
+This resolves authorization ownership without reopening generation semantics.
 
 ---
 
-# 14. One deterministic active-generation algorithm
+# 14. Deterministic active-generation algorithm
 
-The Implementation-domain reader MUST use this algorithm and no competing rule.
+The Implementation-domain reader uses this algorithm only.
 
-## Step 0 — legacy/baseline mode
+## Step 0 — baseline mode
 
-If `<planId>/recovery/` does not exist:
+If `recovery/` does not exist:
 
 ```text
-activeGeneration = deterministic baseline generation
+activeGeneration = deterministic baseline
 material = root events.ndjson
 ```
 
-The root stream MUST still pass structural/domain validation.
+Root material must pass structural and domain validation.
 
-## Step 1 — recovery-control validation
+## Step 1 — selection-history validation
 
 If `recovery/` exists:
 
-1. `selections.ndjson` MUST exist;
-2. every record passes structural framing/JSON/schema/duplicate-ID checks;
-3. every `selectionId` recomputes exactly;
-4. there is exactly one valid `BASELINE` anchor for this `planId`;
-5. the anchor selects the deterministic baseline generation ID;
-6. unknown selection schema versions fail closed.
+1. `selections.ndjson` exists;
+2. all records pass framing/JSON/schema/duplicate checks;
+3. every `selectionId` recomputes;
+4. exactly one valid BASELINE anchor exists for this `planId`;
+5. anchor selects the deterministic baseline ID;
+6. unknown selection schema fails closed.
 
-Any failure returns:
+Failure => `UNTRUSTED_SELECTION_HISTORY`; no root fallback.
 
-```text
-UNTRUSTED_SELECTION_HISTORY
-```
-
-with no fallback to root `events.ndjson`.
-
-## Step 2 — referenced-generation validation
+## Step 2 — referenced generation validation
 
 For every generation referenced by selection history:
 
-1. `generation.json` exists and uses supported V1 schema;
-2. `generationId` recomputes exactly;
-3. manifest `planId` exactly matches this ledger's baseline `PLAN_BOUND.planId`;
-4. source/predecessor generation exists;
-5. predecessor links are acyclic and reach the deterministic baseline;
-6. source snapshot matches the exact predecessor bytes captured for recovery;
-7. replaying the permitted safe-reframe operation produces exactly the recorded recovered prefix;
-8. recovered-prefix length/digest match generation bytes;
-9. `PLAN_BOUND` and requirement catalog are byte/semantically identical to the fixed baseline binding;
-10. the complete current generation material, including post-selection continuation, passes structural and Implementation-domain lifecycle validation.
+1. manifest exists and uses supported V1;
+2. generation ID recomputes;
+3. manifest plan ID matches baseline `PLAN_BOUND`;
+4. predecessor exists;
+5. lineage is acyclic and reaches baseline;
+6. source snapshot matches exact predecessor bytes captured for recovery;
+7. permitted operation replay reproduces the recovered prefix exactly;
+8. recovered-prefix length/digest match;
+9. `PLAN_BOUND` and requirement catalog equal baseline binding exactly;
+10. complete current generation including later appends passes structural/domain validation.
 
-A selected generation failing any item is not authoritative and causes fail-closed state. The reader MUST NOT fall back to its predecessor.
+Selected invalid generation => fail closed, no predecessor fallback.
 
-An invalid generation that no selection references is a non-authoritative failed candidate and does not poison an otherwise valid active selection chain.
+Invalid unselected candidate is diagnostic only.
 
 ## Step 3 — selection graph
 
-Build the directed graph where each `supersedesSelectionIds` parent points to its child `SELECT`.
+Each `supersedesSelectionIds` parent points to its child SELECT.
 
 Requirements:
 
-- every parent selection ID exists;
-- every selection is reachable from the single baseline anchor;
-- the selection graph is acyclic;
-- a one-parent `SELECT` may select only a strict descendant generation of the parent's selected generation;
-- a multi-parent `SELECT` is explicit conflict adjudication and MUST supersede all current terminal selection claims;
-- a multi-parent adjudication may select one parent-selected generation or a valid descendant of one of them;
-- a writer rejects a stale `SELECT` whose supersedes set is not exactly the current terminal set it is intended to replace.
+- every parent exists;
+- every selection is reachable from the baseline anchor;
+- graph is acyclic;
+- one-parent SELECT may select only a strict descendant generation of the parent's selected generation;
+- multi-parent SELECT is explicit conflict adjudication and supersedes all current terminal claims;
+- multi-parent adjudication may select one parent-selected generation or a valid descendant of one parent;
+- stale supersedes set is rejected.
 
-## Step 4 — unique terminal selection
-
-Compute selection nodes with out-degree zero.
+## Step 4 — unique terminal
 
 ```text
 if terminalSelectionCount == 1:
@@ -1074,127 +1169,98 @@ else:
     fail AMBIGUOUS_ACTIVE_GENERATION
 ```
 
-This is the only active-generation rule.
-
-The reader MUST NOT select by:
-
-- last NDJSON line;
-- largest/newest timestamp;
-- filesystem mtime;
-- lexicographically largest ID;
-- deepest generation directory;
-- most records;
-- most complete-looking content;
-- model confidence/judgment.
-
-A later timestamp never breaks an authority conflict.
+Never select by line position, timestamp, mtime, lexicographic ID, depth, record count, apparent completeness, or model judgment.
 
 ---
 
-# 15. Conflict resolution
+# 15. Conflict and concurrency
 
-Two concurrent selections from one parent create two terminal claims. Neither wins.
+Two concurrent child selections from one parent create ambiguity; neither wins.
 
 ```text
 S0 -> S1 selects G1
   \-> S2 selects G2
 
-result:
 AMBIGUOUS_ACTIVE_GENERATION
-active authoritative implementation material = none
 ```
 
-Resolution requires one new explicit operator-approved `SELECT` whose `supersedesSelectionIds` contains **all** current terminal IDs.
+Resolution requires one explicitly authorized multi-parent SELECT superseding **all** current terminal selection IDs. Losing evidence remains durable.
 
-The losing selection/generation and its evidence remain durable history. Conflict adjudication never deletes them.
-
----
-
-# 16. Source-change and recovery concurrency
-
-A recovery candidate is bound to the exact source generation bytes captured at proposal time.
-
-Immediately before selection the domain writer MUST re-resolve the active generation and compare its exact byte length/digest to the candidate's recorded source snapshot.
-
-If ordinary legitimate events were appended after the recovery snapshot, selection fails:
+A recovery candidate binds the exact active source-generation bytes captured at proposal time. Immediately before an authorized SELECT mutation, the writer re-resolves active generation and exact byte length/digest. If the source changed:
 
 ```text
 SOURCE_CHANGED_DURING_RECOVERY
 ```
 
-The candidate is not selected. Recovery must restart from a fresh snapshot.
-
-This prevents an authority-changing recovery from silently discarding events that arrived while the candidate was being prepared.
+The candidate cannot be selected and recovery restarts from a fresh snapshot.
 
 ---
 
-# 17. Fail-closed matrix
+# 16. Fail-closed matrix
 
-| Condition | Required FF1 result |
+| Condition | Required result |
 | --- | --- |
-| plan authority absent/ambiguous/unresolvable at bind time | `PLAN_BINDING_UNRESOLVED`; do not create ledger |
-| material plan requirement lacks one explicit unique local ID | `REQUIREMENT_IDENTITY_UNRESOLVED`; do not bind |
-| plan identity input changes | `NEW_PLAN_IDENTITY_REQUIRED`; create new ledger, never recovery generation |
-| event references unknown requirement | `UNTRUSTED_ACTIVE_GENERATION`; no derived current state |
-| unknown Implementation event type/schema in active history | `UNTRUSTED_ACTIVE_GENERATION`; fail closed |
-| illegal blocker/defer/correction lifecycle | `UNTRUSTED_ACTIVE_GENERATION`; fail closed |
-| duplicate complete event ID | no V1 deduplication; `OPERATOR_DECISION_REQUIRED` / no selectable hiding generation |
-| complete unsupported/corrupt middle record | no V1 omission; `UNRECOVERABLE_WITHOUT_EXACT_EVIDENCE` or operator stop |
-| complete semantic event would need deletion/rewrite to become valid | no V1 structural recovery; operator stop |
-| missing final LF on complete domain-valid event | `APPEND_TERMINAL_LF` candidate permitted; selection still explicit |
-| empty NDJSON record separator | `OMIT_EMPTY_RECORD_SEPARATOR` candidate permitted |
-| incomplete terminal fragment | `OMIT_INCOMPLETE_TERMINAL_FRAGMENT` candidate permitted; selected read model `DEGRADED` until re-observed |
-| recovery directory exists but selection ledger missing/corrupt | `UNTRUSTED_SELECTION_HISTORY`; no root fallback |
-| two or more terminal selections | `AMBIGUOUS_ACTIVE_GENERATION`; no authoritative material |
-| selection graph cycle/zero terminal due broken graph | `BROKEN_SELECTION_LINEAGE`; fail closed |
-| selected generation missing predecessor | `MISSING_PREDECESSOR`; no fallback |
-| selected generation lineage cycle | `BROKEN_RECOVERY_LINEAGE`; fail closed |
-| generation/source/recovered digest mismatch | `DIGEST_MISMATCH`; fail closed |
-| selected generation later becomes structurally/semantically corrupt | `UNTRUSTED_ACTIVE_GENERATION`; no predecessor fallback |
-| unselected invalid candidate exists | candidate diagnostic only; current active selection may remain usable |
-| temporary unpublished candidate exists | non-authoritative; previous active remains active |
-| source changed between recovery snapshot and selection | `SOURCE_CHANGED_DURING_RECOVERY`; candidate cannot select |
-| active plan authority has moved to a different PlanIdentity | old ledger is historical; no new ordinary writes under old plan |
-| old-plan evidence exists for same local requirement name in new plan | no transfer; different `requirementId` by construction |
-| EHA reference exists | reference only; never copied into Implementation-owned verdict |
-
-A reader may expose corrupt ranges, candidate identities, historical prefixes and diagnostics for audit, but MUST label them non-authoritative where authority resolution failed.
+| shallow/incomplete Git history prevents root-set proof | `REPOSITORY_IDENTITY_UNRESOLVED` |
+| plan authority absent/ambiguous/unresolvable | `PLAN_BINDING_UNRESOLVED` |
+| adopted requirement catalog absent/ambiguous | `REQUIREMENT_CATALOG_UNRESOLVED` |
+| material requirement lacks explicit unique local ID | `REQUIREMENT_IDENTITY_UNRESOLVED` |
+| plan identity input changes | `NEW_PLAN_IDENTITY_REQUIRED` |
+| event payload/cardinality violates exact V1 schema | `UNTRUSTED_ACTIVE_GENERATION` |
+| unknown requirement reference | `UNTRUSTED_ACTIVE_GENERATION` |
+| unresolved material ref used for positive/control claim | no positive/control effect; fail/downgrade as applicable |
+| illegal blocker/defer/correction lifecycle | `UNTRUSTED_ACTIVE_GENERATION` |
+| required oracle A FAIL then oracle B PASS | aggregate remains FAIL while A remains effective FAIL |
+| required oracle never observed | aggregate `UNAVAILABLE` |
+| duplicate complete event ID | no V1 deduplication; operator/unrecoverable stop |
+| complete unsupported/corrupt middle record | no omission; operator/unrecoverable stop |
+| missing final LF on complete domain-valid event | LF-only candidate permitted |
+| empty separator | redundant-LF omission candidate permitted |
+| incomplete terminal fragment | candidate permitted; plan-wide `DEGRADED` after selection |
+| recovery directory exists but selection history corrupt/missing | `UNTRUSTED_SELECTION_HISTORY`; no root fallback |
+| two or more terminal selections | `AMBIGUOUS_ACTIVE_GENERATION` |
+| broken selection cycle/lineage | fail closed |
+| selected generation digest/predecessor mismatch | fail closed; no predecessor fallback |
+| invalid unselected candidate | diagnostic only |
+| source changed during recovery | `SOURCE_CHANGED_DURING_RECOVERY` |
+| SELECT attempted before W10 authorization authority exists | `SELECTION_AUTHORITY_NOT_AVAILABLE` |
+| active planning authority moves to new plan identity | old ledger historical; no new ordinary writes |
+| EHA reference exists | reference only; no copied Implementation verdict |
 
 ---
 
-# 18. `LedgerIntegrityCore` boundary
+# 17. `LedgerIntegrityCore` boundary
 
-The shared structural core MAY provide:
+Shared structural core MAY provide:
 
 ```text
 exact raw byte capture
 sha256 digest
 NDJSON framing
-line / byte corruption locations
+line / byte corruption location
 JSON syntax validation
 schema hook invocation
 duplicate-ID primitives
 reference lexical-format primitives
-generic DAG / lineage-shape checks
+generic DAG / lineage-shape primitives
 ```
 
-It MUST NOT provide or decide:
+It MUST NOT decide:
 
 ```text
-bind this plan as project authority
-invent requirement IDs
-legal Implementation event transitions
-whether a defer/blocker/correction is semantically valid
-whether missing evidence still supports IMPLEMENTED/PASS
-which Implementation generation is active
-whether recovery may change plan identity
-whether an EHA verdict is PASS
-whether source mutation is authorized
+project plan authority
+repository/plan requirement completeness policy
+legal Implementation transitions
+positive-evidence sufficiency
+per-oracle policy membership
+active Implementation generation
+recovery permission
+EHA verdict
+source mutation permission
 ```
 
-The final active-generation algorithm in section 14 belongs to the Implementation-domain adapter/API even if structural graph traversal uses shared primitives.
+The section 14 algorithm belongs to the Implementation-domain adapter/API even when graph traversal uses shared primitives.
 
-No API named or behaving like the following is permitted:
+Generic APIs equivalent to these are forbidden:
 
 ```text
 make_generation_authoritative(anyLedger)
@@ -1204,201 +1270,208 @@ repair_and_select_generic(...)
 
 ---
 
-# 19. Relationship to MF2–MF5 and later freezes
+# 18. Relationship to other freezes
 
 ## MF2 / MF3
 
-`AcceptanceProfileSnapshotV1`, DiscoveryCompleteness and PolicyCompleteness remain separate objects owned by their accepted contracts. They may be referenced where relevant; they are not embedded as editable Implementation Ledger truth.
+Acceptance snapshots and completeness objects remain external. They may be referenced but are not editable Implementation truth.
 
 ## MF4
 
-Implementation ledger recovery is not automatic source repair.
-
-`FailureSignature`, `AttemptId`, repair budgets and `REPAIR_LOOP_STALLED` belong to W9 source-repair control and do not determine Implementation recovery generation identity or selection.
-
-A failed exact source SHA remains failed. Recovering ledger readability does not repair source or create acceptance.
+Implementation ledger recovery is not automatic source repair. Repair-attempt budgets and `REPAIR_LOOP_STALLED` do not determine Implementation generation identity or selection.
 
 ## MF5
 
-A later `RepairPacketV1` may carry a reference to an already-authorized ledger-recovery case/operation. Neither the packet nor Jinja/host presentation chooses the active Implementation generation.
+RepairPacket/Jinja/HostExecutionProfile may represent an already-authorized operation. They never choose authority.
 
 ## FF2 / W10
 
-FF1 intentionally freezes recovery semantics before the generic workflow case schema.
-
-A later `LedgerRecoveryCaseV1` may authorize/orchestrate a recovery proposal, but it MUST consume these fixed FF1 semantics:
+W10 owns recovery-case and approval permission semantics. It MUST preserve:
 
 ```text
 fixed PlanIdentity
-fixed requirement catalog
+fixed adopted requirement catalog
 safe-reframe V1 operation
 immutable candidate generation
-explicit Implementation-domain SELECT
-operatorDecisionRef
+material recoveryCaseRef
+material operatorDecisionRef
+Implementation-domain SELECT
 unique-terminal active-generation algorithm
 no predecessor fallback
 ```
 
-W10 may strengthen who is permitted to issue/approve `operatorDecisionRef`; it MUST NOT move selection authority into a generic recovery layer or make generation creation equivalent to selection.
-
 ---
 
-# 20. Required deterministic tests for W2/W4
+# 19. Required deterministic tests for W2/W4
 
 Implementation may not claim FF1 conformance without adversarial tests covering at least:
 
-## Plan / requirement identity
+## SIB0 / identity
 
-1. same plan inputs -> same `planId`;
-2. changed plan blob/path/authority/repository -> different `planId`;
-3. same local requirement ID under revised plan -> different `requirementId`;
-4. missing/duplicate/ambiguous plan-local requirement ID -> bind fails;
-5. old-plan events never attach to new-plan requirement identities.
+1. RC7 acceptance metadata does not inherit predecessor SIB0 after CC-STATE redefinition;
+2. same binding root-set -> same repository ID;
+3. incomplete/shallow root proof -> repository identity unresolved;
+4. same exact plan/authority/catalog inputs -> same plan ID;
+5. changed binding SHA/path/blob/authority/catalog/repository identity -> different plan ID;
+6. missing/ad-hoc/inferred requirement catalog -> bind fails;
+7. same local requirement ID under revised plan -> different requirement ID;
+8. old-plan events never attach to new-plan requirement identities.
 
-## Event history / lifecycle
+## Exact event schemas
 
-6. `PLAN_BOUND` is exactly first/once;
-7. unknown requirement reference fails closed;
-8. work event alone yields `IN_PROGRESS`, never `IMPLEMENTED`;
-9. exact-target implementation evidence yields its state only for that exact SHA;
-10. ancestor evidence on a different SHA yields `UNESTABLISHED` for current target, not inherited success;
-11. local verification result remains implementation-local and exact-target bound;
-12. EHA reference does not materialize a second stored verdict;
-13. blocker open/resolve state machine rejects double resolve;
-14. defer/resume requires exact authority refs and rejects illegal transitions;
-15. evidence event invalidation removes it from derivation without deleting bytes;
-16. reinstatement restores it and illegal repeated control transitions fail closed;
-17. raw historical rewrite is detected/forbidden.
+9. every V1 event payload accepts only its frozen fields/types/cardinalities;
+10. unknown payload field/type/schema fails closed;
+11. `PLAN_BOUND` is first/once and equals adopted catalog exactly;
+12. work event requires bounded changed surfaces and never yields IMPLEMENTED alone;
+13. positive implementation evidence with unbound material ref cannot yield effective IMPLEMENTED;
+14. blocker resolve requires an existing open blocker and matching scope;
+15. defer/resume requires material project-policy authority refs and legal sequence;
+16. invalidation/reinstatement requires exact target event, matching subject/requirements, material decision/evidence refs.
+
+## Exact target / oracle semantics
+
+17. same-SHA implementation evidence affects only that exact target;
+18. ancestor/different-SHA evidence does not inherit positive state;
+19. per-oracle state keeps oracle A and B independent;
+20. oracle A FAIL followed by oracle B PASS does not aggregate to PASS;
+21. missing required oracle aggregates UNAVAILABLE;
+22. PASS requires every required oracle to be PASS or authority-backed N/A and at least one PASS;
+23. EHA reference does not materialize a second stored verdict.
 
 ## Structural recovery
 
-18. clean baseline ledger remains baseline active with no recovery subtree;
-19. complete final event missing LF can recover only by appending one LF;
-20. empty separator can recover only by omitting the redundant LF;
-21. torn incomplete terminal fragment retains exact corruption range/digest and creates `UNKNOWN_TERMINAL_EVENT` risk;
-22. invalid complete middle record cannot be silently omitted;
-23. duplicate event ID cannot be deduplicated by recovery;
-24. unknown complete schema cannot be omitted;
-25. original damaged bytes remain byte-for-byte unchanged;
-26. generation identity is stable across different timestamps/actors/tool versions;
-27. candidate directory without selection does not become active;
-28. partial temporary generation publication has no authority;
-29. source append during recovery prevents selection with `SOURCE_CHANGED_DURING_RECOVERY`;
-30. selected successor write-fences predecessor.
+24. clean baseline stays baseline active;
+25. missing final LF recovers by one LF only;
+26. empty separator recovers by redundant LF removal only;
+27. incomplete terminal fragment retains exact corruption digest/range;
+28. torn-fragment recovery is plan-wide DEGRADED until post-selection re-observation;
+29. invalid complete middle record cannot be omitted;
+30. duplicate event cannot be deduplicated by recovery;
+31. unknown complete schema cannot be omitted;
+32. damaged predecessor bytes remain unchanged;
+33. generation identity is stable across timestamps/actors/tool versions;
+34. candidate publication without selection does not become active;
+35. source append during recovery prevents selection;
+36. selected successor write-fences predecessor.
 
 ## Selection authority
 
-31. one valid terminal selection chooses its generation;
-32. two concurrent terminal selections yield `AMBIGUOUS_ACTIVE_GENERATION` regardless of timestamps;
-33. multi-parent operator adjudication superseding all terminals resolves the conflict;
-34. stale supersedes set is rejected;
-35. missing predecessor/cycle/digest mismatch fails closed without predecessor fallback;
-36. corrupt `selections.ndjson` fails closed without root fallback;
-37. invalid unselected candidate does not poison valid current selection;
-38. recovery generation whose `PLAN_BOUND`/requirement catalog differs from baseline is invalid;
-39. plan revision cannot be smuggled through recovery generation selection.
+37. one valid terminal selection chooses its generation on read;
+38. two terminals yield ambiguity regardless of timestamps;
+39. multi-parent adjudication superseding all terminals resolves conflict;
+40. stale supersedes set is rejected;
+41. missing predecessor/cycle/digest mismatch fails closed without fallback;
+42. corrupt selection history fails closed without root fallback;
+43. invalid unselected candidate does not poison valid current selection;
+44. generation with changed PLAN_BOUND/catalog is invalid;
+45. plan revision cannot be smuggled through recovery;
+46. before W10 authority exists, production SELECT mutation fails `SELECTION_AUTHORITY_NOT_AVAILABLE`.
 
 ## EBCA uncertainty
 
-40. selected `UNKNOWN_TERMINAL_EVENT` generation exposes historical prefix evidence but cannot emit fresh positive current implementation/verification claim until post-selection exact-target evidence re-establishes that axis;
-41. unresolvable material evidence reference never upgrades to PASS/IMPLEMENTED;
-42. no aggregate SIB/release acceptance value is writable or derivable as Implementation authority.
+47. material ref digest mismatch never upgrades to PASS/IMPLEMENTED/control authority;
+48. no aggregate SIB/release acceptance value is writable/derivable as Implementation authority.
 
 ---
 
-# 21. MUST / MUST NOT summary
+# 20. MUST / MUST NOT summary
 
 ## MUST
 
-- keep one Implementation Ledger authority per exact accepted `PlanIdentityV1`;
-- use explicit plan-owned local requirement IDs and deterministic plan-scoped `RequirementIdV1`;
-- bind every material event to one exact Git subject SHA;
-- retain append-only event history;
-- derive current execution state for an explicitly queried exact target;
-- keep blocker/defer/verification axes semantically separate;
-- reference EHA rather than duplicate its verdict;
-- preserve plan revision as a new plan identity/ledger root;
+- treat RC7 `CC-STATE` as architecturally reopened and require replacement SIB0 lineage;
+- bind one ledger to one exact `PlanIdentityV1`;
+- derive repository identity deterministically from the complete Git root set reachable from binding SHA;
+- require an exact project-authority-adopted requirement catalog;
+- use explicit plan-owned local requirement IDs and deterministic requirement IDs;
+- use the exact closed V1 event/payload schemas;
+- bind every event to one exact subject SHA;
+- require material digest/content-addressed binding for positive/control references;
+- retain append-only history;
+- derive local verification per oracle before deterministic aggregation;
+- keep EHA as a reference, not copied verdict authority;
+- preserve plan revision as a new ledger root;
 - preserve recovery as immutable same-plan generation lineage;
-- require explicit operator-approved domain selection for every authority-generation switch;
-- use the unique-terminal selection algorithm;
-- fail closed on ambiguous/broken selected history;
-- preserve all published generations, selections and predecessor evidence;
-- preserve unknown/torn intent as uncertainty;
-- keep structural mechanics subordinate to domain semantics.
+- use unique-terminal selection on read;
+- keep production SELECT mutation blocked until W10 supplies validated recovery-case/approval authority;
+- fail closed on ambiguity/broken selected history;
+- preserve unknown torn intent as plan-wide uncertainty.
 
 ## MUST NOT
 
-- use Markdown as Implementation authority;
-- infer plan authority from filename/recency/model confidence;
-- invent requirement IDs from prose similarity or ordinal position;
-- transfer implementation/verification status across plan identities;
-- transfer positive exact-target status across Git SHAs by ancestry;
+- inherit predecessor SIB0 across the RC7 CC-STATE authority redefinition;
+- use Markdown/model confidence/filename recency as plan or requirement authority;
+- invent the requirement universe from prose scanning;
+- use host path/remote nickname/branch name as repository identity;
+- leave event payload fields to implementation discretion;
+- let the last LOCAL_CHECK from a different oracle overwrite another oracle's result;
+- accept mutable-by-reference evidence for positive/control claims;
+- transfer positive state across plan identities or Git SHAs;
 - write SIB/EHA verdicts as Implementation-owned truth;
-- make recovery generation creation equal authority selection;
-- select by timestamp, file order in the selection ledger, mtime, depth, count or model judgment;
-- fall back to a predecessor after a selected generation becomes invalid;
+- make generation creation equal selection;
+- let LedgerIntegrityCore choose domain authority;
+- let W4 invent recovery permission before W10;
+- select by timestamp, file position, mtime, depth, record count, or model judgment;
+- fall back to a predecessor after selected-state failure;
 - rewrite/delete/compact historical authoritative events;
-- deduplicate or drop complete records to obtain a prettier recovery;
-- let generic LedgerIntegrityCore choose domain authority;
-- let `RepairPacketV1`, Jinja, graph, report or LLM context choose authority;
-- treat a plan revision as a recovery generation;
-- garbage-collect published V1 recovery history.
+- deduplicate/drop complete records to obtain a cleaner recovery;
+- treat plan revision as recovery;
+- garbage-collect published V1 authority history.
 
 ---
 
-# 22. Freeze closure / stop-condition audit
+# 21. Freeze closure / stop-condition audit
 
-FF1's stop condition was:
+FF1's stop condition is satisfied for **Implementation-domain generation/lifecycle semantics** because the previously ambiguous choices are now explicit:
 
-> stop if any unresolved semantic generation/lifecycle question remains.
-
-The following questions are now explicitly closed:
-
-| Question | Frozen FF1 decision |
+| Question | Frozen decision |
 | --- | --- |
+| RC7 SIB0 impact | `CC-STATE` redefinition reopens SIB0; replacement RC7 SIB0 required |
 | physical durable location | `.opencode/state/implementation-ledgers/<planId>/` |
-| authority owner | Implementation domain only, accepted-plan execution history only |
-| plan identity | deterministic `PlanIdentityV1` over repository/path/blob/plan-authority ref |
-| requirement identity | explicit plan-local ID -> plan-scoped deterministic `ireq1-*` |
-| missing/ambiguous requirement identity | fail closed; no model-generated ID |
-| plan revision | new `PlanIdentityV1`, new ledger root; no status transfer |
-| baseline history | one LF-terminated append-only `events.ndjson` |
-| event families | closed V1 set in section 8 |
-| event correction lifecycle | `VALID <-> INVALIDATED` through explicit operator-adjudicated control events |
-| blocker lifecycle | open once -> resolve once; recurrence gets new blocker |
-| defer lifecycle | authority-backed `ACTIVE <-> DEFERRED` transitions |
-| exact-target status | only same-SHA evidence establishes positive current state |
-| EHA overlap | reference only; no duplicate verdict authority |
-| derived status | independent work / verification / defer / blocker / trust axes; no authoritative global DONE/PASS |
-| recovery scope | fixed plan identity and requirement catalog only |
-| allowed V1 recovery | safe reframing only: terminal LF, empty separator, incomplete terminal fragment |
-| unsupported semantic/complete-record corruption | deterministic fail-closed/operator stop; no hiding generation |
-| recovery generation identity | deterministic content/lineage identity `irg1-*` |
-| recovery publication | immutable candidate, atomic publication, candidate != authority |
-| authority selection owner | Implementation domain `selections.ndjson` |
-| selection approval | explicit non-empty `operatorDecisionRef` |
-| active selection | exactly one terminal selection claim |
-| concurrent selections | ambiguity; no winner by recency |
-| conflict resolution | one explicit selection superseding all current terminal claims |
+| repository identity | deterministic complete reachable Git root-set digest |
+| plan identity | exact binding SHA/path/blob/project authority/catalog identity |
+| requirement universe | exact project-authority-adopted `ImplementationRequirementCatalogV1` |
+| requirement identity | explicit local ID -> plan-scoped deterministic ID |
+| event families | closed V1 set |
+| payload schemas | exact type/cardinality schemas in section 8 |
+| material evidence/control refs | digest-bound or owning-domain content-addressed |
+| exact-target status | positive state only from same target SHA |
+| local verification | independent per-oracle state + frozen required-oracle aggregation |
+| EHA overlap | reference only |
+| correction lifecycle | VALID <-> INVALIDATED through explicit control events |
+| blocker lifecycle | open once -> resolve once |
+| defer lifecycle | material authority-backed ACTIVE <-> DEFERRED |
+| recovery scope | fixed plan identity + fixed adopted catalog |
+| allowed recovery | safe reframing only |
+| torn-fragment uncertainty | plan-wide DEGRADED until re-observed |
+| generation identity | deterministic content/lineage `irg1-*` |
+| publication | immutable candidate; candidate != authority |
+| active-generation read algorithm | unique terminal selection only |
+| concurrent selections | ambiguity; no recency winner |
 | selected invalid generation | fail closed; no predecessor fallback |
-| source changes during recovery | candidate cannot select; restart from fresh snapshot |
-| torn-fragment semantic uncertainty | `DEGRADED`; exact-target positive axes require post-selection re-observation |
-| published-history retention | no V1 garbage collection |
-| generic structural core | mechanics only; never semantic selection/lifecycle authority |
+| source changes during recovery | candidate cannot select |
+| production SELECT permission | blocked until FF2/W10 validates recovery case + approval refs |
+| generic structural core | mechanics only |
 
-No Implementation-ledger generation or lifecycle choice is intentionally deferred to implementation.
+No Implementation generation, event-payload, requirement-universe, repository-identity, exact-target, or oracle-aggregation choice is intentionally deferred to W2/W4 implementation.
 
-The remaining RC7 questions belong to other owner domains, especially EHA V2 and W10 repair/recovery authorization schemas. They do not alter the FF1 domain-generation rules frozen here.
+The remaining permission question belongs explicitly to FF2/W10 and therefore does not authorize W4 to guess.
 
 ---
 
 ```text
 FF1_STATUS:
-FROZEN
+FROZEN_WITH_EXPLICIT_W10_PERMISSION_BOUNDARY
+
+RC7_SIB0_STATUS:
+REOPENED_FOR_CC_STATE_REDEFINITION
 
 UNLOCKS:
-W2 Implementation Ledger
-W4 Implementation Ledger recovery
+W2 Implementation Ledger core
+W4A Implementation recovery read/build/validate
+
+SEMANTICS_FROZEN_BUT_MUTATION_BLOCKED:
+W4B Implementation recovery SELECT write
+    until FF2/W10 LedgerRecoveryCaseV1 authorization exists
 
 DOES_NOT_UNLOCK:
 W6 W10 W12 W13 W14 W15 overall-W16
@@ -1410,11 +1483,11 @@ FF1_DESIGN_BASE:
 af0c5dcd4054cb2eef35d7661125fc939b9e3263
 
 GENERATION_AUTHORITY_RULE:
-Implementation-domain explicit selection only
+Implementation-domain unique-terminal explicit selection only
 
 PLAN_REVISION_RULE:
 new PlanIdentity -> new ledger root; never recovery generation
 
 STOP_CONDITION:
-SATISFIED — no unresolved Implementation generation/lifecycle semantic question remains
+SATISFIED FOR FF1 OWNED SEMANTICS
 ```
