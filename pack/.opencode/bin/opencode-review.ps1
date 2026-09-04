@@ -16,10 +16,9 @@ if (Test-Path $Settings) {
 if ($ExaEnabled) { $env:OPENCODE_ENABLE_EXA = '1' } else { Remove-Item Env:OPENCODE_ENABLE_EXA -ErrorAction SilentlyContinue }
 if (Test-Path $TuiConfig) { $env:OPENCODE_TUI_CONFIG = $TuiConfig }
 
-# The EHA bridge may request an external writable config mirror. Keep
-# OPENCODE_CONFIG pointing at the exact tracked config selected by the bridge;
-# redirect only OPENCODE_CONFIG_DIR, which is OpenCode's discovery/bootstrap
-# surface and may receive generated package metadata.
+# OPENCODE_CONFIG_DIR is additive. When CodeSleuth supplies an external writable
+# runtime, explicitly disable target-project .opencode discovery before launch so
+# read-only analysis cannot bootstrap or rewrite tracked target package metadata.
 if (-not [string]::IsNullOrWhiteSpace($env:CODESLEUTH_EHA_RUNTIME_CONFIG)) {
   $RuntimeConfig = [System.IO.Path]::GetFullPath($env:CODESLEUTH_EHA_RUNTIME_CONFIG)
   $SourceConfig = Join-Path $Root '.opencode'
@@ -32,6 +31,7 @@ if (-not [string]::IsNullOrWhiteSpace($env:CODESLEUTH_EHA_RUNTIME_CONFIG)) {
     throw "CodeSleuth EHA runtime-config preparation failed with exit code $LASTEXITCODE"
   }
   $env:OPENCODE_CONFIG_DIR = $RuntimeConfig
+  $env:OPENCODE_DISABLE_PROJECT_CONFIG = "1"
 }
 
 & opencode @args

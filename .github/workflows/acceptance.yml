@@ -71,13 +71,13 @@ jobs:
         run: python -m pip install -r requirements-dev.txt
       - name: Prepare TUI visual artifacts
         run: mkdir -p artifacts/tui-regression
-      - name: Run screenshot and log regression analysis
+      - name: Run screenshot, log and User Witness regression analysis
         env:
           CODESLEUTH_UI_VISUAL_REGRESSION: "1"
           CODESLEUTH_UI_ARTIFACT_DIR: artifacts/tui-regression
           TEXTUAL_LOG: artifacts/tui-regression/textual.log
           TEXTUAL_ANIMATIONS: none
-        run: python -m pytest -q tests/test_tui_visual_regression.py tests/test_tui_config_contract_controls.py
+        run: python -m pytest -q tests/test_tui_visual_regression.py tests/test_tui_config_contract_controls.py tests/test_tui_user_witness_bundle.py
       - name: Upload TUI visual regression artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -90,13 +90,23 @@ jobs:
   bun:
     name: Durable state / context graph
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ env.CODESLEUTH_ACCEPTANCE_SHA }}
       - name: Verify exact checked-out commit
         run: test "$(git rev-parse HEAD)" = "$CODESLEUTH_ACCEPTANCE_SHA" && echo "EXACT HEAD $CODESLEUTH_ACCEPTANCE_SHA"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: portable/ebca-graph-readside
+      - name: Build portable graph reader
+        run: cargo build --manifest-path portable/ebca-graph-readside/Cargo.toml --locked
+      - name: Bind portable graph reader identity
+        run: echo "CODESLEUTH_GRAPH_READER_BIN=${GITHUB_WORKSPACE}/portable/ebca-graph-readside/target/debug/ebca-graph-readside" >> "$GITHUB_ENV"
       - uses: oven-sh/setup-bun@v2
       - uses: actions/setup-node@v7
         with:
@@ -134,6 +144,35 @@ jobs:
           } >> "$GITHUB_ENV"
       - name: Run durable-state and context-graph smokes
         run: bun run test
+
+  portable-rust:
+    name: Portable Rust graph read-side / 1.88
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CODESLEUTH_ACCEPTANCE_SHA }}
+      - name: Verify exact checked-out commit
+        run: test "$(git rev-parse HEAD)" = "$CODESLEUTH_ACCEPTANCE_SHA" && echo "EXACT HEAD $CODESLEUTH_ACCEPTANCE_SHA"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: portable/ebca-graph-readside
+      - name: Verify Rust runtime identity
+        run: |
+          rustc --version
+          cargo --version
+          test "$(rustc --version | awk '{print $2}')" = "1.88.0"
+      - name: Check portable Rust formatting
+        run: cargo fmt --manifest-path portable/ebca-graph-readside/Cargo.toml --all -- --check
+      - name: Lint portable Rust crate
+        run: cargo clippy --manifest-path portable/ebca-graph-readside/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Test portable Rust crate
+        run: cargo test --manifest-path portable/ebca-graph-readside/Cargo.toml --locked
 
   graphify-enabled:
     name: Graphify enabled runtime / Python 3.12 / Ubuntu

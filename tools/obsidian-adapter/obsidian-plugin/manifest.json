@@ -1,0 +1,9 @@
+{
+  "id": "derived-structured-object-projection",
+  "name": "Derived Structured Object Projection",
+  "version": "0.1.0",
+  "minAppVersion": "1.8.0",
+  "description": "Read-only navigation and diagnostics for generated structured-object Obsidian projections.",
+  "author": "CodeSleuth contributors",
+  "isDesktopOnly": false
+}

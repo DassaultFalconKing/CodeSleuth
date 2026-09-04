@@ -1,0 +1,63 @@
+name: Obsidian adapter
+
+on:
+  pull_request:
+    paths:
+      - "tools/obsidian-adapter/**"
+      - "docs/OBSIDIAN-ADAPTER.md"
+      - "docs/superpowers/specs/2026-09-02-portable-obsidian-adapter-design.md"
+      - "docs/superpowers/plans/2026-09-02-portable-obsidian-adapter.md"
+      - ".github/workflows/obsidian-adapter.yml"
+  push:
+    branches:
+      - "feature/portable-obsidian-adapter"
+      - "refit/rc6-obsidian-adapter-*"
+    paths:
+      - "tools/obsidian-adapter/**"
+      - "docs/OBSIDIAN-ADAPTER.md"
+      - ".github/workflows/obsidian-adapter.yml"
+
+permissions:
+  contents: read
+
+env:
+  CODESLEUTH_ACCEPTANCE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  python-renderer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CODESLEUTH_ACCEPTANCE_SHA }}
+      - name: Verify exact checked-out commit
+        run: test "$(git rev-parse HEAD)" = "$CODESLEUTH_ACCEPTANCE_SHA" && echo "EXACT HEAD $CODESLEUTH_ACCEPTANCE_SHA"
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: python -m pip install pytest
+      - run: python -m pip install -e tools/obsidian-adapter
+      - run: pytest -q tools/obsidian-adapter/tests
+
+  obsidian-plugin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tools/obsidian-adapter/obsidian-plugin
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CODESLEUTH_ACCEPTANCE_SHA }}
+      - name: Verify exact checked-out commit
+        working-directory: .
+        run: test "$(git rev-parse HEAD)" = "$CODESLEUTH_ACCEPTANCE_SHA" && echo "EXACT HEAD $CODESLEUTH_ACCEPTANCE_SHA"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22.23.2"
+          package-manager-cache: false
+      - run: npm install
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build

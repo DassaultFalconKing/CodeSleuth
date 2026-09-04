@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "repository-contract-bootstrap",
+  "description": "Discover and triangulate existing brownfield repository contract candidates into a user-adjudication packet without inventing acceptance maturity.",
+  "steps": [
+    {"id": "capture-target", "execution": "skill", "skill": "exact-target-identity", "depends_on": [], "output": "target_identity", "isolation": "fresh_subagent"},
+    {"id": "inventory", "execution": "step", "prompt": "steps/02-inventory.md", "skills": ["repository-deep-review"], "tools": ["repo_inventory_inventory", "contract_bootstrap_state_start"], "depends_on": ["capture-target"], "output": "bootstrap_inventory", "isolation": "fresh_subagent"},
+    {"id": "discover", "execution": "step", "prompt": "steps/03-discover.md", "skills": ["contract-archaeology"], "tools": ["contract_bootstrap_state_load"], "depends_on": ["inventory"], "output": "candidate_contracts", "isolation": "fresh_subagent"},
+    {"id": "triangulate", "execution": "step", "prompt": "steps/04-triangulate.md", "skills": ["contract-triangulation"], "tools": ["contract_bootstrap_state_record_candidate", "contract_bootstrap_state_load"], "depends_on": ["discover"], "output": "triangulated_candidates", "isolation": "fresh_subagent"},
+    {"id": "prepare-adjudication", "execution": "step", "prompt": "steps/05-adjudicate.md", "skills": ["contract-archaeology"], "tools": ["contract_bootstrap_state_load"], "depends_on": ["triangulate"], "output": "adjudication_packet", "isolation": "fresh_subagent"}
+  ]
+}

@@ -36,6 +36,7 @@
       "git clean*": "deny"
     },
     "codesleuth_context_*": "deny",
+    "context_graph_read_*": "deny",
     "repo_context_provider_*": "deny",
     "external_directory": "ask",
     "websearch": "ask",
@@ -45,6 +46,8 @@
       "*": "ask",
       "exact-target-identity": "allow",
       "repository-deep-review": "allow",
+      "contract-archaeology": "allow",
+      "development-authority-discovery": "allow",
       "feature-porting-discipline": "allow",
       "protected-capability-registry": "allow",
       "contract-triangulation": "allow",
@@ -67,6 +70,7 @@
     "build": {
       "permission": {
         "codesleuth_context_get": "allow",
+        "context_graph_read_*": "allow",
         "repo_context_provider_status": "allow",
         "repo_context_provider_extract": "allow"
       }

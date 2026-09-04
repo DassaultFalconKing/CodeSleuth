@@ -20,7 +20,11 @@ slash: true
 
 Read `docs/DURABLE-EVIDENCE-STORE.md`, `.opencode/PROVENANCE-WATERMARK.md`, `docs/EXACT-HEAD-ACCEPTANCE.md`, `docs/SIB-CANDIDATE-SELECTION.md`, and `docs/EHA-REPAIR-LOOP.md`.
 
-After `review_state_start`, call `provenance_state_bind` once with the stable opaque actor for this producer session before `eha_state_start_campaign`. Before producing the final EHA proof/report, call `provenance_state_load` and include its verified watermark. If historical evidence predates provenance, report attribution unavailable rather than inventing it.
+For ordinary host-controlled campaigns, after `review_state_start` call `provenance_state_bind` once with the stable opaque actor for that producer session before `eha_state_start_campaign`.
+
+For a trusted GitHub EHA bridge, review identity, canonical provenance, and `campaign_started` are established deterministically before provider/model execution. Load and verify that existing `provenance_state`; do not rebind it from the provider session and do not start a second campaign.
+
+Before producing the final EHA proof/report, call `provenance_state_load` and include its verified watermark. If historical evidence predates provenance, report attribution unavailable rather than inventing it.
 
 EHA records live under `.opencode/state/reviews/<reviewId>/eha.ndjson` as append-only history alongside `review_state`; producer attribution lives in immutable `provenance.json` in that same review directory. The sidecar does not alter ledger verdicts or claimability.
 

@@ -7,6 +7,7 @@ steps: 240
 permission:
   edit: deny
   codesleuth_context_get: allow
+  context_graph_read_*: allow
   bash:
     "*": ask
     "git status*": allow
@@ -40,12 +41,14 @@ Follow the `repository-deep-review` protocol for the assigned slice. Use
 `repo_inventory` before broad exploration. Do not write to `review_state_*`;
 the parent `build` agent owns the durable ledger and must re-verify every
 material candidate against exact current source before recording a finding.
-For model-facing graph orientation, prefer `codesleuth_context_get`: it refuses
-stale or wrong-head projections and returns a bounded structured SourceRef
-capsule. Raw `repo_context_graph_load` / `repo_context_graph_query` remain useful
-for graph diagnostics. In either form, graph relations are navigation/context,
-not finding evidence, and scouts never write projections; that remains the
-parent's duty.
+For model-facing graph orientation, prefer `codesleuth_context_get` or the
+portable `context_graph_read_*` reacquisition tools: they refuse stale or
+wrong-head projections and return derived navigation/context. Graph relations
+are not finding evidence. Reopen exact current source through
+`context_graph_read_source_ref` or host-native reads before recording a
+material claim. Raw `repo_context_graph_load` / `repo_context_graph_query`
+remain useful for graph diagnostics. Scouts never write projections; that
+remains the parent's duty.
 
 Prefer semantic and architectural correctness over style commentary. Check
 contracts across the assigned boundary: callers/callees, persistence, error
