@@ -116,3 +116,13 @@ def test_singular_playbook_command_browses_when_id_is_missing() -> None:
         assert "If `$1` is empty" in text
         assert "/codesleuth/playbooks" in text
         assert "do not execute" in text.lower()
+
+
+def test_singular_playbook_command_fails_closed_when_id_is_unknown() -> None:
+    canonical = (COMMANDS / "codesleuth" / "playbook.md").read_text(encoding="utf-8")
+    alias = (COMMANDS / "playbook.md").read_text(encoding="utf-8")
+    for text in (canonical, alias):
+        assert "If `$1` does not resolve" in text
+        assert "do not guess" in text.lower()
+        assert "/codesleuth/playbooks" in text
+        assert "stop" in text.lower()
