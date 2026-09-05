@@ -47,7 +47,7 @@ AGENTS_POINTER = textwrap.dedent(
     - Project Playbook overlay: `.opencode/playbooks/`; built-in CodeSleuth Playbooks come from the installed distribution pack. Browse with `/codesleuth/playbooks`; run with `/codesleuth/playbook <id>`.
     - CodeSleuth Skills use the `codesleuth-*` namespace on portable discovery surfaces.
     - Canonical distribution source: `DassaultFalconKing/CodeSleuth`.
-    Format details for analytical reports remain in `.opencode/CODESLEUTH-REPORTS.md`. Reports are local-only by default because they may contain source excerpts or credentials; publish only intentionally sanitized material.
+    Format details for analytical reports remain in `.opencode/CODESLEUTH-REPORTS.md`. Reports are local-only by default because they may contain source excerpts or credentials; reuse them in this worktree, and publish only intentionally sanitized material.
     {AGENTS_END}
     """
 )
