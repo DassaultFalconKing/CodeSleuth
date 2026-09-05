@@ -40,7 +40,14 @@ AGENTS_END = "<!-- END CodeSleuth reports -->"
 AGENTS_POINTER = textwrap.dedent(
     f"""\
     {AGENTS_BEGIN}
-    Analytical reports for this worktree live in `.codesleuth/reports/` (see `INDEX.md`). Format: `.opencode/CODESLEUTH-REPORTS.md`. OpenCode `build` writes them. They are local-only by default because reports may contain source excerpts or credentials; reuse them in this worktree, and only publish sanitized reports or guidance intentionally when cross-clone reuse is desired.
+    CodeSleuth is installed in this repository. Use these repository-local surfaces instead of guessing or rebuilding them:
+    - Human-readable reports: `.codesleuth/reports/`; catalog: `.codesleuth/reports/INDEX.md`. Reports are derived navigation/handoff material, not finding, source, EHA, or acceptance authority.
+    - Durable review/evidence continuation: `.opencode/state/reviews/`. Prefer recorded structured state over chat memory when resuming review work.
+    - Context graphs: `.opencode/state/context-graphs/`. They are derived, rebuildable navigation/context projections; reopen exact source before material repository claims.
+    - Project Playbook overlay: `.opencode/playbooks/`; built-in CodeSleuth Playbooks come from the installed distribution pack. Browse with `/codesleuth/playbooks`; run with `/codesleuth/playbook <id>`.
+    - CodeSleuth Skills use the `codesleuth-*` namespace on portable discovery surfaces.
+    - Canonical distribution source: `DassaultFalconKing/CodeSleuth`.
+    Format details for analytical reports remain in `.opencode/CODESLEUTH-REPORTS.md`. Reports are local-only by default because they may contain source excerpts or credentials; publish only intentionally sanitized material.
     {AGENTS_END}
     """
 )
