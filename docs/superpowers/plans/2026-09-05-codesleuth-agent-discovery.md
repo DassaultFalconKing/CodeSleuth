@@ -4,7 +4,7 @@
 
 **Goal:** Make a normal CodeSleuth install self-describing to any repository agent and make stored playbooks browsable without memorizing IDs.
 
-**Architecture:** Reuse the existing `AGENTS.md` ownership/lifecycle discipline but keep the new always-on discovery block separate from the existing opt-in workflow-rules block. Extend the sole `codesleuth-naming.json` namespace authority with `/codesleuth/playbooks`, derive catalog output from `playbook_catalog.py`, and make no-argument `/codesleuth/playbook` browse rather than execute.
+**Architecture:** Reuse and broaden the existing always-on `AGENTS.md` reports pointer rather than creating another managed block. Keep the opt-in workflow-rules block unchanged. Extend the sole `codesleuth-naming.json` namespace authority with `/codesleuth/playbooks`, derive browse output from `playbook_catalog.py`, and make no-argument `/codesleuth/playbook` browse rather than execute.
 
 **Tech Stack:** Python 3.10+, pytest, Markdown host-native OpenCode commands, existing CodeSleuth lifecycle and naming manifests.
 
@@ -17,7 +17,7 @@
 - Do not create a second naming or playbook registry authority.
 - Reports and context graphs remain derived; graphs are not material evidence authority.
 - Existing `policy.enforceAgentsMdRules` semantics remain opt-in/default-off.
-- Normal project install/update must materialize discovery; uninstall/purge must remove only CodeSleuth-owned discovery text.
+- Existing `AGENTS_BEGIN` / `AGENTS_END` reports-pointer markers remain the always-on lifecycle-owned discovery markers for compatibility.
 - OpenCode remains execution authority; browse commands do not execute playbooks.
 
 ---
@@ -25,29 +25,24 @@
 ### Task 1: RED contract for installed AGENTS discovery
 
 **Files:**
-- Modify: `tests/test_agents_policy.py`
-- Later modify: `pack/.opencode/bin/codesleuth_project/agents_policy.py`
-- Later modify: `install.py`
-- Later modify: `pack/.opencode/bin/codesleuth_project/__init__.py`
-- Later create: `pack/.opencode/policy/agents-discovery.md`
+- Create: `tests/test_rc7_agent_discovery.py`
+- Later modify: `pack/.opencode/bin/codesleuth_project/paths.py`
+- Existing callers: `install.py`, `pack/.opencode/bin/codesleuth_project/__init__.py`
 
 **Interfaces:**
-- Produces: `DISCOVERY_BEGIN`, `DISCOVERY_END`, `canonical_discovery_text()`, `ensure_agents_discovery(repo)`, `remove_agents_discovery(repo)`.
-- Install/update callers invoke `ensure_agents_discovery(repo)` for non-self targets.
-- Uninstall invokes `remove_agents_discovery(repo)` before runtime cleanup.
+- Preserve: `AGENTS_BEGIN`, `AGENTS_END`, `AGENTS_POINTER`, `ensure_agents_reports_pointer(repo)`, `remove_agents_reports_pointer(repo)`.
+- Broaden `AGENTS_POINTER` from reports-only pointer to concise CodeSleuth repository discovery map.
 
-- [ ] Add failing tests proving ordinary install with workflow rules disabled still injects discovery containing `.codesleuth/reports/`, `.opencode/state/reviews/`, `.opencode/state/context-graphs/`, `/codesleuth/playbooks`, `/codesleuth/playbook <id>`, `codesleuth-*`, and `DassaultFalconKing/CodeSleuth`.
-- [ ] Add failing test proving uninstall removes discovery while preserving pre-existing user `AGENTS.md` bytes.
-- [ ] Run the hosted Python suite on the test-only SHA and record the expected missing discovery API/marker failure as FIRST RED.
-- [ ] Implement the minimal separate managed discovery block by reusing/refactoring the existing ownership primitives without changing opt-in workflow-rule semantics.
-- [ ] Hook normal install/update and uninstall lifecycle paths.
-- [ ] Run focused `python -m pytest -q tests/test_agents_policy.py` and require GREEN.
+- [ ] Add failing test proving ordinary install with workflow rules disabled still injects a managed pointer containing `.codesleuth/reports/`, `.opencode/state/reviews/`, `.opencode/state/context-graphs/`, `.opencode/playbooks/`, `/codesleuth/playbooks`, `/codesleuth/playbook <id>`, `codesleuth-*`, and `DassaultFalconKing/CodeSleuth`.
+- [ ] Add failing test proving uninstall removes the managed pointer while preserving pre-existing user `AGENTS.md` content.
+- [ ] Run hosted Python suite on the test-only SHA and record the exact missing discovery content failure as FIRST RED.
+- [ ] Expand only `AGENTS_POINTER`; retain existing marker/lifecycle functions and opt-in workflow-rules semantics.
+- [ ] Run focused `python -m pytest -q tests/test_rc7_agent_discovery.py` and require GREEN.
 
 ### Task 2: RED contract for deterministic playbook browse namespace
 
 **Files:**
-- Modify: `tests/test_naming_cutover.py`
-- Modify: `tests/test_playbook_catalog.py`
+- Continue in: `tests/test_rc7_agent_discovery.py`
 - Later modify: `pack/.opencode/codesleuth-naming.json`
 - Later modify: `pack/.opencode/bin/playbook_catalog.py`
 - Later create: `pack/.opencode/commands/codesleuth/playbooks.md`
@@ -62,20 +57,14 @@
 
 - [ ] Add failing naming test for canonical `/codesleuth/playbooks`, alias materialization, and canonical command file.
 - [ ] Add failing catalog test for deterministic sorted browse output and overlay origin.
-- [ ] Add command-contract test that no-arg singular playbook command uses browse output and does not silently invent an ID.
-- [ ] Run hosted tests and retain the test-only RED evidence.
-- [ ] Add the new operation only to `codesleuth-naming.json`; let existing derivation consume it.
+- [ ] Add command-contract test that no-arg singular playbook command explicitly browses and performs no implicit execution.
+- [ ] Retain test-only RED evidence.
+- [ ] Add the new operation only to `codesleuth-naming.json`; let existing namespace derivation consume it.
 - [ ] Implement deterministic formatter from actual `discover_playbooks()` records, not a second ID list.
 - [ ] Materialize canonical + compatibility browse commands and update singular command no-arg semantics.
-- [ ] Run focused `python -m pytest -q tests/test_naming_cutover.py tests/test_playbook_catalog.py` and require GREEN.
+- [ ] Run focused `python -m pytest -q tests/test_rc7_agent_discovery.py tests/test_naming_cutover.py tests/test_playbook_catalog.py` and require GREEN.
 
 ### Task 3: Full N2 verification and admission
-
-**Files:**
-- Modify only if required by exact current verification failures; no scope expansion.
-
-**Interfaces:**
-- N2 final head must remain a descendant of `64c1986ab26c16957c7f126106f7dc2020edfcae` before coordinator integration.
 
 - [ ] Run `python scripts/contributor_antipatterns.py scan --strict`.
 - [ ] Run `python -m ruff check .`.
