@@ -3,6 +3,8 @@ description: Run a stored CodeSleuth Playbook one isolated Step at a time
 agent: build
 ---
 
+If `$1` is empty, do not execute a Playbook. Resolve and show the same deterministic overlay-over-pack catalog exposed by `/codesleuth/playbooks`, including each Playbook ID, origin, one-line summary, and exact `/codesleuth/playbook <id>` invocation. Then stop so the operator can select an ID.
+
 Run CodeSleuth Playbook `$1` for this request:
 
 $2
