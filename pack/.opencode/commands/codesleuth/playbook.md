@@ -5,6 +5,8 @@ agent: build
 
 If `$1` is empty, do not execute a Playbook. Resolve and show the same deterministic overlay-over-pack catalog exposed by `/codesleuth/playbooks`, including each Playbook ID, origin, one-line summary, and exact `/codesleuth/playbook <id>` invocation. Then stop so the operator can select an ID.
 
+If `$1` does not resolve to an exact Playbook ID in the project overlay or installed distribution pack, do not guess, fuzzy-match, or substitute a remembered ID. Show the same deterministic `/codesleuth/playbooks` catalog and stop without executing a Playbook.
+
 Run CodeSleuth Playbook `$1` for this request:
 
 $2
