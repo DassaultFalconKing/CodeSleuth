@@ -7,15 +7,15 @@
 
 ## Goal
 
-Any coding agent that opens a repository with CodeSleuth installed should immediately discover where CodeSleuth reports, durable review state, context graphs, playbooks, skills, and distribution source live. Operators must be able to browse playbooks without memorizing internal IDs. Portable skills must use a collision-resistant `codesleuth-*` namespace and be distributable through thin host adapters rather than divergent semantic forks.
+Any coding agent that opens a repository with CodeSleuth installed should immediately discover where CodeSleuth reports, durable review state, context graphs, playbooks, skills, and distribution source live. Operators must browse playbooks without memorizing internal IDs. Portable skills use a collision-resistant `codesleuth-*` namespace and thin generated host adapters rather than divergent semantic forks.
 
 ## N2: installed-repository discovery
 
-A normal CodeSleuth project install/update MUST materialize an always-on, CodeSleuth-owned discovery block in root `AGENTS.md`. This is separate from the existing opt-in workflow-rules block because `policy.enforceAgentsMdRules` remains optional and defaults off.
+Normal CodeSleuth project install/update already materializes an always-on managed `AGENTS.md` reports pointer using `AGENTS_BEGIN`, `AGENTS_END`, `AGENTS_POINTER`, `ensure_agents_reports_pointer()` and `remove_agents_reports_pointer()`. N2 MUST reuse this lifecycle surface and broaden its content into the CodeSleuth discovery map while retaining the existing markers and function names for compatibility. Do not create a second always-on managed AGENTS block.
 
-The discovery block owns only text between distinct CodeSleuth markers and must use the existing fail-closed ownership discipline: preserve user bytes, reject malformed/duplicate managed markers, update idempotently, and remove only CodeSleuth-owned text during uninstall/purge. If CodeSleuth created `AGENTS.md` solely for managed content, lifecycle cleanup may remove the empty file; otherwise user content survives byte-for-byte where ownership anchors still prove the boundary.
+The existing opt-in `CODESLEUTH:AGENTS-RULES` block remains separate, optional, and default-off. N2 must not change `policy.enforceAgentsMdRules` semantics.
 
-The concise discovery map must identify:
+The always-on discovery map must identify:
 
 - human-readable reports: `.codesleuth/reports/` and `.codesleuth/reports/INDEX.md`, explicitly derived/non-authoritative;
 - durable review/evidence continuation: `.opencode/state/reviews/`;
@@ -26,17 +26,17 @@ The concise discovery map must identify:
 - installed CodeSleuth skills under the future `codesleuth-*` namespace;
 - canonical distribution source `DassaultFalconKing/CodeSleuth`.
 
-Self-install/maintainer checkout behavior remains governed by existing lifecycle contracts and must not accidentally mutate the source checkout's maintainer `AGENTS.md` through target-install policy.
+The existing pointer ownership discipline remains fail-closed: preserve user text, reject malformed managed markers rather than overwrite ambiguity, update idempotently, and remove only CodeSleuth-owned text during uninstall/purge. If CodeSleuth created `AGENTS.md` solely for its managed pointer, cleanup may remove the empty file. Self-install/maintainer checkout behavior remains governed by existing lifecycle contracts.
 
 ## N2: playbook discoverability
 
-Add canonical `/codesleuth/playbooks` with compatibility alias `/playbooks`. It MUST enumerate the actual resolved overlay-over-pack playbook catalog using the existing catalog implementation. It must not maintain a second playbook ID table.
+Add canonical `/codesleuth/playbooks` with compatibility alias `/playbooks`. It MUST enumerate the actual resolved overlay-over-pack playbook catalog using the existing `playbook_catalog.py` discovery path and must not maintain a second playbook ID table.
 
-The catalog is deterministic and human/model readable. Each item exposes at least ID, one-line description/summary, origin (`overlay` or `pack`), and the exact invocation form `/codesleuth/playbook <id>`.
+The catalog is deterministic and human/model readable. Each item exposes ID, one-line description/summary, origin (`overlay` or `pack`), and exact invocation `/codesleuth/playbook <id>`.
 
 `/codesleuth/playbook <id>` remains execution. `/codesleuth/playbook` with no ID MUST show the same catalog and perform no playbook execution. Unknown IDs MUST fail closed and show deterministic available candidates rather than letting the model invent a near match.
 
-Playbook IDs themselves remain semantic IDs such as `repository-map`; they are not lengthened to `codesleuth-playbooks-*` because invocation already carries the `/codesleuth/playbook` namespace.
+Playbook IDs themselves remain semantic IDs such as `repository-map`; invocation already carries the `/codesleuth/playbook` namespace.
 
 ## N3: portable skill namespace and distribution
 
@@ -57,7 +57,7 @@ Target channels, ordered by implementation priority:
 9. OpenClaw/ClawHub distribution.
 10. NovaClaw adapter consuming the same canonical source; do not invent a NovaClaw marketplace contract before its host API provides one.
 
-Skills-only installation MUST NOT claim that local durable stores, TUI, context-graph runtime, or full CodeSleuth lifecycle were installed. Plugin installation may add bounded tools/MCP. Full CodeSleuth project installation owns the managed AGENTS discovery, reports convention, durable state, context graphs, playbooks, tools, lifecycle and full host integration.
+Skills-only installation MUST NOT claim local durable stores, TUI, context-graph runtime, or full CodeSleuth lifecycle were installed. Plugin installation may add bounded tools/MCP. Full CodeSleuth project installation owns the managed AGENTS discovery, reports convention, durable state, context graphs, playbooks, tools, lifecycle and full host integration.
 
 ## Acceptance
 
