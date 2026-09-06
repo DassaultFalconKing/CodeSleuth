@@ -43,6 +43,7 @@ Start with [`ROAD/INDEX.md`](ROAD/INDEX.md) when you need to know **which docume
 - [`RC6-FEATURE-PLAN.md`](RC6-FEATURE-PLAN.md) — accepted/frozen RC6 implementation scope.
 - [`RC6-SCOPE-ACCEPTANCE.md`](RC6-SCOPE-ACCEPTANCE.md) — explicit acceptance record for that scope.
 - [`RC6-IMPLEMENTATION-LEDGER.md`](RC6-IMPLEMENTATION-LEDGER.md) — current RC6 development-state ledger; it does not replace the feature plan.
+- [`POST-RC6-CAPABILITY-EXPANSION.md`](POST-RC6-CAPABILITY-EXPANSION.md) — current feature-branch ledger for post-RC6 capability population/hardening; distinguishes implemented backend, product exposure, integration, and acceptance status.
 - [`GRAPHIFY-PROVIDER.md`](GRAPHIFY-PROVIDER.md) — current optional Graphify structural-provider boundary and runtime identity.
 - [`GRAPHIFY-CORPUS.md`](GRAPHIFY-CORPUS.md) — representative provider corpus/hardening reference.
 - [`MERMAID-QA.md`](MERMAID-QA.md) — isolated Mermaid QA; normal runtime remains browser-free.
