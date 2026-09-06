@@ -70,10 +70,29 @@ class CodeSleuthApp(_base.CodeSleuthApp):
                     yield RichLog(id="log", wrap=True, markup=True)
         yield Footer(id="keys")
 
+    def on_mount(self) -> None:
+        super().on_mount()
+        self.query_one("#update", Button).label = "Update CodeSleuth"
+
+    def show_surface(self, route: str) -> None:
+        super().show_surface(route)
+        if route == "home":
+            self.query_one("#update", Button).display = True
+
+    def set_update_available(self, available: bool) -> None:
+        self.query_one("#update", Button).variant = "primary" if available else "default"
+
     def write_ui_log(self, text: str) -> None:
         log = self.query_one("#log", RichLog)
         log.write(text)
         log.scroll_end(animate=False)
+
+        if text.startswith("[green]update[/]:"):
+            self.set_update_available(False)
+        elif "UPDATE AVAILABLE" in text:
+            self.set_update_available(True)
+        elif "REVIEW PACK CURRENT" in text or "CODESLEUTH SOURCE CURRENT" in text:
+            self.set_update_available(False)
 
     def _control_unavailable(self, label: str) -> None:
         self.write_ui_log(f"[yellow]{label} unavailable for the current lifecycle/update mode; see Status.[/yellow]")
