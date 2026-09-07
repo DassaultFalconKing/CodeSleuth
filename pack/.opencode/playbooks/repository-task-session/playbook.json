@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "id": "repository-task-session",
+  "description": "Task-specific continuation from an established CodeSleuth repository baseline without repeating broad discovery.",
+  "steps": [
+    {
+      "id": "task-specific-session",
+      "execution": "step",
+      "prompt": "steps/01-task-specific-session.md",
+      "skills": [],
+      "depends_on": [],
+      "output": "task_session",
+      "isolation": "fresh_subagent"
+    }
+  ]
+}

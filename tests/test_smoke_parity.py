@@ -54,6 +54,7 @@ def test_source_and_installed_verify_require_all_advertised_rc6_surfaces() -> No
         "tools/native_gate_state.ts",
         "tools/external_evidence_state.ts",
         "bin/codesleuth_project/graphify_adapter.py",
+        "bin/extension_catalog.py",
     }
     assert required <= source
     assert required <= installed
