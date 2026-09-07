@@ -271,6 +271,20 @@ def discover_playbooks(repo: Path, distribution_root: Path | None = None) -> lis
     return records
 
 
+def format_playbook_catalog(records: Iterable[PlaybookRecord]) -> str:
+    """Render a deterministic browse-only view of resolved Playbooks."""
+
+    ordered = sorted(records, key=lambda record: record.id)
+    lines = ["CodeSleuth Playbooks"]
+    if not ordered:
+        lines.append("(no stored Playbooks discovered)")
+    for record in ordered:
+        summary = " ".join((record.summary or record.description or "No description available.").split())
+        lines.append(f"{record.id} [{record.origin}] — {summary}")
+        lines.append(f"  Run: /codesleuth/playbook {record.id}")
+    return "\n".join(lines) + "\n"
+
+
 def _assert_acyclic(steps: Iterable[PlaybookStep]) -> str | None:
     graph = {step.id: list(step.depends_on) for step in steps}
     visiting: set[str] = set()

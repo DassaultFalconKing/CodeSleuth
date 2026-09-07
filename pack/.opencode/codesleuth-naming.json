@@ -68,6 +68,10 @@
           "path": "/codesleuth/playbook",
           "compatibilityAliases": ["/playbook"]
         },
+        "playbooks": {
+          "path": "/codesleuth/playbooks",
+          "compatibilityAliases": ["/playbooks"]
+        },
         "continue": {
           "path": "/codesleuth/continue",
           "compatibilityAliases": ["/repo-continue"],
