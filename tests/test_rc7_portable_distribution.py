@@ -7,8 +7,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "scripts" / "generate_portable_distribution.py"
 MANIFEST = ROOT / "portable" / "distribution" / "manifest.json"
