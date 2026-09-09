@@ -201,6 +201,24 @@ def parse_app_args(argv: list[str]) -> tuple[Path, Path | None]:
     return Path(target), Path(distribution) if distribution else None
 
 
+def replace_current_process(argv: list[str]) -> None:
+    """Replace this process with argv. Does not return.
+
+    POSIX uses exec overlay. Windows overlay-exec terminates the current
+    process immediately after spawn, so the parent shell reclaims the console
+    while the Textual child is still starting. Wait for that child instead and
+    propagate its exit status.
+    """
+
+    if not argv:
+        raise ValueError("replace_current_process requires argv")
+    sys.stdout.flush()
+    sys.stderr.flush()
+    if os.name == "nt":
+        raise SystemExit(subprocess.run(argv).returncode)
+    os.execv(argv[0], argv)
+
+
 def ensure_textual_runtime(argv: list[str], version: str) -> int | None:
     if sys.version_info < (3, 10):
         print("CodeSleuth requires Python 3.10+", file=sys.stderr)
@@ -214,16 +232,12 @@ def ensure_textual_runtime(argv: list[str], version: str) -> int | None:
         print(f"Install {TEXTUAL_REQUIREMENT} in an isolated environment or retry with network access.", file=sys.stderr)
         return 2
     if python.resolve() != Path(sys.executable).resolve():
-        sys.stdout.flush()
-        sys.stderr.flush()
-        os.execv(str(python), [str(python), str(Path(__file__).resolve()), *argv])
+        replace_current_process([str(python), str(Path(__file__).resolve()), *argv])
     return None
 
 
 def reexec_bootstrap(argv: list[str]) -> None:
-    sys.stdout.flush()
-    sys.stderr.flush()
-    os.execv(sys.executable, [sys.executable, str(Path(__file__).resolve()), *argv])
+    replace_current_process([sys.executable, str(Path(__file__).resolve()), *argv])
 
 
 def supervise_app(target: Path, distribution_root: Path | None, argv: list[str]) -> int:

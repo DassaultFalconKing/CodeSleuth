@@ -4,6 +4,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -76,18 +77,16 @@ def test_restart_tui_uses_current_python_and_updated_bootstrap(tmp_path: Path, m
     bootstrap_path.write_text("# updated bootstrap\n", encoding="utf-8")
     observed: dict[str, object] = {}
 
-    def fake_execv(executable: str, argv: list[str]) -> None:
-        observed["executable"] = executable
+    def fake_replace(argv: list[str]) -> None:
         observed["argv"] = argv
         observed["target_root"] = updater.os.environ.get("REVIEW_PACK_TARGET_ROOT")
-        raise RuntimeError("exec intercepted")
+        raise RuntimeError("replace intercepted")
 
     monkeypatch.delenv("REVIEW_PACK_TARGET_ROOT", raising=False)
-    monkeypatch.setattr(updater.os, "execv", fake_execv)
-    with pytest.raises(RuntimeError, match="exec intercepted"):
+    monkeypatch.setattr(updater, "replace_current_process", fake_replace)
+    with pytest.raises(RuntimeError, match="replace intercepted"):
         updater.restart_tui(repo)
 
-    assert observed["executable"] == sys.executable
     assert observed["argv"] == [sys.executable, str(bootstrap_path), "--target", str(repo)]
     assert observed["target_root"] == str(repo)
 
@@ -136,15 +135,141 @@ def test_runtime_watch_does_not_reload_distribution_for_other_target(tmp_path: P
 def test_reexec_bootstrap_preserves_cli_arguments(monkeypatch: pytest.MonkeyPatch) -> None:
     observed: dict[str, object] = {}
 
+    def fake_replace(argv: list[str]) -> None:
+        observed["argv"] = argv
+        raise RuntimeError("replace intercepted")
+
+    monkeypatch.setattr(bootstrap, "replace_current_process", fake_replace)
+    with pytest.raises(RuntimeError, match="replace intercepted"):
+        bootstrap.reexec_bootstrap(["--target", "/tmp/example"])
+
+    assert observed["argv"][0] == sys.executable
+    assert Path(observed["argv"][1]) == BIN / "review_pack_tui_bootstrap.py"
+    assert observed["argv"][-2:] == ["--target", "/tmp/example"]
+
+
+def test_windows_process_replace_waits_and_forwards_exit(tmp_path: Path) -> None:
+    """Windows overlay-exec returns to the parent waiter immediately (exit 0).
+
+    Isolated TUI launch and restart must keep that waiter attached until the
+    replacement interpreter exits, otherwise PowerShell reclaims the console
+    and the Textual app is left unresponsive.
+    """
+
+    child = tmp_path / "child.py"
+    child.write_text("import sys, time\ntime.sleep(0.35)\nraise SystemExit(17)\n", encoding="utf-8")
+    driver = tmp_path / "driver.py"
+    driver.write_text(
+        "import sys\n"
+        f"sys.path.insert(0, {str(BIN)!r})\n"
+        "import review_pack_tui_bootstrap as bootstrap\n"
+        f"bootstrap.replace_current_process([sys.executable, {str(child)!r}])\n",
+        encoding="utf-8",
+    )
+
+    started_at = time.monotonic()
+    result = subprocess.run([sys.executable, str(driver)], text=True, capture_output=True)
+    elapsed = time.monotonic() - started_at
+
+    assert result.returncode == 17, result.stderr
+    assert elapsed >= 0.25
+
+
+def test_windows_process_replace_does_not_use_overlay_exec(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(bootstrap.os, "name", "nt")
+
+    def forbid_execv(*_args, **_kwargs) -> None:
+        raise AssertionError("os.execv overlay-exec detaches the Windows console waiter")
+
+    monkeypatch.setattr(bootstrap.os, "execv", forbid_execv)
+
+    observed: dict[str, object] = {}
+
+    class Result:
+        returncode = 11
+
+    def fake_run(argv, **kwargs):
+        observed["argv"] = argv
+        observed["kwargs"] = kwargs
+        return Result()
+
+    monkeypatch.setattr(bootstrap.subprocess, "run", fake_run)
+    with pytest.raises(SystemExit) as exc:
+        bootstrap.replace_current_process([sys.executable, "app.py", "."])
+    assert exc.value.code == 11
+    assert observed["argv"] == [sys.executable, "app.py", "."]
+    kwargs = observed["kwargs"]
+    assert not kwargs.get("capture_output")
+    assert kwargs.get("stdout") is None
+    assert kwargs.get("stderr") is None
+    assert kwargs.get("stdin") is None
+    assert "creationflags" not in kwargs
+
+
+def test_posix_process_replace_uses_exec_overlay(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(bootstrap.os, "name", "posix")
+    observed: dict[str, object] = {}
+
     def fake_execv(executable: str, argv: list[str]) -> None:
         observed["executable"] = executable
-        observed["argv"] = argv
+        observed["argv"] = list(argv)
         raise RuntimeError("exec intercepted")
 
     monkeypatch.setattr(bootstrap.os, "execv", fake_execv)
     with pytest.raises(RuntimeError, match="exec intercepted"):
-        bootstrap.reexec_bootstrap(["--target", "/tmp/example"])
+        bootstrap.replace_current_process(["/usr/bin/python", "app.py", "."])
+    assert observed["executable"] == "/usr/bin/python"
+    assert observed["argv"] == ["/usr/bin/python", "app.py", "."]
 
-    assert observed["executable"] == sys.executable
-    assert observed["argv"][0] == sys.executable
-    assert observed["argv"][-2:] == ["--target", "/tmp/example"]
+
+def test_ensure_textual_runtime_replaces_into_isolated_interpreter(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    isolated = tmp_path / "isolated-python"
+    isolated.write_text("", encoding="utf-8")
+    monkeypatch.setattr(bootstrap, "usable_current_python", lambda: False)
+    monkeypatch.setattr(bootstrap, "ensure_runtime", lambda _version: isolated)
+    monkeypatch.setattr(bootstrap.sys, "executable", str(tmp_path / "host-python"))
+    observed: dict[str, object] = {}
+
+    def fake_replace(argv: list[str]) -> None:
+        observed["argv"] = argv
+        raise RuntimeError("replaced")
+
+    monkeypatch.setattr(bootstrap, "replace_current_process", fake_replace)
+    with pytest.raises(RuntimeError, match="replaced"):
+        bootstrap.ensure_textual_runtime(["."], "0.4.0")
+    assert Path(observed["argv"][0]) == isolated
+    assert Path(observed["argv"][1]) == BIN / "review_pack_tui_bootstrap.py"
+    assert observed["argv"][-1] == "."
+
+
+def test_restart_tui_windows_waits_for_replacement(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    updater = load_updater()
+    repo = tmp_path / "target"
+    bootstrap_path = repo / ".opencode" / "bin" / "review_pack_tui_bootstrap.py"
+    bootstrap_path.parent.mkdir(parents=True)
+    bootstrap_path.write_text("# updated bootstrap\n", encoding="utf-8")
+    observed: dict[str, object] = {}
+
+    def forbid_execv(*_args, **_kwargs) -> None:
+        raise AssertionError("os.execv overlay-exec detaches the Windows console waiter")
+
+    class Result:
+        returncode = 0
+
+    def fake_run(argv, **kwargs):
+        observed["argv"] = argv
+        observed["kwargs"] = kwargs
+        return Result()
+
+    monkeypatch.setattr(updater.os, "name", "nt")
+    monkeypatch.setattr(updater.os, "execv", forbid_execv)
+    monkeypatch.setattr(updater.subprocess, "run", fake_run)
+    monkeypatch.delenv("REVIEW_PACK_TARGET_ROOT", raising=False)
+    with pytest.raises(SystemExit) as exc:
+        updater.restart_tui(repo)
+    assert exc.value.code == 0
+    assert observed["argv"] == [sys.executable, str(bootstrap_path), "--target", str(repo)]
+    assert updater.os.environ.get("REVIEW_PACK_TARGET_ROOT") == str(repo)
+    assert not observed["kwargs"].get("capture_output")
