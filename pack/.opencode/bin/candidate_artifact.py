@@ -48,6 +48,19 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def resolve_candidate_path(candidate_dir: Path, value: str, *, field: str) -> Path:
+    """Resolve one manifest path beneath the candidate root and reject escapes."""
+
+    raw = Path(value)
+    if raw.is_absolute():
+        raise CandidateError("PATH_ESCAPE", f"{field} must be candidate-relative")
+    root = candidate_dir.resolve()
+    resolved = (root / raw).resolve(strict=False)
+    if not resolved.is_relative_to(root):
+        raise CandidateError("PATH_ESCAPE", f"{field} escapes candidate directory")
+    return resolved
+
+
 def _read_manifest(candidate_dir: Path) -> dict[str, object]:
     path = candidate_dir / "candidate.manifest.json"
     if not path.is_file():
@@ -93,7 +106,7 @@ def _verify_artifact(candidate_dir: Path, manifest: dict[str, object]) -> dict[s
         raise CandidateError("MALFORMED", "artifact.sha256 must be exactly 64 lowercase hex characters")
     expected_size = _integer(artifact.get("sizeBytes"), field="artifact.sizeBytes")
 
-    path = candidate_dir / relative_path
+    path = resolve_candidate_path(candidate_dir, relative_path, field="artifact.path")
     if not path.is_file():
         raise CandidateError("MISSING", f"artifact is missing: {relative_path}")
     actual_size = path.stat().st_size
