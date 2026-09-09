@@ -84,6 +84,59 @@ def point_artifact_at(candidate: Path, path_value: str, target: Path) -> None:
     write_manifest(candidate, manifest)
 
 
+def bind_test_summary(candidate: Path, *, overall: str = "PASS") -> Path:
+    summary = candidate / "test-summary.json"
+    summary.write_text(json.dumps({"overall": overall}) + "\n", encoding="utf-8")
+    manifest = read_manifest(candidate)
+    manifest["tests"] = {
+        "overall": overall,
+        "summary": "test-summary.json",
+        "summarySha256": sha256(summary),
+    }
+    write_manifest(candidate, manifest)
+    return summary
+
+
+def bind_runtime_evidence(candidate: Path) -> Path:
+    runtime_dir = candidate / "runtime"
+    runtime_dir.mkdir(exist_ok=True)
+    manifest = read_manifest(candidate)
+    evidence = runtime_dir / "launch.json"
+    evidence.write_text(
+        json.dumps(
+            {
+                "artifactSha256": manifest["artifact"]["sha256"],
+                "sourceCommitSha": manifest["source"]["commitSha"],
+                "sourceTreeSha": manifest["source"]["treeSha"],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest["runtime"] = {
+        "launchProfile": "fixture-runtime",
+        "modelIdentity": "fixture-model@1",
+        "evidence": "runtime/launch.json",
+        "evidenceSha256": sha256(evidence),
+    }
+    write_manifest(candidate, manifest)
+    return evidence
+
+
+def bind_acceptance_reference(candidate: Path, *, claim: str = "PASS_REFERENCED") -> Path:
+    evidence_dir = candidate / "evidence"
+    evidence_dir.mkdir(exist_ok=True)
+    evidence = evidence_dir / "acceptance.json"
+    evidence.write_text('{"upstream":"exact-head-evidence"}\n', encoding="utf-8")
+    manifest = read_manifest(candidate)
+    manifest["acceptance"] = {
+        "claim": claim,
+        "evidenceRefs": ["evidence/acceptance.json"],
+    }
+    write_manifest(candidate, manifest)
+    return evidence
+
+
 def assert_error_code(module: ModuleType, expected: str, candidate: Path) -> None:
     with pytest.raises(module.CandidateError) as exc:
         module.verify_candidate(candidate)
@@ -253,3 +306,121 @@ def test_symlink_artifact_escape_fails_closed(tmp_path: Path) -> None:
     point_artifact_at(candidate, "escape.bin", outside)
     module = load_candidate_module()
     assert_error_code(module, "PATH_ESCAPE", candidate)
+
+
+def test_pass_test_state_requires_summary_identity(tmp_path: Path) -> None:
+    candidate = write_candidate(tmp_path)
+    manifest = read_manifest(candidate)
+    manifest["tests"] = {"overall": "PASS"}
+    write_manifest(candidate, manifest)
+    module = load_candidate_module()
+    assert_error_code(module, "EVIDENCE_UNTRUSTED", candidate)
+
+
+def test_missing_test_summary_is_not_collapsed_into_test_failure(tmp_path: Path) -> None:
+    candidate = write_candidate(tmp_path)
+    summary = bind_test_summary(candidate)
+    summary.unlink()
+    module = load_candidate_module()
+    assert_error_code(module, "MISSING", candidate)
+
+
+def test_wrong_test_summary_digest_fails_closed(tmp_path: Path) -> None:
+    candidate = write_candidate(tmp_path)
+    summary = bind_test_summary(candidate)
+    summary.write_text('{"overall":"PASS","changed":true}\n', encoding="utf-8")
+    module = load_candidate_module()
+    assert_error_code(module, "HASH_MISMATCH", candidate)
+
+
+def test_bound_test_summary_is_returned_as_verified_identity(tmp_path: Path) -> None:
+    candidate = write_candidate(tmp_path)
+    summary = bind_test_summary(candidate)
+    module = load_candidate_module()
+    result = module.verify_candidate(candidate)
+    assert result["tests"] == {
+        "overall": "PASS",
+        "summary": "test-summary.json",
+        "summarySha256": sha256(summary),
+    }
+
+
+def test_runtime_evidence_digest_mismatch_fails_closed(tmp_path: Path) -> None:
+    candidate = write_candidate(tmp_path)
+    evidence = bind_runtime_evidence(candidate)
+    evidence.write_text('{"changed":true}\n', encoding="utf-8")
+    module = load_candidate_module()
+    assert_error_code(module, "HASH_MISMATCH", candidate)
+
+
+def test_runtime_identity_mismatch_fails_closed(tmp_path: Path) -> None:
+    candidate = write_candidate(tmp_path)
+    evidence = bind_runtime_evidence(candidate)
+    payload = json.loads(evidence.read_text(encoding="utf-8"))
+    payload["artifactSha256"] = "f" * 64
+    evidence.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    manifest = read_manifest(candidate)
+    manifest["runtime"]["evidenceSha256"] = sha256(evidence)
+    write_manifest(candidate, manifest)
+    module = load_candidate_module()
+    assert_error_code(module, "RUNTIME_IDENTITY_MISMATCH", candidate)
+
+
+def test_bound_runtime_evidence_matches_exact_source_and_artifact(tmp_path: Path) -> None:
+    candidate = write_candidate(tmp_path)
+    evidence = bind_runtime_evidence(candidate)
+    module = load_candidate_module()
+    result = module.verify_candidate(candidate)
+    assert result["runtime"]["evidence"] == "runtime/launch.json"
+    assert result["runtime"]["evidenceSha256"] == sha256(evidence)
+    assert result["runtime"]["artifactSha256"] == result["artifact"]["sha256"]
+    assert result["runtime"]["sourceCommitSha"] == result["source"]["commitSha"]
+    assert result["runtime"]["sourceTreeSha"] == result["source"]["treeSha"]
+
+
+def test_pass_referenced_requires_acceptance_evidence_refs(tmp_path: Path) -> None:
+    candidate = write_candidate(tmp_path)
+    manifest = read_manifest(candidate)
+    manifest["acceptance"] = {"claim": "PASS_REFERENCED", "evidenceRefs": []}
+    write_manifest(candidate, manifest)
+    module = load_candidate_module()
+    assert_error_code(module, "EVIDENCE_UNTRUSTED", candidate)
+
+
+def test_missing_acceptance_reference_is_missing_not_pass(tmp_path: Path) -> None:
+    candidate = write_candidate(tmp_path)
+    manifest = read_manifest(candidate)
+    manifest["acceptance"] = {
+        "claim": "PASS_REFERENCED",
+        "evidenceRefs": ["evidence/missing.json"],
+    }
+    write_manifest(candidate, manifest)
+    module = load_candidate_module()
+    assert_error_code(module, "MISSING", candidate)
+
+
+def test_acceptance_reference_cannot_escape_candidate_dir(tmp_path: Path) -> None:
+    candidate = write_candidate(tmp_path / "candidate")
+    outside = tmp_path / "acceptance.json"
+    outside.write_text('{"upstream":"outside"}\n', encoding="utf-8")
+    manifest = read_manifest(candidate)
+    manifest["acceptance"] = {
+        "claim": "PASS_REFERENCED",
+        "evidenceRefs": ["../acceptance.json"],
+    }
+    write_manifest(candidate, manifest)
+    module = load_candidate_module()
+    assert_error_code(module, "PATH_ESCAPE", candidate)
+
+
+def test_acceptance_reference_is_verified_as_pointer_not_truth(tmp_path: Path) -> None:
+    candidate = write_candidate(tmp_path)
+    bind_acceptance_reference(candidate)
+    module = load_candidate_module()
+    result = module.verify_candidate(candidate)
+    assert result["acceptance"] == {
+        "claim": "PASS_REFERENCED",
+        "evidenceRefs": ["evidence/acceptance.json"],
+    }
+    assert "accepted" not in result
+    assert "accepted" not in result["acceptance"]
