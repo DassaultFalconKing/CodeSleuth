@@ -56,6 +56,8 @@ When CodeSleuth is running against its own source checkout, the existing source-
 
 The bootstrap records the running distribution checkout's `HEAD`. After that guarded fast-forward changes the source `HEAD`, the current CodeSleuth control shell exits and re-executes the bootstrap from the updated checkout.
 
+On POSIX this replacement is an exec overlay. On Windows, overlay-exec returns to the parent waiter immediately and the shell reclaims the console, so CodeSleuth waits for the replacement interpreter and propagates its exit status instead. Operator-visible behavior is the same: the launching session stays attached until the replacement TUI exits.
+
 ## Pinned projects
 
 A project that binds CodeSleuth as the exact `tools/codesleuth` Git dependency remains deliberately pinned. TUI target-local Check Updates/Update stay disabled in that mode. Advance or revert the gitlink explicitly, materialize the accepted checkout, then run that checkout's installer/update path.

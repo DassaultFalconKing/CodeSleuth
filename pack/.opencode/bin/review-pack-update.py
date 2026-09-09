@@ -81,14 +81,28 @@ def request_tui_restart(repo: Path, source_commit: str) -> Path:
     return marker
 
 
+def replace_current_process(argv: list[str]) -> None:
+    """Replace this process with argv. Does not return.
+
+    POSIX uses exec overlay. Windows overlay-exec returns to the parent waiter
+    immediately, so wait for the child and propagate its exit status instead.
+    """
+
+    if not argv:
+        raise ValueError("replace_current_process requires argv")
+    sys.stdout.flush()
+    sys.stderr.flush()
+    if os.name == "nt":
+        raise SystemExit(subprocess.run(argv).returncode)
+    os.execv(argv[0], argv)
+
+
 def restart_tui(repo: Path) -> None:
     bootstrap = repo / ".opencode" / "bin" / "review_pack_tui_bootstrap.py"
     if not bootstrap.is_file():
         raise SystemExit(f"updated CodeSleuth is missing TUI bootstrap: {bootstrap}")
     os.environ["REVIEW_PACK_TARGET_ROOT"] = str(repo)
-    sys.stdout.flush()
-    sys.stderr.flush()
-    os.execv(sys.executable, [sys.executable, str(bootstrap), "--target", str(repo)])
+    replace_current_process([sys.executable, str(bootstrap), "--target", str(repo)])
 
 
 def finalize_update(repo: Path, source_commit: str, *, restart: bool) -> None:

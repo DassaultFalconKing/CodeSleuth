@@ -201,6 +201,7 @@
       "public_contract": [
         "TUI control actions expose their result or failure to the operator and responsive navigation remains reversible across supported viewports.",
         "Isolated Textual bootstrap derives the compatible range from requirements-tui.txt and records the actual installed Textual version.",
+        "Isolated Textual runtime replacement keeps the launching console attached until the replacement interpreter exits.",
         "Background lifecycle work is single-flight and all widget access remains on the Textual application thread.",
         "The Playbooks catalog, detail view, and load wizard remain operator controls over stored host workflows; they do not execute Playbook Steps, Skills, or tools."
       ],
@@ -228,7 +229,8 @@
         "tests/test_tui_viewport_hardening.py",
         "tests/test_tui.py",
         "tests/test_playbook_catalog.py",
-        "tests/test_version_contract.py"
+        "tests/test_version_contract.py",
+        "tests/test_update_restart.py"
       ],
       "affected_paths": [
         "pack/.opencode/bin/*tui*.py",
@@ -293,6 +295,15 @@
             "tests/test_playbook_catalog.py",
             "tests/test_tui_viewport_hardening.py",
             "docs/PLAYBOOKS-CATALOG-TUI.md"
+          ]
+        },
+        {
+          "id": "FR-TUI-006",
+          "sib_origin": "SIB1",
+          "must_not": "Isolating into the Textual runtime or restarting the operator TUI detaches from the launching console so the parent shell reclaims the terminal while the Textual process is still running.",
+          "proof": [
+            "tests/test_update_restart.py",
+            "pack/.opencode/bin/review_pack_tui_bootstrap.py"
           ]
         }
       ]
@@ -432,7 +443,8 @@
       "protected_at": null,
       "public_contract": [
         "CodeSleuth can check/fetch/apply an allowed update and perform the documented restart/reload path without falsely reporting a transition that did not occur.",
-        "Pinned tools/codesleuth dependencies must not be silently moved by floating self-update."
+        "Pinned tools/codesleuth dependencies must not be silently moved by floating self-update.",
+        "TUI process replacement keeps the launching console attached until the replacement runtime exits."
       ],
       "contract_fingerprint": {
         "update_requires_post_update_verify": true,
@@ -497,6 +509,15 @@
           "must_not": "Floating self-update silently moves an exact tools/codesleuth pinned dependency.",
           "proof": [
             "docs/SELF-UPDATE.md"
+          ]
+        },
+        {
+          "id": "FR-UPDATE-004",
+          "sib_origin": "SIB1",
+          "must_not": "Verified TUI restart overlay-execs on Windows in a way that returns to the parent waiter immediately and leaves the replacement runtime detached from the launching console.",
+          "proof": [
+            "tests/test_update_restart.py",
+            "pack/.opencode/bin/review-pack-update.py"
           ]
         }
       ]
