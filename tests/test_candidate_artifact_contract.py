@@ -74,6 +74,16 @@ def write_manifest(candidate: Path, manifest: dict[str, object]) -> None:
     )
 
 
+def point_artifact_at(candidate: Path, path_value: str, target: Path) -> None:
+    manifest = read_manifest(candidate)
+    manifest["artifact"] = {
+        "path": path_value,
+        "sha256": sha256(target),
+        "sizeBytes": target.stat().st_size,
+    }
+    write_manifest(candidate, manifest)
+
+
 def assert_error_code(module: ModuleType, expected: str, candidate: Path) -> None:
     with pytest.raises(module.CandidateError) as exc:
         module.verify_candidate(candidate)
@@ -211,3 +221,35 @@ def test_artifact_hash_mismatch_fails_closed(tmp_path: Path) -> None:
     manifest["artifact"]["sizeBytes"] = (candidate / "ovms.exe").stat().st_size
     write_manifest(candidate, manifest)
     assert_error_code(module, "HASH_MISMATCH", candidate)
+
+
+def test_parent_traversal_artifact_path_fails_closed(tmp_path: Path) -> None:
+    candidate = write_candidate(tmp_path / "candidate")
+    outside = tmp_path / "outside.bin"
+    outside.write_bytes(b"outside-bytes")
+    point_artifact_at(candidate, "../outside.bin", outside)
+    module = load_candidate_module()
+    assert_error_code(module, "PATH_ESCAPE", candidate)
+
+
+def test_absolute_artifact_path_fails_closed(tmp_path: Path) -> None:
+    candidate = write_candidate(tmp_path / "candidate")
+    outside = tmp_path / "outside.bin"
+    outside.write_bytes(b"outside-bytes")
+    point_artifact_at(candidate, str(outside.resolve()), outside)
+    module = load_candidate_module()
+    assert_error_code(module, "PATH_ESCAPE", candidate)
+
+
+def test_symlink_artifact_escape_fails_closed(tmp_path: Path) -> None:
+    candidate = write_candidate(tmp_path / "candidate")
+    outside = tmp_path / "outside.bin"
+    outside.write_bytes(b"outside-bytes")
+    link = candidate / "escape.bin"
+    try:
+        link.symlink_to(outside)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink creation unavailable on this platform")
+    point_artifact_at(candidate, "escape.bin", outside)
+    module = load_candidate_module()
+    assert_error_code(module, "PATH_ESCAPE", candidate)
