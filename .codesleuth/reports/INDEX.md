@@ -3,6 +3,7 @@
 Newest first. Each bullet: `file` — UTC date — title — type — target SHA — status — HEAD relationship.
 This catalog is a derived navigation/read model, not EHA or finding authority. PASS never transfers to another SHA.
 
+- `20260912T230500Z-portable-worklog-skill-handoff.md` — 2026-09-12T23:05Z — Portable Agent Worklog skill handoff — agent-handoff — dc65c106d33157e8de46797a783d8dbf6b965e98 — IMPLEMENTED ON FEATURE BRANCH; NOT MERGED — EXACT FEATURE HEAD
 - `20260904T002358Z-rc6-ac341eb-eha.md` — 2026-09-04T00:23Z — RC6 Exact-Head Acceptance SIB0/SIB1/SIB2 — ac341eb78 — eha-sib-acceptance — ac341eb78ef849af1fb1dbed89b06b06af9853fa — PASS — EXACT
 - `20260904T002120Z-rc6-live-dogfood.md` — 2026-09-04T00:21Z — RC6 live-dogfood on current hosted-green candidate — ac341eb78 — live-dogfood — ac341eb78ef849af1fb1dbed89b06b06af9853fa — LIVE_DOGFOOD_ACCEPTABLE — EXACT
 - `20260903T125425Z-rc6-live-dogfood-repeat.md` — 2026-09-03T12:54Z — RC6 live-dogfood on Class A/C repair candidate — 0ae58cb2 — live-dogfood-repeat — 0ae58cb2dc06e3d06e0839040f58d5a853f920ee — LIVE_DOGFOOD_ACCEPTABLE — EXACT
