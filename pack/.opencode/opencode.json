@@ -61,7 +61,8 @@
       "eha-campaign-evidence": "allow",
       "eha-repair-protocol": "allow",
       "findings-ledger-update": "allow",
-      "report-bug-closure": "allow"
+      "report-bug-closure": "allow",
+      "worklog": "allow"
     },
     "question": "allow",
     "doom_loop": "ask"
